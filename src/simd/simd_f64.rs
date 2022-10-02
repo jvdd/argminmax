@@ -1,6 +1,6 @@
 use crate::generic::{max_index_value, min_index_value, simple_argminmax};
 use crate::task::{find_final_index_minmax, split_array};
-use numpy::ndarray::ArrayView1;
+use ndarray::ArrayView1;
 use std::arch::x86_64::*;
 
 // ------------------------------------ ARGMINMAX --------------------------------------
@@ -85,7 +85,7 @@ unsafe fn core_argminmax_256(sim_arr: ArrayView1<f64>, offset: usize) -> (f64, u
 #[cfg(test)]
 mod tests {
     use super::{argminmax_f64, simple_argminmax};
-    use numpy::ndarray::Array1;
+    use ndarray::Array1;
 
     extern crate dev_utils;
     use dev_utils::utils;

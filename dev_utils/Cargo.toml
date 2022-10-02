@@ -1,11 +1,11 @@
 [package]
 name = "dev_utils"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jeroen Van Der Donckt"]
 edition = "2021"
 description = "Shared utilities for development (tests & benchmarks)"
 
 [dependencies]
-numpy = "0.17.2"
+ndarray = "0.15.6"
 rand = "0.7.2"
 rand_distr = "0.2.2"

@@ -1,6 +1,6 @@
-use numpy::ndarray::ArrayView1;
+use ndarray::ArrayView1;
 
-// ------ On ndarray::ArrayView1
+// ------ On ArrayView1
 
 #[inline]
 pub fn simple_argmin<T: Copy + PartialOrd>(arr: ArrayView1<T>) -> usize {

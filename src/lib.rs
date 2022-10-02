@@ -7,7 +7,7 @@ mod task;
 pub use generic::{simple_argminmax};
 pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};
 
-use numpy::ndarray::ArrayView1;
+use ndarray::ArrayView1;
 
 pub trait ArgMinMax {
     fn argminmax(self) -> Option<(usize, usize)>;

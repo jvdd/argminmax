@@ -1,4 +1,4 @@
-use numpy::ndarray::{ArrayView1, Axis};
+use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;
 
 #[inline]

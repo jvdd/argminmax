@@ -1,4 +1,4 @@
-use numpy::ndarray::Array1;
+use ndarray::Array1;
 
 use std::ops::{Add, Sub};
 

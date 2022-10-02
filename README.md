@@ -13,14 +13,14 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-argminmax = "0.1.0"
+argminmax = "0.1.1"
 ```
 
 ## Example usage
 
 ```rust
 use argminmax::ArgMinMax;  // extension trait for ndarray::ArrayView1
-use numpy::ndarray::{Array1};
+use ndarray::Array1;
 
 let arr: Vec<i32> = (0..200_000).collect();
 let arr: Array1<i32> = Array1::from(arr);
