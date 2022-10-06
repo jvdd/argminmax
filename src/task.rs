@@ -1,8 +1,42 @@
+use crate::generic;
+use generic::simple_argminmax;
+
 use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;
 
 #[inline]
-pub(crate) fn split_array<T: Copy>(
+pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
+    arr: ArrayView1<T>,
+    lane_size: usize,
+    core_argminmax: unsafe fn(ArrayView1<T>, usize) -> (T, usize, T, usize),
+) -> (usize, usize) {
+    assert!(!arr.is_empty()); // split_array should never return (None, None)
+    match split_array(arr, lane_size) {
+        (Some(rem), Some(sim)) => {
+            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
+            let rem_result = (
+                rem[rem_min_index],
+                rem_min_index,
+                rem[rem_max_index],
+                rem_max_index,
+            );
+            let sim_result = unsafe { core_argminmax(sim, rem.len()) };
+            find_final_index_minmax(rem_result, sim_result)
+        }
+        (Some(rem), None) => {
+            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
+            (rem_min_index, rem_max_index)
+        }
+        (None, Some(sim)) => {
+            let sim_result = unsafe { core_argminmax(sim, 0) };
+            (sim_result.1, sim_result.3)
+        }
+        (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    }
+}
+
+#[inline]
+fn split_array<T: Copy>(
     arr: ArrayView1<T>,
     lane_size: usize,
 ) -> (Option<ArrayView1<T>>, Option<ArrayView1<T>>) {
@@ -23,10 +57,10 @@ pub(crate) fn split_array<T: Copy>(
 }
 
 #[inline]
-pub fn find_final_index_minmax<T: Copy + PartialOrd>(
+fn find_final_index_minmax<T: Copy + PartialOrd>(
     remainder_result: (T, usize, T, usize),
     simd_result: (T, usize, T, usize),
-) -> Option<(usize, usize)> {
+) -> (usize, usize) {
     let min_result = match remainder_result.0.partial_cmp(&simd_result.0).unwrap() {
         Ordering::Less => remainder_result.1,
         Ordering::Equal => std::cmp::min(remainder_result.1, simd_result.1),
@@ -39,5 +73,5 @@ pub fn find_final_index_minmax<T: Copy + PartialOrd>(
         Ordering::Greater => simd_result.3,
     };
 
-    Some((min_result, max_result))
+    (min_result, max_result)
 }

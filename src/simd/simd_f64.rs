@@ -1,33 +1,14 @@
-use crate::generic::{max_index_value, min_index_value, simple_argminmax};
-use crate::task::{find_final_index_minmax, split_array};
+use crate::generic::{max_index_value, min_index_value};
+use crate::task::argminmax_generic;
 use ndarray::ArrayView1;
 use std::arch::x86_64::*;
 
+const LANE_SIZE: usize = 4;
+
 // ------------------------------------ ARGMINMAX --------------------------------------
 
-pub fn argminmax_f64(arr: ArrayView1<f64>) -> Option<(usize, usize)> {
-    match split_array(arr, 4) {
-        (Some(rem), Some(sim)) => {
-            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
-            let rem_result = (
-                rem[rem_min_index],
-                rem_min_index,
-                rem[rem_max_index],
-                rem_max_index,
-            );
-            let sim_result = unsafe { core_argminmax_256(sim, rem.len()) };
-            find_final_index_minmax(rem_result, sim_result)
-        }
-        (Some(rem), None) => {
-            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
-            Some((rem_min_index, rem_max_index))
-        }
-        (None, Some(sim)) => {
-            let sim_result = unsafe { core_argminmax_256(sim, 0) };
-            Some((sim_result.1, sim_result.3))
-        }
-        (None, None) => None,
-    }
+pub fn argminmax_f64(arr: ArrayView1<f64>) -> (usize, usize) {
+    argminmax_generic(arr, LANE_SIZE, core_argminmax_256)
 }
 
 #[inline]
@@ -35,6 +16,7 @@ fn reg_to_f64_arr(reg: __m256d) -> [f64; 4] {
     unsafe { std::mem::transmute::<__m256d, [f64; 4]>(reg) }
 }
 
+#[inline]
 #[target_feature(enable = "avx2")]
 unsafe fn core_argminmax_256(sim_arr: ArrayView1<f64>, offset: usize) -> (f64, usize, f64, usize) {
     // Efficient calculation of argmin and argmax together
@@ -84,7 +66,10 @@ unsafe fn core_argminmax_256(sim_arr: ArrayView1<f64>, offset: usize) -> (f64, u
 
 #[cfg(test)]
 mod tests {
-    use super::{argminmax_f64, simple_argminmax};
+    use super::argminmax_f64;
+    use crate::generic;
+    use generic::simple_argminmax;
+
     use ndarray::Array1;
 
     extern crate dev_utils;
@@ -100,7 +85,7 @@ mod tests {
         assert_eq!(data.len() % 4, 1);
 
         let (argmin_index, argmax_index) = simple_argminmax(data.view());
-        let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view()).unwrap();
+        let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
         assert_eq!(argmin_index, argmin_simd_index);
         assert_eq!(argmax_index, argmax_simd_index);
     }
@@ -123,7 +108,7 @@ mod tests {
         assert_eq!(argmin_index, 3);
         assert_eq!(argmax_index, 1);
 
-        let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view()).unwrap();
+        let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
         assert_eq!(argmin_simd_index, 3);
         assert_eq!(argmax_simd_index, 1);
     }
@@ -133,7 +118,7 @@ mod tests {
         for _ in 0..10_000 {
             let data = get_array_f64(32 * 8 + 1);
             let (argmin_index, argmax_index) = simple_argminmax(data.view());
-            let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view()).unwrap();
+            let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
             assert_eq!(argmin_index, argmin_simd_index);
             assert_eq!(argmax_index, argmax_simd_index);
         }

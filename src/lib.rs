@@ -1,20 +1,18 @@
 pub mod generic;
-// #[cfg(target_feature = "sse")]
 mod simd;
-// #[cfg(target_feature = "sse")]
 mod task;
 
-pub use generic::{simple_argminmax};
+pub use generic::simple_argminmax;
 pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};
 
 use ndarray::ArrayView1;
 
 pub trait ArgMinMax {
-    fn argminmax(self) -> Option<(usize, usize)>;
+    fn argminmax(self) -> (usize, usize);
 }
 
 impl ArgMinMax for ArrayView1<'_, f64> {
-    fn argminmax(self) -> Option<(usize, usize)> {
+    fn argminmax(self) -> (usize, usize) {
         // #[cfg(not(target_feature = "sse"))]
         // return Some(simple_argminmax(self));
         // #[cfg(target_feature = "sse")]
@@ -23,7 +21,7 @@ impl ArgMinMax for ArrayView1<'_, f64> {
 }
 
 impl ArgMinMax for ArrayView1<'_, i64> {
-    fn argminmax(self) -> Option<(usize, usize)> {
+    fn argminmax(self) -> (usize, usize) {
         // #[cfg(not(target_feature = "sse"))]
         // return Some(simple_argminmax(self));
         // #[cfg(target_feature = "sse")]
@@ -32,7 +30,7 @@ impl ArgMinMax for ArrayView1<'_, i64> {
 }
 
 impl ArgMinMax for ArrayView1<'_, f32> {
-    fn argminmax(self) -> Option<(usize, usize)> {
+    fn argminmax(self) -> (usize, usize) {
         // #[cfg(not(target_feature = "sse"))]
         // return Some(simple_argminmax(self));
         // #[cfg(target_feature = "sse")]
@@ -41,7 +39,7 @@ impl ArgMinMax for ArrayView1<'_, f32> {
 }
 
 impl ArgMinMax for ArrayView1<'_, i32> {
-    fn argminmax(self) -> Option<(usize, usize)> {
+    fn argminmax(self) -> (usize, usize) {
         // #[cfg(not(target_feature = "sse"))]
         // return Some(simple_argminmax(self));
         // #[cfg(target_feature = "sse")]
@@ -50,7 +48,7 @@ impl ArgMinMax for ArrayView1<'_, i32> {
 }
 
 impl ArgMinMax for ArrayView1<'_, i16> {
-    fn argminmax(self) -> Option<(usize, usize)> {
+    fn argminmax(self) -> (usize, usize) {
         // #[cfg(not(target_feature = "sse"))]
         // return Some(simple_argminmax(self));
         // #[cfg(target_feature = "sse")]

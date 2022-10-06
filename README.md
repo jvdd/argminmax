@@ -25,7 +25,7 @@ use ndarray::Array1;
 let arr: Vec<i32> = (0..200_000).collect();
 let arr: Array1<i32> = Array1::from(arr);
 
-let (min, max) = arr.view().argminmax().unwrap();  // apply extension
+let (min, max) = arr.view().argminmax();  // apply extension
 
 println!("min: {}, max: {}", min, max);
 println!("arr[min]: {}, arr[max]: {}", arr[min], arr[max]);
