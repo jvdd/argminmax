@@ -40,13 +40,10 @@ jobs:
           # Disable clippy check for now
           # cargo clippy --features half -- -D warnings
 
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v1
+      - name: Testing
+        run: |
+          cargo check --features half
+          cargo test --features half  
 
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--features half -- --test-threads 1'
-
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
+      # - name: Upload to codecov.io
+      #   uses: codecov/codecov-action@v3
