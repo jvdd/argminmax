@@ -1,4 +1,4 @@
-use crate::generic::{max_index_value, min_index_value};
+use crate::utils::{max_index_value, min_index_value};
 use crate::task::argminmax_generic;
 use ndarray::ArrayView1;
 use std::arch::x86_64::*;
@@ -67,8 +67,7 @@ unsafe fn core_argminmax_256(sim_arr: ArrayView1<f64>, offset: usize) -> (f64, u
 #[cfg(test)]
 mod tests {
     use super::argminmax_f64;
-    use crate::generic;
-    use generic::simple_argminmax;
+    use crate::scalar_generic::scalar_argminmax;
 
     use ndarray::Array1;
 
@@ -84,7 +83,7 @@ mod tests {
         let data = get_array_f64(1025);
         assert_eq!(data.len() % 4, 1);
 
-        let (argmin_index, argmax_index) = simple_argminmax(data.view());
+        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
         let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
         assert_eq!(argmin_index, argmin_simd_index);
         assert_eq!(argmax_index, argmax_simd_index);
@@ -104,7 +103,7 @@ mod tests {
         let data: Vec<f64> = data.iter().map(|x| *x).collect();
         let data = Array1::from(data);
 
-        let (argmin_index, argmax_index) = simple_argminmax(data.view());
+        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
         assert_eq!(argmin_index, 3);
         assert_eq!(argmax_index, 1);
 
@@ -117,7 +116,7 @@ mod tests {
     fn test_many_random_runs() {
         for _ in 0..10_000 {
             let data = get_array_f64(32 * 8 + 1);
-            let (argmin_index, argmax_index) = simple_argminmax(data.view());
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
             let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
             assert_eq!(argmin_index, argmin_simd_index);
             assert_eq!(argmax_index, argmax_simd_index);

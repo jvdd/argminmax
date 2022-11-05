@@ -1,4 +1,4 @@
-use crate::generic::{max_index_value, min_index_value};
+use crate::utils::{max_index_value, min_index_value};
 use crate::task::argminmax_generic;
 use ndarray::ArrayView1;
 use std::arch::x86_64::*;
@@ -89,8 +89,7 @@ unsafe fn core_argminmax_256(sim_arr: ArrayView1<i8>, offset: usize) -> (i8, usi
 #[cfg(test)]
 mod tests {
     use super::argminmax_i8;
-    use crate::generic;
-    use generic::simple_argminmax;
+    use crate::scalar_generic::scalar_argminmax;
 
     use ndarray::Array1;
 
@@ -106,7 +105,7 @@ mod tests {
         let data = get_array_i8(32 * 6 + 1); // TODO: lengte mag niet > 2^8 zijn...
         assert_eq!(data.len() % 32, 1);
 
-        let (argmin_index, argmax_index) = simple_argminmax(data.view());
+        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
         let (argmin_simd_index, argmax_simd_index) = argminmax_i8(data.view());
         assert_eq!(argmin_index, argmin_simd_index);
         assert_eq!(argmax_index, argmax_simd_index);
@@ -118,7 +117,7 @@ mod tests {
         let data: Vec<i8> = data.iter().map(|x| *x).collect();
         let data = Array1::from(data);
 
-        let (argmin_index, argmax_index) = simple_argminmax(data.view());
+        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
         assert_eq!(argmin_index, 1);
         assert_eq!(argmax_index, 6);
 
@@ -131,7 +130,7 @@ mod tests {
     fn test_many_random_runs() {
         for _ in 0..10_000 {
             let data = get_array_i8(32 * 2 + 1);
-            let (argmin_index, argmax_index) = simple_argminmax(data.view());
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
             let (argmin_simd_index, argmax_simd_index) = argminmax_i8(data.view());
             assert_eq!(argmin_index, argmin_simd_index);
             assert_eq!(argmax_index, argmax_simd_index);

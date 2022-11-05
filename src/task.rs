@@ -1,5 +1,4 @@
-use crate::generic;
-use generic::simple_argminmax;
+use crate::scalar_generic::scalar_argminmax;  // TODO: dit in macro doorgeven
 
 use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;
@@ -13,7 +12,7 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
         (Some(rem), Some(sim)) => {
-            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
+            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
             let rem_result = (
                 rem[rem_min_index],
                 rem_min_index,
@@ -24,7 +23,7 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
             find_final_index_minmax(rem_result, sim_result)
         }
         (Some(rem), None) => {
-            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
+            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
             (rem_min_index, rem_max_index)
         }
         (None, Some(sim)) => {
