@@ -28,11 +28,11 @@ jobs:
           components: clippy, rustfmt
 
       - name: Rust toolchain info
-          run: |
-            cargo --version --verbose
-            rustc --version
-            cargo clippy --version    
-            cargo fmt --version
+        run: |
+          cargo --version --verbose
+          rustc --version
+          cargo clippy --version
+          cargo fmt --version
 
       - name: Linting
         run: |
