@@ -1,33 +1,14 @@
-use crate::generic::{max_index_value, min_index_value, simple_argminmax};
-use crate::task::{find_final_index_minmax, split_array};
+use crate::generic::{max_index_value, min_index_value};
+use crate::task::argminmax_generic;
 use ndarray::ArrayView1;
 use std::arch::x86_64::*;
+
+const LANE_SIZE: usize = 8;
 
 // ------------------------------------ ARGMINMAX --------------------------------------
 
 pub fn argminmax_u16(arr: ArrayView1<u16>) -> Option<(usize, usize)> {
-    match split_array(arr, 8) {
-        (Some(rem), Some(sim)) => {
-            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
-            let rem_result = (
-                rem[rem_min_index],
-                rem_min_index,
-                rem[rem_max_index],
-                rem_max_index,
-            );
-            let sim_result = unsafe { core_argminmax_256(sim, rem.len()) };
-            find_final_index_minmax(rem_result, sim_result)
-        }
-        (Some(rem), None) => {
-            let (rem_min_index, rem_max_index) = simple_argminmax(rem);
-            Some((rem_min_index, rem_max_index))
-        }
-        (None, Some(sim)) => {
-            let sim_result = unsafe { core_argminmax_256(sim, 0) };
-            Some((sim_result.1, sim_result.3))
-        }
-        (None, None) => None,
-    }
+    argminmax_generic(arr, LANE_SIZE, core_argminmax_256)
 }
 
 #[inline]
@@ -35,6 +16,7 @@ fn reg_to_u16_arr(reg: __m256i) -> [u16; 8] {
     unsafe { std::mem::transmute::<__m256i, [u16; 8]>(reg) }
 }
 
+#[inline]
 #[target_feature(enable = "avx2")]
 unsafe fn core_argminmax_256(sim_arr: ArrayView1<u16>, offset: usize) -> (u16, usize, u16, usize) {
     // Efficient calculation of argmin and argmax together
@@ -87,10 +69,14 @@ unsafe fn core_argminmax_256(sim_arr: ArrayView1<u16>, offset: usize) -> (u16, u
 
 #[cfg(test)]
 mod tests {
-    use super::{argminmax_u16, simple_argminmax};
+    use super::argminmax_u32;
+    use crate::generic;
+    use generic::scalar_argminmax;
+
     use ndarray::Array1;
-    use rand::{thread_rng, Rng};
-    use rand_distr::Uniform;
+
+    extern crate dev_utils;
+    use dev_utils::utils;
 
     // TODO: duplicate code in bench config
     fn get_array_u16(n: usize) -> Array1<u16> {
@@ -105,8 +91,8 @@ mod tests {
         let data = get_array_u16(1025);
         assert_eq!(data.len() % 8, 1);
 
-        let (argmin_index, argmax_index) = simple_argminmax(data.view());
-        let (argmin_simd_index, argmax_simd_index) = argminmax_u16(data.view()).unwrap();
+        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+        let (argmin_simd_index, argmax_simd_index) = argminmax_u16(data.view());
         assert_eq!(argmin_index, argmin_simd_index);
         assert_eq!(argmax_index, argmax_simd_index);
     }
@@ -123,11 +109,11 @@ mod tests {
         let data: Vec<u16> = data.iter().map(|x| *x).collect();
         let data = Array1::from(data);
 
-        let (argmin_index, argmax_index) = simple_argminmax(data.view());
+        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
         assert_eq!(argmin_index, 3);
         assert_eq!(argmax_index, 1);
 
-        let (argmin_simd_index, argmax_simd_index) = argminmax_u16(data.view()).unwrap();
+        let (argmin_simd_index, argmax_simd_index) = argminmax_u16(data.view());
         assert_eq!(argmin_simd_index, 3);
         assert_eq!(argmax_simd_index, 1);
     }
@@ -136,8 +122,8 @@ mod tests {
     fn test_many_random_runs() {
         for _ in 0..10_000 {
             let data = get_array_u16(32 * 8 + 1);
-            let (argmin_index, argmax_index) = simple_argminmax(data.view());
-            let (argmin_simd_index, argmax_simd_index) = argminmax_u16(data.view()).unwrap();
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = argminmax_u16(data.view());
             assert_eq!(argmin_index, argmin_simd_index);
             assert_eq!(argmax_index, argmax_simd_index);
         }
