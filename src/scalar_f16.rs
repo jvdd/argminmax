@@ -13,7 +13,7 @@ fn f16_to_i16ord(x: f16) -> i16 {
 
 #[cfg(feature = "half")]
 #[inline]
-pub fn simple_argminmax_f16(arr: ArrayView1<f16>) -> (usize, usize) {
+pub fn scalar_argminmax_f16(arr: ArrayView1<f16>) -> (usize, usize) {
     // f16 is transformed to i16ord
     //   benchmarks  show:
     //     1. this is 7-10x faster than using raw f16
@@ -33,4 +33,34 @@ pub fn simple_argminmax_f16(arr: ArrayView1<f16>) -> (usize, usize) {
         }
     }
     (low_index, high_index)
+}
+
+#[cfg(feature = "half")]
+#[cfg(test)]
+mod tests {
+    use super::scalar_argminmax_f16;
+    use crate::scalar_generic::scalar_argminmax;
+
+    use half::f16;
+    use ndarray::Array1;
+
+    extern crate dev_utils;
+    use dev_utils::utils;
+
+    fn get_array_f16(n: usize) -> Array1<f16> {
+        let arr = utils::get_random_array(n, i16::MIN, i16::MAX);
+        let arr = arr.mapv(|x| f16::from_f32(x as f32));
+        Array1::from(arr)
+    }
+
+    #[test]
+    fn test_generic_and_specific_impl_return_the_same_results() {
+        for _ in 0..100 {
+            let data = get_array_f16(1025);
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = scalar_argminmax_f16(data.view());
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+    }
 }

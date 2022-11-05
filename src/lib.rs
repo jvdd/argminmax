@@ -1,9 +1,10 @@
-pub mod generic;
 mod simd;
 mod task;
+mod utils;
+mod scalar_generic;
 mod scalar_f16;
 
-pub use generic::simple_argminmax;
+pub use scalar_generic::*;
 pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};
 
 use ndarray::ArrayView1;
@@ -34,17 +35,17 @@ macro_rules! impl_argminmax {
 }
 
 // Implement ArgMinMax for the rust primitive types
-impl_argminmax!(f32, simple_argminmax, simd_f32, argminmax_f32);
-impl_argminmax!(f64, simple_argminmax, simd_f64, argminmax_f64);
-impl_argminmax!(i16, simple_argminmax, simd_i16, argminmax_i16);
-impl_argminmax!(i32, simple_argminmax, simd_i32, argminmax_i32);
-impl_argminmax!(i64, simple_argminmax, simd_i64, argminmax_i64);
-
+impl_argminmax!(f32, scalar_argminmax, simd_f32, argminmax_f32);
+impl_argminmax!(f64, scalar_argminmax, simd_f64, argminmax_f64);
+impl_argminmax!(i16, scalar_argminmax, simd_i16, argminmax_i16);
+impl_argminmax!(i32, scalar_argminmax, simd_i32, argminmax_i32);
+impl_argminmax!(i64, scalar_argminmax, simd_i64, argminmax_i64);
+// Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
 use half::f16;
 #[cfg(feature = "half")]
-pub use scalar_f16::simple_argminmax_f16;
+pub use scalar_f16::scalar_argminmax_f16;
 #[cfg(feature = "half")]
 pub use simd::simd_f16;
 #[cfg(feature = "half")]
-impl_argminmax!(f16, simple_argminmax_f16, simd_f16, argminmax_f16);
+impl_argminmax!(f16, scalar_argminmax_f16, simd_f16, argminmax_f16);

@@ -1,6 +1,6 @@
 [package]
 name = "argminmax"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Jeroen Van Der Donckt"]
 edition = "2021"
 readme = "README.md"
@@ -12,8 +12,8 @@ categories = ["algorithms", "mathematics", "science"]
 
 
 [dependencies]
-ndarray = {version = "0.15.6", default-features = false}
-half = {version = "2.1.0", default-features = false, optional = true}
+ndarray = { version = "0.15.6", default-features = false }
+half = { version = "2.1.0", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = "0.3.0"
