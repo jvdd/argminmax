@@ -43,7 +43,7 @@ jobs:
       - name: Testing
         run: |
           cargo check --features half
-          cargo test --features half  
+          RUST_BACKTRACE=1 cargo test --features half  
 
       # - name: Upload to codecov.io
       #   uses: codecov/codecov-action@v3
