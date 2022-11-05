@@ -1,5 +1,5 @@
-use crate::utils::{max_index_value, min_index_value};
 use crate::task::argminmax_generic;
+use crate::utils::{max_index_value, min_index_value};
 use ndarray::ArrayView1;
 use std::arch::x86_64::*;
 
@@ -66,7 +66,7 @@ unsafe fn core_argminmax_256(sim_arr: ArrayView1<f16>, offset: usize) -> (f16, u
         .skip(1)
         .for_each(|step| {
             new_index = _mm256_add_epi16(new_index, increment);
-            
+
             let new_values = _mm256_loadu_si256(step.as_ptr() as *const __m256i);
             let new_values = f16_as_m256i_to_ord_i16(new_values);
             let gt_mask = _mm256_cmpgt_epi16(new_values, values_high);
@@ -92,7 +92,12 @@ unsafe fn core_argminmax_256(sim_arr: ArrayView1<f16>, offset: usize) -> (f16, u
     let index_array = reg_to_i16_arr(index_low);
     let (index_min, value_min) = min_index_value(&index_array, &value_array);
 
-    (ord_i16_to_f16(value_min), index_min as usize, ord_i16_to_f16(value_max), index_max as usize)
+    (
+        ord_i16_to_f16(value_min),
+        index_min as usize,
+        ord_i16_to_f16(value_max),
+        index_max as usize,
+    )
 }
 
 //----- TESTS -----

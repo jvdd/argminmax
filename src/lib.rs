@@ -1,8 +1,8 @@
+mod scalar_f16;
+mod scalar_generic;
 mod simd;
 mod task;
 mod utils;
-mod scalar_generic;
-mod scalar_f16;
 
 pub use scalar_generic::*;
 pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};

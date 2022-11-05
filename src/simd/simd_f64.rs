@@ -1,5 +1,5 @@
-use crate::utils::{max_index_value, min_index_value};
 use crate::task::argminmax_generic;
+use crate::utils::{max_index_value, min_index_value};
 use ndarray::ArrayView1;
 use std::arch::x86_64::*;
 

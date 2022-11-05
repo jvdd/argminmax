@@ -1,4 +1,4 @@
-use crate::scalar_generic::scalar_argminmax;  // TODO: dit in macro doorgeven
+use crate::scalar_generic::scalar_argminmax; // TODO: dit in macro doorgeven
 
 use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;

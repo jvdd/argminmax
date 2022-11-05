@@ -18,9 +18,15 @@ fn get_random_f16_array(n: usize) -> Array1<f16> {
     // Replace NaNs and Infs with 0
     let data: Vec<f16> = data
         .iter()
-        .map(|&x| if x.is_nan() || x.is_infinite() { f16::from_bits(0) } else { x })
+        .map(|&x| {
+            if x.is_nan() || x.is_infinite() {
+                f16::from_bits(0)
+            } else {
+                x
+            }
+        })
         .collect();
-    let arr:Array1<f16> = Array1::from(data);
+    let arr: Array1<f16> = Array1::from(data);
     arr
 }
 
