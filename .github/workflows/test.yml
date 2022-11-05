@@ -37,7 +37,8 @@ jobs:
       - name: Linting
         run: |
           cargo fmt -- --check
-          cargo clippy --features half -- -D warnings
+          # Disable clippy check for now
+          # cargo clippy --features half -- -D warnings
 
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v1
