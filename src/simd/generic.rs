@@ -35,6 +35,7 @@ pub trait SIMD<
         argminmax_generic(data, LANE_SIZE, Self::_core_argminmax)
     }
 
+    #[inline]
     fn _get_min_index_value(index_low: SIMDDtype, values_low: SIMDDtype) -> (usize, DType) {
         let values_low_arr = Self::_reg_to_arr(values_low);
         let index_low_arr = Self::_reg_to_arr(index_low);
@@ -42,6 +43,7 @@ pub trait SIMD<
         (min_index.as_(), min_value)
     }
 
+    #[inline]
     fn _get_max_index_value(index_high: SIMDDtype, values_high: SIMDDtype) -> (usize, DType) {
         let values_high_arr = Self::_reg_to_arr(values_high);
         let index_high_arr = Self::_reg_to_arr(index_high);
@@ -49,7 +51,9 @@ pub trait SIMD<
         (max_index.as_(), max_value)
     }
 
-    fn _core_argminmax(arr: ArrayView1<DType>, offset: usize) -> (DType, usize, DType, usize) {
+    #[inline]
+    #[target_feature(enable = "avx2")]
+    unsafe fn _core_argminmax(arr: ArrayView1<DType>, offset: usize) -> (DType, usize, DType, usize) {
         // Efficient calculation of argmin and argmax together
         let offset = Self::_mm_set1(offset);
         let mut new_index = Self::_mm_add(Self::_initial_index(), offset);

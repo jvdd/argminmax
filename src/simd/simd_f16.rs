@@ -27,48 +27,57 @@ fn _ord_i16_to_f16(ord_i16: i16) -> f16 {
     unsafe { std::mem::transmute::<i16, f16>(v) }
 }
 
-#[inline]
+#[inline(always)]
 fn _reg_to_i16_arr(reg: __m256i) -> [i16; 16] {
     unsafe { std::mem::transmute::<__m256i, [i16; 16]>(reg) }
 }
 
 #[cfg(feature = "half")]
 impl SIMD<f16, __m256i, LANE_SIZE> for AVX2 {
+    #[inline(always)]
     fn _initial_index() -> __m256i {
         unsafe { _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0) }
     }
 
+    #[inline(always)]
     fn _reg_to_arr(_: __m256i) -> [f16; LANE_SIZE] {
         // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
         unimplemented!()
     }
 
+    #[inline(always)]
     fn _mm_load(data: *const f16) -> __m256i {
         unsafe { _f16_as_m256i_to_i16ord(_mm256_loadu_si256(data as *const __m256i)) }
     }
 
+    #[inline(always)]
     fn _mm_set1(a: usize) -> __m256i {
         unsafe { _mm256_set1_epi16(a as i16) }
     }
 
+    #[inline(always)]
     fn _mm_add(a: __m256i, b: __m256i) -> __m256i {
         unsafe { _mm256_add_epi16(a, b) }
     }
 
+    #[inline(always)]
     fn _mm_cmpgt(a: __m256i, b: __m256i) -> __m256i {
         unsafe { _mm256_cmpgt_epi16(a, b) }
     }
 
+    #[inline(always)]
     fn _mm_cmplt(a: __m256i, b: __m256i) -> __m256i {
         unsafe { _mm256_cmpgt_epi16(b, a) }
     }
 
+    #[inline(always)]
     fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
         unsafe { _mm256_blendv_epi8(a, b, mask) }
     }
 
     // ------------------------------------ ARGMINMAX --------------------------------------
 
+    #[inline]
     fn _get_min_index_value(index_low: __m256i, values_low: __m256i) -> (usize, f16) {
         let index_low_arr = _reg_to_i16_arr(index_low);
         let values_low_arr = _reg_to_i16_arr(values_low);
@@ -76,6 +85,7 @@ impl SIMD<f16, __m256i, LANE_SIZE> for AVX2 {
         (min_index.as_(), _ord_i16_to_f16(min_value))
     }
 
+    #[inline]
     fn _get_max_index_value(index_low: __m256i, values_low: __m256i) -> (usize, f16) {
         let index_low_arr = _reg_to_i16_arr(index_low);
         let values_low_arr = _reg_to_i16_arr(values_low);
