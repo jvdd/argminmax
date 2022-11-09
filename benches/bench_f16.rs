@@ -34,7 +34,7 @@ fn get_random_f16_array(n: usize) -> Array1<f16> {
 fn minmax_f16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data = get_random_f16_array(n);
-    c.bench_function("simp_random_long_f16", |b| {
+    c.bench_function("simple_random_long_f16", |b| {
         b.iter(|| argminmax::scalar_argminmax_f16(black_box(data.view())))
     });
     c.bench_function("simd_random_long_f16", |b| {

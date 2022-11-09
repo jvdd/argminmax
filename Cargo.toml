@@ -44,3 +44,15 @@ harness = false
 [[bench]]
 name = "bench_i64"
 harness = false
+
+[[bench]]
+name = "bench_u16"
+harness = false
+
+[[bench]]
+name = "bench_u32"
+harness = false
+
+[[bench]]
+name = "bench_u64"
+harness = false
