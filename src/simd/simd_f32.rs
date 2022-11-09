@@ -1,81 +1,49 @@
-use crate::task::argminmax_generic;
-use crate::utils::{max_index_value, min_index_value};
-use ndarray::ArrayView1;
+use super::config::{SIMDInstructionSet, AVX2};
+use super::generic::SIMD;
 use std::arch::x86_64::*;
 
-const LANE_SIZE: usize = 8;
+const LANE_SIZE: usize = AVX2::LANE_SIZE_32;
 
-// ------------------------------------ ARGMINMAX --------------------------------------
+impl SIMD<f32, __m256, LANE_SIZE> for AVX2 {
+    fn _initial_index() -> __m256 {
+        unsafe { _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0) }
+    }
 
-pub fn argminmax_f32(arr: ArrayView1<f32>) -> (usize, usize) {
-    argminmax_generic(arr, LANE_SIZE, core_argminmax_256)
+    fn _reg_to_arr(reg: __m256) -> [f32; LANE_SIZE] {
+        unsafe { std::mem::transmute::<__m256, [f32; LANE_SIZE]>(reg) }
+    }
+
+    fn _mm_load(data: *const f32) -> __m256 {
+        unsafe { _mm256_loadu_ps(data as *const f32) }
+    }
+
+    fn _mm_set1(a: usize) -> __m256 {
+        unsafe { _mm256_set1_ps(a as f32) }
+    }
+
+    fn _mm_add(a: __m256, b: __m256) -> __m256 {
+        unsafe { _mm256_add_ps(a, b) }
+    }
+
+    fn _mm_cmpgt(a: __m256, b: __m256) -> __m256 {
+        unsafe { _mm256_cmp_ps(a, b, _CMP_GT_OQ) }
+    }
+
+    fn _mm_cmplt(a: __m256, b: __m256) -> __m256 {
+        unsafe { _mm256_cmp_ps(b, a, _CMP_GT_OQ) }
+    }
+
+    fn _mm_blendv(a: __m256, b: __m256, mask: __m256) -> __m256 {
+        unsafe { _mm256_blendv_ps(a, b, mask) }
+    }
 }
 
-#[inline]
-fn reg_to_f32_arr(reg: __m256) -> [f32; 8] {
-    unsafe { std::mem::transmute::<__m256, [f32; 8]>(reg) }
-}
-
-#[inline]
-#[target_feature(enable = "avx2")]
-unsafe fn core_argminmax_256(sim_arr: ArrayView1<f32>, offset: usize) -> (f32, usize, f32, usize) {
-    // Efficient calculation of argmin and argmax together
-    let offset = _mm256_set1_ps(offset as f32);
-    let mut new_index = _mm256_add_ps(
-        _mm256_set_ps(7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0),
-        offset,
-    );
-    let mut index_low = new_index;
-    let mut index_high = new_index;
-
-    let increment = _mm256_set1_ps(8.0);
-
-    let new_values = _mm256_loadu_ps(sim_arr.as_ptr() as *const f32);
-    let mut values_low = new_values;
-    let mut values_high = new_values;
-
-    sim_arr
-        .exact_chunks(8)
-        .into_iter()
-        .skip(1)
-        .for_each(|step| {
-            new_index = _mm256_add_ps(new_index, increment);
-
-            let new_values = _mm256_loadu_ps(step.as_ptr() as *const f32);
-            let lt_mask = _mm256_cmp_ps(new_values, values_low, _CMP_LT_OQ);
-            let gt_mask = _mm256_cmp_ps(new_values, values_high, _CMP_GT_OQ);
-
-            // Performing the _mm256_testz_ps check for lt_mask and gt_mask (and then
-            // updating values and index if needed) is slower than directly updating
-
-            // Performing min_ps and max_ps is faster than using _mm256_blendv_ps with mask
-            values_low = _mm256_min_ps(new_values, values_low);
-            values_high = _mm256_max_ps(new_values, values_high);
-
-            // Performing _mm256_blendv_ps is faster than using or_ps ( and_ps, andnot_ps )
-            index_low = _mm256_blendv_ps(index_low, new_index, lt_mask);
-            index_high = _mm256_blendv_ps(index_high, new_index, gt_mask);
-        });
-
-    // Select max_index and max_value
-    let value_array = reg_to_f32_arr(values_high);
-    let index_array = reg_to_f32_arr(index_high);
-    let (index_max, value_max) = max_index_value(&index_array, &value_array);
-
-    // Select min_index and min_value
-    let value_array = reg_to_f32_arr(values_low);
-    let index_array = reg_to_f32_arr(index_low);
-    let (index_min, value_min) = min_index_value(&index_array, &value_array);
-
-    (value_min, index_min as usize, value_max, index_max as usize)
-}
-
-//----- TESTS -----
+// ------------------------------------ TESTS --------------------------------------
 
 #[cfg(test)]
 mod tests {
-    use super::argminmax_f32;
-    use crate::scalar_generic::scalar_argminmax;
+    use super::{AVX2, SIMD};
+    use crate::scalar::scalar_generic::scalar_argminmax;
 
     use ndarray::Array1;
 
@@ -92,7 +60,7 @@ mod tests {
         assert_eq!(data.len() % 8, 1);
 
         let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-        let (argmin_simd_index, argmax_simd_index) = argminmax_f32(data.view());
+        let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
         assert_eq!(argmin_index, argmin_simd_index);
         assert_eq!(argmax_index, argmax_simd_index);
     }
@@ -115,7 +83,7 @@ mod tests {
         assert_eq!(argmin_index, 3);
         assert_eq!(argmax_index, 1);
 
-        let (argmin_simd_index, argmax_simd_index) = argminmax_f32(data.view());
+        let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
         assert_eq!(argmin_simd_index, 3);
         assert_eq!(argmax_simd_index, 1);
     }
@@ -125,7 +93,7 @@ mod tests {
         for _ in 0..10_000 {
             let data = get_array_f32(32 * 8 + 1);
             let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-            let (argmin_simd_index, argmax_simd_index) = argminmax_f32(data.view());
+            let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
             assert_eq!(argmin_index, argmin_simd_index);
             assert_eq!(argmax_index, argmax_simd_index);
         }

@@ -1,96 +1,49 @@
-use crate::task::argminmax_generic;
-use crate::utils::{max_index_value, min_index_value};
-use ndarray::ArrayView1;
+use super::config::{SIMDInstructionSet, AVX2};
+use super::generic::SIMD;
 use std::arch::x86_64::*;
 
-const LANE_SIZE: usize = 4;
+const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
 
-// ------------------------------------ ARGMINMAX --------------------------------------
+impl SIMD<i64, __m256i, LANE_SIZE> for AVX2 {
+    fn _initial_index() -> __m256i {
+        unsafe { _mm256_set_epi64x(3, 2, 1, 0) }
+    }
 
-pub fn argminmax_i64(arr: ArrayView1<i64>) -> (usize, usize) {
-    argminmax_generic(arr, LANE_SIZE, core_argminmax_256)
+    fn _reg_to_arr(reg: __m256i) -> [i64; LANE_SIZE] {
+        unsafe { std::mem::transmute::<__m256i, [i64; LANE_SIZE]>(reg) }
+    }
+
+    fn _mm_load(data: *const i64) -> __m256i {
+        unsafe { _mm256_loadu_si256(data as *const __m256i) }
+    }
+
+    fn _mm_set1(a: usize) -> __m256i {
+        unsafe { _mm256_set1_epi64x(a as i64) }
+    }
+
+    fn _mm_add(a: __m256i, b: __m256i) -> __m256i {
+        unsafe { _mm256_add_epi64(a, b) }
+    }
+
+    fn _mm_cmpgt(a: __m256i, b: __m256i) -> __m256i {
+        unsafe { _mm256_cmpgt_epi64(a, b) }
+    }
+
+    fn _mm_cmplt(a: __m256i, b: __m256i) -> __m256i {
+        unsafe { _mm256_cmpgt_epi64(b, a) }
+    }
+
+    fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
+        unsafe { _mm256_blendv_epi8(a, b, mask) }
+    }
 }
 
-#[inline]
-fn reg_to_i64_arr(reg: __m256i) -> [i64; 4] {
-    unsafe { std::mem::transmute::<__m256i, [i64; 4]>(reg) }
-}
-
-#[inline]
-#[target_feature(enable = "avx2")]
-unsafe fn core_argminmax_256(sim_arr: ArrayView1<i64>, offset: usize) -> (i64, usize, i64, usize) {
-    // Efficient calculation of argmin and argmax together
-    let offset = _mm256_set1_epi64x(offset as i64);
-    let mut new_index = _mm256_add_epi64(_mm256_set_epi64x(3, 2, 1, 0), offset);
-    let mut index_low = new_index;
-    let mut index_high = new_index;
-
-    let increment = _mm256_set1_epi64x(4);
-
-    let new_values = _mm256_loadu_si256(sim_arr.as_ptr() as *const __m256i);
-    let mut values_low = new_values;
-    let mut values_high = new_values;
-
-    sim_arr
-        .exact_chunks(4)
-        .into_iter()
-        .skip(1)
-        .for_each(|step| {
-            new_index = _mm256_add_epi64(new_index, increment);
-
-            let new_values = _mm256_loadu_si256(step.as_ptr() as *const __m256i);
-            let gt_mask = _mm256_cmpgt_epi64(new_values, values_high);
-            // Below does not work (bc instruction is not available)
-            //      let lt_mask = _mm256_cmplt_epi64(new_values, values_low);
-            // Solution: swap parameters and use gt instead
-            let lt_mask = _mm256_cmpgt_epi64(values_low, new_values);
-
-            values_high = _mm256_blendv_epi8(values_high, new_values, gt_mask);
-            values_low = _mm256_blendv_epi8(values_low, new_values, lt_mask);
-
-            index_low = _mm256_blendv_epi8(index_low, new_index, lt_mask);
-            index_high = _mm256_blendv_epi8(index_high, new_index, gt_mask);
-
-            // Seems to be very marginally faster than blendv_epi8
-
-            // values_high = _mm256_or_si256(
-            //     _mm256_and_si256(new_values, gt_mask),
-            //     _mm256_andnot_si256(gt_mask, values_high),
-            // );
-            // values_low = _mm256_or_si256(
-            //     _mm256_and_si256(new_values, lt_mask),
-            //     _mm256_andnot_si256(lt_mask, values_low),
-            // );
-
-            // index_high = _mm256_or_si256(
-            //     _mm256_and_si256(new_index, gt_mask),
-            //     _mm256_andnot_si256(gt_mask, index_high),
-            // );
-            // index_low = _mm256_or_si256(
-            //     _mm256_and_si256(new_index, lt_mask),
-            //     _mm256_andnot_si256(lt_mask, index_low),
-            // );
-        });
-
-    // Select max_index and max_value
-    let value_array = reg_to_i64_arr(values_high);
-    let index_array = reg_to_i64_arr(index_high);
-    let (index_max, value_max) = max_index_value(&index_array, &value_array);
-
-    // Select min_index and min_value
-    let value_array = reg_to_i64_arr(values_low);
-    let index_array = reg_to_i64_arr(index_low);
-    let (index_min, value_min) = min_index_value(&index_array, &value_array);
-
-    (value_min, index_min as usize, value_max, index_max as usize)
-}
-
-//----- TESTS -----
+// ------------------------------------ TESTS --------------------------------------
 
 #[cfg(test)]
 mod tests {
-    use super::argminmax_i64;
-    use crate::scalar_generic::scalar_argminmax;
+    use super::{AVX2, SIMD};
+    use crate::scalar::scalar_generic::scalar_argminmax;
 
     use ndarray::Array1;
 
@@ -107,7 +60,7 @@ mod tests {
         assert_eq!(data.len() % 4, 1);
 
         let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-        let (argmin_simd_index, argmax_simd_index) = argminmax_i64(data.view());
+        let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
         assert_eq!(argmin_index, argmin_simd_index);
         assert_eq!(argmax_index, argmax_simd_index);
     }
@@ -131,7 +84,7 @@ mod tests {
         assert_eq!(argmin_index, 0);
         assert_eq!(argmax_index, 5);
 
-        let (argmin_simd_index, argmax_simd_index) = argminmax_i64(data.view());
+        let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
         assert_eq!(argmin_simd_index, 0);
         assert_eq!(argmax_simd_index, 5);
     }
@@ -141,7 +94,7 @@ mod tests {
         for _ in 0..10_000 {
             let data = get_array_i64(32 * 8 + 1);
             let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-            let (argmin_simd_index, argmax_simd_index) = argminmax_i64(data.view());
+            let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
             assert_eq!(argmin_index, argmin_simd_index);
             assert_eq!(argmax_index, argmax_simd_index);
         }

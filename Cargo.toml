@@ -13,7 +13,8 @@ categories = ["algorithms", "mathematics", "science"]
 
 [dependencies]
 ndarray = { version = "0.15.6", default-features = false }
-half = { version = "2.1.0", default-features = false, optional = true }
+half = { version = "2.1.0", default-features = false, features=["num-traits"], optional = true }
+num-traits = "0.2.15"
 
 [dev-dependencies]
 criterion = "0.3.0"
