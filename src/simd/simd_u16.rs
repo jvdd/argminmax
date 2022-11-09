@@ -1,30 +1,23 @@
 use super::config::{SIMDInstructionSet, AVX2};
 use super::generic::SIMD;
-use std::arch::x86_64::*;
-
 use crate::utils::{max_index_value, min_index_value};
-#[cfg(feature = "half")]
-use half::f16;
 use num_traits::AsPrimitive;
+use std::arch::x86_64::*;
 
 const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
 
-// ------------------------------------ ARGMINMAX --------------------------------------
-
 #[inline]
 #[target_feature(enable = "avx2")]
-unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
-    // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-    let sign_bit_shifted = _mm256_srai_epi16(f16_as_m256i, 15);
-    let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, _mm256_set1_epi16(0x7FFF));
-    _mm256_xor_si256(sign_bit_masked, f16_as_m256i)
+unsafe fn _u16_to_i16decrord(u16: __m256i) -> __m256i {
+    // on a scalar: v^ 0x7FFF
+    // transforms to monotonically **decreasing** order
+    _mm256_xor_si256(u16, _mm256_set1_epi16(0x7FFF))
 }
 
-#[cfg(feature = "half")]
 #[inline(always)]
-fn _ord_i16_to_f16(ord_i16: i16) -> f16 {
-    let v = ((ord_i16 >> 15) & 0x7FFF) ^ ord_i16;
-    unsafe { std::mem::transmute::<i16, f16>(v) }
+fn _decr_ord_i16_to_u16(ord_i16: i16) -> u16 {
+    // let v = ord_i16 ^ 0x7FFF;
+    unsafe { std::mem::transmute::<i16, u16>(ord_i16 ^ 0x7FFF) }
 }
 
 #[inline(always)]
@@ -32,22 +25,21 @@ fn _reg_to_i16_arr(reg: __m256i) -> [i16; LANE_SIZE] {
     unsafe { std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg) }
 }
 
-#[cfg(feature = "half")]
-impl SIMD<f16, __m256i, LANE_SIZE> for AVX2 {
+impl SIMD<u16, __m256i, LANE_SIZE> for AVX2 {
     #[inline(always)]
     fn _initial_index() -> __m256i {
         unsafe { _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0) }
     }
 
     #[inline(always)]
-    fn _reg_to_arr(_: __m256i) -> [f16; LANE_SIZE] {
+    fn _reg_to_arr(_: __m256i) -> [u16; LANE_SIZE] {
         // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
         unimplemented!()
     }
 
     #[inline(always)]
-    fn _mm_load(data: *const f16) -> __m256i {
-        unsafe { _f16_as_m256i_to_i16ord(_mm256_loadu_si256(data as *const __m256i)) }
+    fn _mm_load(data: *const u16) -> __m256i {
+        unsafe { _u16_to_i16decrord(_mm256_loadu_si256(data as *const __m256i)) }
     }
 
     #[inline(always)]
@@ -77,92 +69,80 @@ impl SIMD<f16, __m256i, LANE_SIZE> for AVX2 {
 
     // ------------------------------------ ARGMINMAX --------------------------------------
 
-    // #[inline]
-    // fn _get_min_index_value(index_low: __m256i, values_low: __m256i) -> (usize, f16) {
-    //     let index_low_arr = _reg_to_i16_arr(index_low);
-    //     let values_low_arr = _reg_to_i16_arr(values_low);
-    //     let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-    //     (min_index.as_(), _ord_i16_to_f16(min_value))
-    // }
-
-    // #[inline]
-    // fn _get_max_index_value(index_low: __m256i, values_low: __m256i) -> (usize, f16) {
-    //     let index_low_arr = _reg_to_i16_arr(index_low);
-    //     let values_low_arr = _reg_to_i16_arr(values_low);
-    //     let (max_index, max_value) = max_index_value(&index_low_arr, &values_low_arr);
-    //     (max_index.as_(), _ord_i16_to_f16(max_value))
-    // }
-
     #[inline]
-    fn _get_min_max_index_value(index_low: __m256i, values_low: __m256i, index_high: __m256i, values_high: __m256i) -> (usize, f16, usize, f16) {
+    fn _get_min_max_index_value(
+        index_low: __m256i,
+        values_low: __m256i,
+        index_high: __m256i,
+        values_high: __m256i,
+    ) -> (usize, u16, usize, u16) {
         let index_low_arr = _reg_to_i16_arr(index_low);
         let values_low_arr = _reg_to_i16_arr(values_low);
         let index_high_arr = _reg_to_i16_arr(index_high);
         let values_high_arr = _reg_to_i16_arr(values_high);
         let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
         let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-        (min_index.as_(), _ord_i16_to_f16(min_value), max_index.as_(), _ord_i16_to_f16(max_value))
+        // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
+        (max_index.as_(), _decr_ord_i16_to_u16(max_value), min_index.as_(), _decr_ord_i16_to_u16(min_value))
     }
 }
 
-//----- TESTS -----
+// ------------------------------------ TESTS --------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(test)]
 mod tests {
     use super::{AVX2, SIMD};
     use crate::scalar::scalar_generic::scalar_argminmax;
 
-    use half::f16;
     use ndarray::Array1;
 
     extern crate dev_utils;
     use dev_utils::utils;
 
-    fn get_array_f16(n: usize) -> Array1<f16> {
-        let arr = utils::get_random_array(n, i16::MIN, i16::MAX);
-        let arr = arr.mapv(|x| f16::from_f32(x as f32));
-        Array1::from(arr)
+    fn get_array_u16(n: usize) -> Array1<u16> {
+        utils::get_random_array(n, u16::MIN, u16::MAX)
     }
 
     #[test]
     fn test_both_versions_return_the_same_results() {
-        let data = get_array_f16(1025);
-        assert_eq!(data.len() % 8, 1);
+        let data = get_array_u16(513);
+        assert_eq!(data.len() % 16, 1);
 
         let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-        let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
-        assert_eq!(argmin_index, argmin_simd_index);
-        assert_eq!(argmax_index, argmax_simd_index);
+        let (simd_argmin_index, simd_argmax_index) = AVX2::argminmax(data.view());
+        assert_eq!(argmin_index, simd_argmin_index);
+        assert_eq!(argmax_index, simd_argmax_index);
     }
 
     #[test]
     fn test_first_index_is_returned_when_identical_values_found() {
         let data = [
-            f16::from_f32(10.),
-            f16::MAX,
-            f16::from_f32(6.),
-            f16::NEG_INFINITY,
-            f16::NEG_INFINITY,
-            f16::MAX,
-            f16::from_f32(5_000.0),
+            10,
+            std::u16::MIN,
+            6,
+            9,
+            9,
+            22,
+            std::u16::MAX,
+            4,
+            std::u16::MAX,
         ];
-        let data: Vec<f16> = data.iter().map(|x| *x).collect();
+        let data: Vec<u16> = data.iter().map(|x| *x).collect();
         let data = Array1::from(data);
 
         let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-        assert_eq!(argmin_index, 3);
-        assert_eq!(argmax_index, 1);
+        assert_eq!(argmin_index, 1);
+        assert_eq!(argmax_index, 6);
 
         let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
-        assert_eq!(argmin_simd_index, 3);
-        assert_eq!(argmax_simd_index, 1);
+        assert_eq!(argmin_simd_index, 1);
+        assert_eq!(argmax_simd_index, 6);
     }
 
     #[test]
     fn test_many_random_runs() {
         for _ in 0..10_000 {
-            let data = get_array_f16(32 * 8 + 1);
+            let data = get_array_u16(32 * 2 + 1);
             let (argmin_index, argmax_index) = scalar_argminmax(data.view());
             let (argmin_simd_index, argmax_simd_index) = AVX2::argminmax(data.view());
             assert_eq!(argmin_index, argmin_simd_index);

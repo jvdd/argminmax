@@ -7,17 +7,17 @@ use std::cmp::Ordering;
 pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: ArrayView1<T>,
     lane_size: usize,
-    core_argminmax: unsafe fn(ArrayView1<T>, usize) -> (T, usize, T, usize),
+    core_argminmax: unsafe fn(ArrayView1<T>, usize) -> (usize, T, usize, T),
 ) -> (usize, usize) {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
         (Some(rem), Some(sim)) => {
             let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
             let rem_result = (
-                rem[rem_min_index],
                 rem_min_index,
-                rem[rem_max_index],
+                rem[rem_min_index],
                 rem_max_index,
+                rem[rem_max_index],
             );
             let sim_result = unsafe { core_argminmax(sim, rem.len()) };
             find_final_index_minmax(rem_result, sim_result)
@@ -28,7 +28,7 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
         }
         (None, Some(sim)) => {
             let sim_result = unsafe { core_argminmax(sim, 0) };
-            (sim_result.1, sim_result.3)
+            (sim_result.0, sim_result.2)
         }
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
     }
@@ -57,19 +57,19 @@ fn split_array<T: Copy>(
 
 #[inline]
 fn find_final_index_minmax<T: Copy + PartialOrd>(
-    remainder_result: (T, usize, T, usize),
-    simd_result: (T, usize, T, usize),
+    remainder_result: (usize, T, usize, T),
+    simd_result: (usize, T, usize, T),
 ) -> (usize, usize) {
-    let min_result = match remainder_result.0.partial_cmp(&simd_result.0).unwrap() {
-        Ordering::Less => remainder_result.1,
-        Ordering::Equal => std::cmp::min(remainder_result.1, simd_result.1),
-        Ordering::Greater => simd_result.1,
+    let min_result = match remainder_result.1.partial_cmp(&simd_result.1).unwrap() {
+        Ordering::Less => remainder_result.0,
+        Ordering::Equal => std::cmp::min(remainder_result.0, simd_result.0),
+        Ordering::Greater => simd_result.0,
     };
 
-    let max_result = match simd_result.2.partial_cmp(&remainder_result.2).unwrap() {
-        Ordering::Less => remainder_result.3,
-        Ordering::Equal => std::cmp::min(remainder_result.3, simd_result.3),
-        Ordering::Greater => simd_result.3,
+    let max_result = match simd_result.3.partial_cmp(&remainder_result.3).unwrap() {
+        Ordering::Less => remainder_result.2,
+        Ordering::Equal => std::cmp::min(remainder_result.2, simd_result.2),
+        Ordering::Greater => simd_result.2,
     };
 
     (min_result, max_result)

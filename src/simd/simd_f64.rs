@@ -5,34 +5,42 @@ use std::arch::x86_64::*;
 const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
 
 impl SIMD<f64, __m256d, LANE_SIZE> for AVX2 {
+    #[inline(always)]
     fn _initial_index() -> __m256d {
         unsafe { _mm256_set_pd(3.0, 2.0, 1.0, 0.0) }
     }
 
+    #[inline(always)]
     fn _reg_to_arr(reg: __m256d) -> [f64; LANE_SIZE] {
         unsafe { std::mem::transmute::<__m256d, [f64; LANE_SIZE]>(reg) }
     }
 
+    #[inline(always)]
     fn _mm_load(data: *const f64) -> __m256d {
         unsafe { _mm256_loadu_pd(data as *const f64) }
     }
 
+    #[inline(always)]
     fn _mm_set1(a: usize) -> __m256d {
         unsafe { _mm256_set1_pd(a as f64) }
     }
 
+    #[inline(always)]
     fn _mm_add(a: __m256d, b: __m256d) -> __m256d {
         unsafe { _mm256_add_pd(a, b) }
     }
 
+    #[inline(always)]
     fn _mm_cmpgt(a: __m256d, b: __m256d) -> __m256d {
         unsafe { _mm256_cmp_pd(a, b, _CMP_GT_OQ) }
     }
 
+    #[inline(always)]
     fn _mm_cmplt(a: __m256d, b: __m256d) -> __m256d {
         unsafe { _mm256_cmp_pd(b, a, _CMP_GT_OQ) }
     }
 
+    #[inline(always)]
     fn _mm_blendv(a: __m256d, b: __m256d, mask: __m256d) -> __m256d {
         unsafe { _mm256_blendv_pd(a, b, mask) }
     }

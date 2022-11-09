@@ -35,25 +35,36 @@ pub trait SIMD<
         argminmax_generic(data, LANE_SIZE, Self::_core_argminmax)
     }
 
-    #[inline]
-    fn _get_min_index_value(index_low: SIMDDtype, values_low: SIMDDtype) -> (usize, DType) {
+    // #[inline]
+    // fn _get_min_index_value(index_low: SIMDDtype, values_low: SIMDDtype) -> (usize, DType) {
+    //     let values_low_arr = Self::_reg_to_arr(values_low);
+    //     let index_low_arr = Self::_reg_to_arr(index_low);
+    //     let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
+    //     (min_index.as_(), min_value)
+    // }
+
+    // #[inline]
+    // fn _get_max_index_value(index_high: SIMDDtype, values_high: SIMDDtype) -> (usize, DType) {
+    //     let values_high_arr = Self::_reg_to_arr(values_high);
+    //     let index_high_arr = Self::_reg_to_arr(index_high);
+    //     let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+    //     (max_index.as_(), max_value)
+    // }
+
+    #[inline(always)]
+    fn _get_min_max_index_value(index_low: SIMDDtype, values_low: SIMDDtype, index_high: SIMDDtype, values_high: SIMDDtype) -> (usize, DType, usize, DType) {
         let values_low_arr = Self::_reg_to_arr(values_low);
         let index_low_arr = Self::_reg_to_arr(index_low);
-        let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-        (min_index.as_(), min_value)
-    }
-
-    #[inline]
-    fn _get_max_index_value(index_high: SIMDDtype, values_high: SIMDDtype) -> (usize, DType) {
         let values_high_arr = Self::_reg_to_arr(values_high);
         let index_high_arr = Self::_reg_to_arr(index_high);
+        let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
         let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-        (max_index.as_(), max_value)
+        (min_index.as_(), min_value, max_index.as_(), max_value)
     }
 
     #[inline]
-    #[target_feature(enable = "avx2")]
-    unsafe fn _core_argminmax(arr: ArrayView1<DType>, offset: usize) -> (DType, usize, DType, usize) {
+    #[target_feature(enable = "avx2")]  // TODO: better inlining when moving this to higher level call (argminmax_generic)
+    unsafe fn _core_argminmax(arr: ArrayView1<DType>, offset: usize) -> (usize, DType, usize, DType) {
         // Efficient calculation of argmin and argmax together
         let offset = Self::_mm_set1(offset);
         let mut new_index = Self::_mm_add(Self::_initial_index(), offset);
@@ -88,14 +99,15 @@ pub trait SIMD<
         // let value_array = Self::_reg_to_arr(values_low);
         // let index_array = Self::_reg_to_arr(index_low);
         // let (min_index, min_value) = min_index_value(&index_array, &value_array);
-        let (min_index, min_value) = Self::_get_min_index_value(index_low, values_low);
+        // let (min_index, min_value) = Self::_get_min_index_value(index_low, values_low);
 
         // Select the max_index and max_value
         // let value_array = Self::_reg_to_arr(values_high);
         // let index_array = Self::_reg_to_arr(index_high);
         // let (max_index, max_value) = max_index_value(&index_array, &value_array);
-        let (max_index, max_value) = Self::_get_max_index_value(index_high, values_high);
+        // let (max_index, max_value) = Self::_get_max_index_value(index_high, values_high);
 
-        (min_value, min_index, max_value, max_index)
+        // (min_value, min_index, max_value, max_index)
+        Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
     }
 }
