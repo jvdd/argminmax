@@ -1,15 +1,15 @@
-mod task;
-mod utils;
 mod scalar;
 mod simd;
+mod task;
+mod utils;
 
-pub use scalar::scalar_generic::*;
 pub use scalar::scalar_f16::*;
+pub use scalar::scalar_generic::*;
 // TODO: fix simd package private vs pub crate etc.
 // pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};
 
-pub use simd::{SIMD,AVX2};
 use ndarray::ArrayView1;
+pub use simd::{AVX2, AVX512, SIMD, SSE};
 
 pub trait ArgMinMax {
     // TODO: future work implement these other functions
@@ -27,7 +27,7 @@ macro_rules! impl_argminmax {
         $(
             impl ArgMinMax for ArrayView1<'_, $t> {
                 fn argminmax(self) -> (usize, usize) {
-                    AVX2::argminmax(self)
+                    unsafe { AVX2::argminmax(self) }
                 }
             }
         )*

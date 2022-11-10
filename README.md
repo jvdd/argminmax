@@ -1,9 +1,9 @@
 # ArgMinMax
-> Efficient argmin &amp; argmax (in 1 function) with SIMD (avx2) for `f16`, `f32`, `f64`, `i16`, `i32`, `i64` on `ndarray::ArrayView1`
+> Efficient argmin &amp; argmax (in 1 function) with SIMD (AVX2) for `f16`, `f32`, `f64`, `i16`, `i32`, `i64`, `u16`, `u32`, `u64` on `ndarray::ArrayView1`
 
 <!-- This project uses [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) [avx2](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions_2) (256 bit registers) to compute argmin and argmax in a single function.   -->
 
-🚀 The function is generic over the type of the array, so it can be used on an `ndarray::ArrayView1<T>` where `T` can be `f16`*, `f32`, `f64`, `i16`, `i32`, `i64`.
+🚀 The function is generic over the type of the array, so it can be used on an `ndarray::ArrayView1<T>` where `T` can be `f16`*, `f32`, `f64`, `i16`, `i32`, `i64`, `u16`, `u32`, `u64`.
 
 👀 Note that this implementation contains no if checks, ensuring that the runtime of the function is independent of the input data its order (best-case = worst-case = average-case).
 
