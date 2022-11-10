@@ -4,6 +4,14 @@ use crate::utils::{max_index_value, min_index_value};
 use num_traits::AsPrimitive;
 use std::arch::x86_64::*;
 
+const XOR_VALUE: i16 = 0x7FFF;
+
+#[inline(always)]
+fn _i16decrord_to_u16(decrord_i16: i16) -> u16 {
+    // let v = ord_i16 ^ 0x7FFF;
+    unsafe { std::mem::transmute::<i16, u16>(decrord_i16 ^ XOR_VALUE) }
+}
+
 // ------------------------------------------ AVX2 ------------------------------------------
 
 use super::config::AVX2;
@@ -12,7 +20,7 @@ mod avx2 {
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
-    const XOR_MASK: __m256i = unsafe { std::mem::transmute([0x7FFFi16; LANE_SIZE]) };
+    const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
     // const ONES_MASK: __m256i = unsafe { std::mem::transmute([1i16; LANE_SIZE]) };
 
     // TODO: add vs xor? (also for other unsigned dtypes)
@@ -33,12 +41,6 @@ mod avx2 {
     //     _mm256_add_epi16(_mm256_add_epi16(u16, XOR_MASK), ONES_MASK)
     // }
 
-    #[inline(always)]
-    fn _decr_ord_i16_to_u16(ord_i16: i16) -> u16 {
-        // let v = ord_i16 ^ 0x7FFF;
-        unsafe { std::mem::transmute::<i16, u16>(ord_i16 ^ 0x7FFF) }
-    }
-
     // #[inline(always)]
     // fn _ord_i16_to_u16(ord_i16: i16) -> u16 {
     //     // let v = ord_i16 - 0x8000;
@@ -46,8 +48,8 @@ mod avx2 {
     // }
 
     #[inline(always)]
-    fn _reg_to_i16_arr(reg: __m256i) -> [i16; LANE_SIZE] {
-        unsafe { std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg) }
+    unsafe fn _reg_to_i16_arr(reg: __m256i) -> [i16; LANE_SIZE] {
+        std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg)
     }
 
     impl SIMD<u16, __m256i, LANE_SIZE> for AVX2 {
@@ -119,9 +121,9 @@ mod avx2 {
             // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
             (
                 max_index.as_(),
-                _decr_ord_i16_to_u16(max_value),
+                _i16decrord_to_u16(max_value),
                 min_index.as_(),
-                _decr_ord_i16_to_u16(min_value),
+                _i16decrord_to_u16(min_value),
             )
             // (min_index.as_(), _ord_i16_to_u16(min_value), max_index.as_(), _ord_i16_to_u16(max_value))
         }
@@ -186,6 +188,153 @@ mod avx2 {
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
                 let (argmin_simd_index, argmax_simd_index) =
                     unsafe { AVX2::argminmax(data.view()) };
+                assert_eq!(argmin_index, argmin_simd_index);
+                assert_eq!(argmax_index, argmax_simd_index);
+            }
+        }
+    }
+}
+
+// ----------------------------------------- SSE -----------------------------------------
+
+use super::config::SSE;
+
+mod sse {
+    use super::*;
+
+    const LANE_SIZE: usize = SSE::LANE_SIZE_16;
+    const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+
+    #[inline(always)]
+    unsafe fn _u16_to_i16decrord(u16: __m128i) -> __m128i {
+        _mm_xor_si128(u16, XOR_MASK)
+    }
+
+    #[inline(always)]
+    unsafe fn _reg_to_i16_arr(reg: __m128i) -> [i16; LANE_SIZE] {
+        std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
+    }
+
+    impl SIMD<u16,  __m128i, LANE_SIZE> for SSE {
+        const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr(_: __m128i) -> [u16; LANE_SIZE] {
+            // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
+            unimplemented!()
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_load(data: *const u16) -> __m128i { 
+            _u16_to_i16decrord(_mm_loadu_si128(data as *const __m128i))
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_set1(a: usize) -> __m128i { _mm_set1_epi16(a as i16) }
+
+        #[inline(always)]
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i { _mm_add_epi16(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i { _mm_cmpgt_epi16(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i { _mm_cmplt_epi16(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i { _mm_blendv_epi8(a, b, mask) }
+
+        // ------------------------------------ ARGMINMAX --------------------------------------
+
+        #[inline]
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: ndarray::ArrayView1<u16>) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+
+        #[inline(always)]
+        unsafe fn _get_min_max_index_value(
+            index_low: __m128i,
+            values_low: __m128i,
+            index_high: __m128i,
+            values_high: __m128i,
+        ) -> (usize, u16, usize, u16) {
+            let index_low_arr = _reg_to_i16_arr(index_low);
+            let values_low_arr = _reg_to_i16_arr(values_low);
+            let index_high_arr = _reg_to_i16_arr(index_high);
+            let values_high_arr = _reg_to_i16_arr(values_high);
+            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
+            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
+            (
+                max_index.as_(),
+                _i16decrord_to_u16(max_value),
+                min_index.as_(),
+                _i16decrord_to_u16(min_value),
+            )
+            // (min_index.as_(), _ord_i16_to_u16(min_value), max_index.as_(), _ord_i16_to_u16(max_value))
+        }
+    }
+
+    // ----------------------------------------- TESTS -----------------------------------------
+
+    #[cfg(test)]
+
+    mod tests {
+        use super::{SSE, SIMD};
+        use crate::scalar::scalar_generic::scalar_argminmax;
+
+        use ndarray::Array1;
+
+        extern crate dev_utils;
+        use dev_utils::utils;
+
+        fn get_array_u16(n: usize) -> Array1<u16> {
+            utils::get_random_array(n, u16::MIN, u16::MAX)
+        }
+
+        #[test]
+        fn test_both_versions_return_the_same_results() {
+            let data = get_array_u16(513);
+            assert_eq!(data.len() % 16, 1);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (simd_argmin_index, simd_argmax_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_index, simd_argmin_index);
+            assert_eq!(argmax_index, simd_argmax_index);
+        }
+
+        #[test]
+        fn test_first_index_is_returned_when_identical_values_found() {
+            let data = [
+                10,
+                std::u16::MIN,
+                6,
+                9,
+                9,
+                22,
+                std::u16::MAX,
+                4,
+                std::u16::MAX,
+            ];
+            let data: Vec<u16> = data.iter().map(|x| *x).collect();
+            let data = Array1::from(data);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            assert_eq!(argmin_index, 1);
+            assert_eq!(argmax_index, 6);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_simd_index, 1);
+            assert_eq!(argmax_simd_index, 6);
+        }
+
+        #[test]
+        fn test_many_random_runs() {
+            for _ in 0..10_000 {
+                let data = get_array_u16(32 * 2 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+                let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }

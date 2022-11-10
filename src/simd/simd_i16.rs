@@ -128,3 +128,113 @@ mod avx2 {
         }
     }
 }
+
+// ----------------------------------------- SSE -----------------------------------------
+
+use super::config::SSE;
+
+mod sse {
+    use super::*;
+
+    const LANE_SIZE: usize = SSE::LANE_SIZE_16;
+
+    impl SIMD<i16, __m128i, LANE_SIZE> for SSE {
+        const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr(reg: __m128i) -> [i16; LANE_SIZE] {
+            std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_load(data: *const i16) -> __m128i { _mm_loadu_si128(data as *const __m128i) }
+
+        #[inline(always)]
+        unsafe fn _mm_set1(a: usize) -> __m128i { _mm_set1_epi16(a as i16) }
+
+        #[inline(always)]
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i { _mm_add_epi16(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i { _mm_cmpgt_epi16(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i { _mm_cmplt_epi16(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i { _mm_blendv_epi8(a, b, mask) }
+
+        // ------------------------------------ ARGMINMAX --------------------------------------
+
+        #[inline]
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: ndarray::ArrayView1<i16>) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
+    // ------------------------------------ TESTS --------------------------------------
+
+    #[cfg(test)]
+    mod tests {
+        use super::{SSE, SIMD};
+        use crate::scalar::scalar_generic::scalar_argminmax;
+
+        use ndarray::Array1;
+
+        extern crate dev_utils;
+        use dev_utils::utils;
+
+        fn get_array_i16(n: usize) -> Array1<i16> {
+            utils::get_random_array(n, i16::MIN, i16::MAX)
+        }
+
+        #[test]
+        fn test_both_versions_return_the_same_results() {
+            let data = get_array_i16(513);
+            assert_eq!(data.len() % 8, 1);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
+        fn test_first_index_is_returned_when_identical_values_found() {
+            let data = [
+                10,
+                std::i16::MIN,
+                6,
+                9,
+                9,
+                22,
+                std::i16::MAX,
+                4,
+                std::i16::MAX,
+            ];
+            let data: Vec<i16> = data.iter().map(|x| *x).collect();
+            let data = Array1::from(data);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            assert_eq!(argmin_index, 1);
+            assert_eq!(argmax_index, 6);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_simd_index, 1);
+            assert_eq!(argmax_simd_index, 6);
+        }
+
+        #[test]
+        fn test_many_random_runs() {
+            for _ in 0..10_000 {
+                let data = get_array_i16(8 * 2 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+                let (argmin_simd_index, argmax_simd_index) =
+                    unsafe { SSE::argminmax(data.view()) };
+                assert_eq!(argmin_index, argmin_simd_index);
+                assert_eq!(argmax_index, argmax_simd_index);
+            }
+        }
+    }
+}
