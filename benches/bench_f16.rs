@@ -7,6 +7,8 @@ use argminmax::ArgMinMax;
 use criterion::{black_box, Criterion};
 use dev_utils::{config, utils};
 
+use argminmax::{AVX2, AVX512, SSE, SIMD};
+
 #[cfg(feature = "half")]
 use half::f16;
 use ndarray::Array1;
@@ -37,7 +39,16 @@ fn minmax_f16_random_array_long(c: &mut Criterion) {
     c.bench_function("simple_random_long_f16", |b| {
         b.iter(|| argminmax::scalar_argminmax_f16(black_box(data.view())))
     });
-    c.bench_function("simd_random_long_f16", |b| {
+    c.bench_function("sse_random_long_f16", |b| {
+        b.iter(|| black_box(unsafe { SSE::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx2_random_long_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX2::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx512_random_long_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX512::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("impl_random_long_f16", |b| {
         b.iter(|| black_box(data.view().argminmax()))
     });
 }
@@ -49,7 +60,16 @@ fn minmax_f16_random_array_short(c: &mut Criterion) {
     c.bench_function("simple_random_short_f16", |b| {
         b.iter(|| argminmax::scalar_argminmax_f16(black_box(data.view())))
     });
-    c.bench_function("simd_random_short_f16", |b| {
+    c.bench_function("sse_random_short_f16", |b| {
+        b.iter(|| black_box(unsafe { SSE::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx2_random_short_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX2::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx512_random_short_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX512::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("impl_random_short_f16", |b| {
         b.iter(|| black_box(data.view().argminmax()))
     });
 }
@@ -61,7 +81,16 @@ fn minmax_f16_worst_case_array_long(c: &mut Criterion) {
     c.bench_function("simple_worst_long_f16", |b| {
         b.iter(|| argminmax::scalar_argminmax_f16(black_box(data.view())))
     });
-    c.bench_function("simd_worst_long_f16", |b| {
+    c.bench_function("sse_worst_long_f16", |b| {
+        b.iter(|| black_box(unsafe { SSE::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx2_worst_long_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX2::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx512_worst_long_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX512::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("impl_worst_long_f16", |b| {
         b.iter(|| black_box(data.view().argminmax()))
     });
 }
@@ -73,7 +102,16 @@ fn minmax_f16_worst_case_array_short(c: &mut Criterion) {
     c.bench_function("simple_worst_short_f16", |b| {
         b.iter(|| argminmax::scalar_argminmax_f16(black_box(data.view())))
     });
-    c.bench_function("simd_worst_short_f16", |b| {
+    c.bench_function("sse_worst_short_f16", |b| {
+        b.iter(|| black_box(unsafe { SSE::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx2_worst_short_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX2::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("avx512_worst_short_f16", |b| {
+        b.iter(|| black_box(unsafe { AVX512::argminmax(black_box(data.view())) }))
+    });
+    c.bench_function("impl_worst_short_f16", |b| {
         b.iter(|| black_box(data.view().argminmax()))
     });
 }

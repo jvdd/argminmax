@@ -40,7 +40,7 @@ mod avx2 {
         std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f16, __m256i, LANE_SIZE> for AVX2 {
+    impl SIMD<f16, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -220,7 +220,7 @@ mod sse {
         std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f16, __m128i, LANE_SIZE> for SSE {
+    impl SIMD<f16, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16])};
 
         #[inline(always)]
@@ -340,6 +340,156 @@ mod sse {
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
                 let (argmin_simd_index, argmax_simd_index) =
                     unsafe { SSE::argminmax(data.view()) };
+                assert_eq!(argmin_index, argmin_simd_index);
+                assert_eq!(argmax_index, argmax_simd_index);
+            }
+        }
+    }
+}
+
+// --------------------------------------- AVX512 ----------------------------------------
+
+use super::config::AVX512;
+
+#[cfg(feature = "half")]
+mod avx512 { 
+    use super::*;
+
+    const LANE_SIZE: usize = AVX512::LANE_SIZE_16;
+
+    #[inline(always)]
+    unsafe fn _f16_as_m521i_to_i16ord(f16_as_m512i: __m512i) -> __m512i {
+        // on a scalar: ((v >> 15) & 0x7FFF) ^ v
+        let sign_bit_shifted = _mm512_srai_epi16(f16_as_m512i, 15);
+        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, _mm512_set1_epi16(0x7FFF));
+        _mm512_xor_si512(f16_as_m512i, sign_bit_masked)
+    }
+
+    #[inline(always)]
+    unsafe fn _reg_to_i16_arr(reg: __m512i) -> [i16; LANE_SIZE] {
+        std::mem::transmute::<__m512i, [i16; LANE_SIZE]>(reg)
+    }
+
+    impl SIMD<f16, __m512i, u32, LANE_SIZE> for AVX512 {
+        const INITIAL_INDEX: __m512i = unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16, 13i16, 14i16, 15i16, 16i16, 17i16, 18i16, 19i16, 20i16, 21i16, 22i16, 23i16, 24i16, 25i16, 26i16, 27i16, 28i16, 29i16, 30i16, 31i16]) };
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr(_: __m512i) -> [f16; LANE_SIZE] {
+            // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
+            unimplemented!()
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_load(data: *const f16) -> __m512i {
+            _f16_as_m521i_to_i16ord(_mm512_loadu_epi16(data as *const i16))
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_set1(a: usize) -> __m512i { _mm512_set1_epi16(a as i16) }
+
+        #[inline(always)]
+        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i { _mm512_add_epi16(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u32 { _mm512_cmpgt_epi16_mask(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u32 { _mm512_cmplt_epi16_mask(a, b) }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u32) -> __m512i { _mm512_mask_blend_epi16(mask, a, b) }
+
+
+        // ------------------------------------ ARGMINMAX --------------------------------------
+
+        #[inline]
+        #[target_feature(enable = "avx512f")]
+        unsafe fn argminmax(data: ndarray::ArrayView1<f16>) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+
+        #[inline(always)]
+        unsafe fn _get_min_max_index_value(
+            index_low: __m512i,
+            values_low: __m512i,
+            index_high: __m512i,
+            values_high: __m512i,
+        ) -> (usize, f16, usize, f16) {
+            let index_low_arr = _reg_to_i16_arr(index_low);
+            let values_low_arr = _reg_to_i16_arr(values_low);
+            let index_high_arr = _reg_to_i16_arr(index_high);
+            let values_high_arr = _reg_to_i16_arr(values_high);
+            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
+            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            (
+                min_index.as_(),
+                _ord_i16_to_f16(min_value),
+                max_index.as_(),
+                _ord_i16_to_f16(max_value),
+            )
+        }
+    }
+
+    // ----------------------------------------- TESTS -----------------------------------------
+    
+    #[cfg(test)]
+    mod tests {
+        use super::{AVX512, SIMD};
+        use crate::scalar::scalar_generic::scalar_argminmax;
+
+        use half::f16;
+        use ndarray::Array1;
+
+        extern crate dev_utils;
+        use dev_utils::utils;
+
+        fn get_array_f16(n: usize) -> Array1<f16> {
+            let arr = utils::get_random_array(n, i16::MIN, i16::MAX);
+            let arr = arr.mapv(|x| f16::from_f32(x as f32));
+            Array1::from(arr)
+        }
+
+        #[test]
+        fn test_both_versions_return_the_same_results() {
+            let data = get_array_f16(1025);
+            assert_eq!(data.len() % 8, 1);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
+        fn test_first_index_is_returned_when_identical_values_found() {
+            let data = [
+                f16::from_f32(10.),
+                f16::MAX,
+                f16::from_f32(6.),
+                f16::NEG_INFINITY,
+                f16::NEG_INFINITY,
+                f16::MAX,
+                f16::from_f32(5_000.0),
+            ];
+            let data: Vec<f16> = data.iter().map(|x| *x).collect();
+            let data = Array1::from(data);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            assert_eq!(argmin_index, 3);
+            assert_eq!(argmax_index, 1);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+            assert_eq!(argmin_simd_index, 3);
+            assert_eq!(argmax_simd_index, 1);
+        }
+
+        #[test]
+        fn test_many_random_runs() {
+            for _ in 0..10_000 {
+                let data = get_array_f16(32 * 8 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+                let (argmin_simd_index, argmax_simd_index) =
+                    unsafe { AVX512::argminmax(data.view()) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }

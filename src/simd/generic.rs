@@ -6,42 +6,42 @@ use num_traits::AsPrimitive;
 // TODO: handle overflow!!
 
 pub trait SIMD<
-    DType: Copy + PartialOrd + AsPrimitive<usize>,
-    SIMDDtype: Copy,
+    ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
+    SIMDVecDtype: Copy,
+    SIMDMaskDtype: Copy,
     const LANE_SIZE: usize,
 >
 {
-    // fn _initial_index() -> SIMDDtype;
-    const INITIAL_INDEX: SIMDDtype;
+    const INITIAL_INDEX: SIMDVecDtype;
 
     // ------------------------------------ SIMD HELPERS --------------------------------------
 
     // TODO: make these unsafe?
-    unsafe fn _reg_to_arr(reg: SIMDDtype) -> [DType; LANE_SIZE];
+    unsafe fn _reg_to_arr(reg: SIMDVecDtype) -> [ScalarDType; LANE_SIZE];
 
-    unsafe fn _mm_load(data: *const DType) -> SIMDDtype;
+    unsafe fn _mm_load(data: *const ScalarDType) -> SIMDVecDtype;
 
-    unsafe fn _mm_set1(a: usize) -> SIMDDtype;
+    unsafe fn _mm_set1(a: usize) -> SIMDVecDtype;
 
-    unsafe fn _mm_add(a: SIMDDtype, b: SIMDDtype) -> SIMDDtype;
+    unsafe fn _mm_add(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype;
 
-    unsafe fn _mm_cmpgt(a: SIMDDtype, b: SIMDDtype) -> SIMDDtype;
+    unsafe fn _mm_cmpgt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
 
-    unsafe fn _mm_cmplt(a: SIMDDtype, b: SIMDDtype) -> SIMDDtype;
+    unsafe fn _mm_cmplt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
 
-    unsafe fn _mm_blendv(a: SIMDDtype, b: SIMDDtype, mask: SIMDDtype) -> SIMDDtype;
+    unsafe fn _mm_blendv(a: SIMDVecDtype, b: SIMDVecDtype, mask: SIMDMaskDtype) -> SIMDVecDtype;
 
     // ------------------------------------ ARGMINMAX --------------------------------------
 
-    unsafe fn argminmax(data: ArrayView1<DType>) -> (usize, usize);
+    unsafe fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
 
     #[inline(always)]
-    unsafe fn _argminmax(data: ArrayView1<DType>) -> (usize, usize) {
+    unsafe fn _argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize) {
         argminmax_generic(data, LANE_SIZE, Self::_core_argminmax)
     }
 
     #[inline(always)]
-    unsafe fn _get_min_max_index_value(index_low: SIMDDtype, values_low: SIMDDtype, index_high: SIMDDtype, values_high: SIMDDtype) -> (usize, DType, usize, DType) {
+    unsafe fn _get_min_max_index_value(index_low: SIMDVecDtype, values_low: SIMDVecDtype, index_high: SIMDVecDtype, values_high: SIMDVecDtype) -> (usize, ScalarDType, usize, ScalarDType) {
         let values_low_arr = Self::_reg_to_arr(values_low);
         let index_low_arr = Self::_reg_to_arr(index_low);
         let values_high_arr = Self::_reg_to_arr(values_high);
@@ -54,7 +54,7 @@ pub trait SIMD<
     // TODO: how to handle the target feature better -> needs to move up
     #[inline(always)]
     // #[target_feature(enable = "avx2")]  // TODO: better inlining when moving this to higher level call (argminmax_generic)
-    unsafe fn _core_argminmax(arr: ArrayView1<DType>, offset: usize) -> (usize, DType, usize, DType) {
+    unsafe fn _core_argminmax(arr: ArrayView1<ScalarDType>, offset: usize) -> (usize, ScalarDType, usize, ScalarDType) {
         // Efficient calculation of argmin and argmax together
         let offset = Self::_mm_set1(offset);
         let mut new_index = Self::_mm_add(Self::INITIAL_INDEX, offset);
