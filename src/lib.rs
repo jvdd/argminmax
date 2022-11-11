@@ -1,3 +1,6 @@
+#![feature(stdsimd)]
+#![feature(avx512_target_feature)]
+
 mod scalar;
 mod simd;
 mod task;
@@ -28,12 +31,12 @@ macro_rules! impl_argminmax {
             impl ArgMinMax for ArrayView1<'_, $t> {
                 fn argminmax(self) -> (usize, usize) {
                     // select avx2 if available
-                    if is_x86_feature_detected!("avx2") {
-                        return unsafe { AVX2::argminmax(self) };
-                    // } else if is_x86_feature_detected!("avx512f") {
-                        // unsafe { AVX512::argminmax(self) }
+                    if is_x86_feature_detected!("avx512f") {
+                        return unsafe { AVX512::argminmax(self) }
+                    } else if is_x86_feature_detected!("avx2") {
+                        return unsafe { AVX2::argminmax(self) }
                     } else if is_x86_feature_detected!("sse4.1") {
-                        return unsafe { SSE::argminmax(self) };
+                        return unsafe { SSE::argminmax(self) }
                     } else {
                         return scalar_argminmax(self);
                     }
@@ -46,17 +49,17 @@ macro_rules! impl_argminmax {
 // Implement ArgMinMax for the rust primitive types
 impl_argminmax!(i16, i32, i64, f32, f64, u16, u32, u64);
 
-macro_rules! impl_argminmax_simd {
-    ($simd:ident, $($t:ty),*) => {
-        $(
-            impl ArgMinMax for ArrayView1<'_, $t> {
-                fn argminmax(self) -> (usize, usize) {
-                    unsafe { $simd::argminmax(self) }
-                }
-            }
-        )*
-    };
-}
+// macro_rules! impl_argminmax_simd {
+//     ($simd:ident, $($t:ty),*) => {
+//         $(
+//             impl ArgMinMax for ArrayView1<'_, $t> {
+//                 fn argminmax(self) -> (usize, usize) {
+//                     unsafe { $simd::argminmax(self) }
+//                 }
+//             }
+//         )*
+//     };
+// }
 
 // #[cfg(
 //     all(
@@ -74,6 +77,14 @@ macro_rules! impl_argminmax_simd {
 //     )
 // )]
 // impl_argminmax_simd!(SSE, i16, i32, i64, f32, f64, u16, u32, u64);
+
+// #[cfg(
+//     all(
+//         not(target_feature = "sse4.1"),
+//         not(target_feature = "avx2")
+//     )
+// )]
+// impl_argminmax!(i16, i32, i64, f32, f64, u16, u32, u64);
 
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
