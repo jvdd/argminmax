@@ -21,7 +21,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const f64) -> __m256d {
+        unsafe fn _mm_loadu(data: *const f64) -> __m256d {
             _mm256_loadu_pd(data as *const f64)
         }
 
@@ -136,27 +136,39 @@ mod sse {
         const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] { 
+        unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] {
             std::mem::transmute::<__m128d, [f64; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const f64) -> __m128d { _mm_loadu_pd(data as *const f64) }
+        unsafe fn _mm_loadu(data: *const f64) -> __m128d {
+            _mm_loadu_pd(data as *const f64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128d { _mm_set1_pd(a as f64)}
+        unsafe fn _mm_set1(a: usize) -> __m128d {
+            _mm_set1_pd(a as f64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m128d, b: __m128d) -> __m128d { _mm_add_pd(a, b) }
+        unsafe fn _mm_add(a: __m128d, b: __m128d) -> __m128d {
+            _mm_add_pd(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m128d, b: __m128d) -> __m128d { _mm_cmpgt_pd(a, b) }
+        unsafe fn _mm_cmpgt(a: __m128d, b: __m128d) -> __m128d {
+            _mm_cmpgt_pd(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m128d, b: __m128d) -> __m128d { _mm_cmplt_pd(a, b) }
+        unsafe fn _mm_cmplt(a: __m128d, b: __m128d) -> __m128d {
+            _mm_cmplt_pd(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128d, b: __m128d, mask: __m128d) -> __m128d { _mm_blendv_pd(a, b, mask) }
+        unsafe fn _mm_blendv(a: __m128d, b: __m128d, mask: __m128d) -> __m128d {
+            _mm_blendv_pd(a, b, mask)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -171,7 +183,7 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
-        use super::{SSE, SIMD};
+        use super::{SIMD, SSE};
         use crate::scalar::scalar_generic::scalar_argminmax;
 
         use ndarray::Array1;
@@ -234,36 +246,52 @@ mod sse {
 
 use super::config::AVX512;
 
-mod avx512 { 
+mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
 
     impl SIMD<f64, __m512d, u8, LANE_SIZE> for AVX512 {
-        const INITIAL_INDEX: __m512d = unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64, 5.0f64, 6.0f64, 7.0f64]) };
+        const INITIAL_INDEX: __m512d = unsafe {
+            std::mem::transmute([
+                0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64, 5.0f64, 6.0f64, 7.0f64,
+            ])
+        };
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] { 
+        unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] {
             std::mem::transmute::<__m512d, [f64; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const f64) -> __m512d { _mm512_loadu_pd(data as *const f64) }
+        unsafe fn _mm_loadu(data: *const f64) -> __m512d {
+            _mm512_loadu_pd(data as *const f64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512d { _mm512_set1_pd(a as f64)}
+        unsafe fn _mm_set1(a: usize) -> __m512d {
+            _mm512_set1_pd(a as f64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m512d, b: __m512d) -> __m512d { _mm512_add_pd(a, b) }
+        unsafe fn _mm_add(a: __m512d, b: __m512d) -> __m512d {
+            _mm512_add_pd(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m512d, b: __m512d) -> u8 { _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ) }
+        unsafe fn _mm_cmpgt(a: __m512d, b: __m512d) -> u8 {
+            _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m512d, b: __m512d) -> u8 { _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ) }
+        unsafe fn _mm_cmplt(a: __m512d, b: __m512d) -> u8 {
+            _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m512d, b: __m512d, mask: u8) -> __m512d { _mm512_mask_blend_pd(mask, a, b) }
+        unsafe fn _mm_blendv(a: __m512d, b: __m512d, mask: u8) -> __m512d {
+            _mm512_mask_blend_pd(mask, a, b)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -329,7 +357,8 @@ mod avx512 {
             for _ in 0..10_000 {
                 let data = get_array_f64(32 * 2 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-                let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+                let (argmin_simd_index, argmax_simd_index) =
+                    unsafe { AVX512::argminmax(data.view()) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }

@@ -19,7 +19,7 @@ pub trait SIMD<
     // TODO: make these unsafe?
     unsafe fn _reg_to_arr(reg: SIMDVecDtype) -> [ScalarDType; LANE_SIZE];
 
-    unsafe fn _mm_load(data: *const ScalarDType) -> SIMDVecDtype;
+    unsafe fn _mm_loadu(data: *const ScalarDType) -> SIMDVecDtype;
 
     unsafe fn _mm_set1(a: usize) -> SIMDVecDtype;
 
@@ -41,7 +41,12 @@ pub trait SIMD<
     }
 
     #[inline(always)]
-    unsafe fn _get_min_max_index_value(index_low: SIMDVecDtype, values_low: SIMDVecDtype, index_high: SIMDVecDtype, values_high: SIMDVecDtype) -> (usize, ScalarDType, usize, ScalarDType) {
+    unsafe fn _get_min_max_index_value(
+        index_low: SIMDVecDtype,
+        values_low: SIMDVecDtype,
+        index_high: SIMDVecDtype,
+        values_high: SIMDVecDtype,
+    ) -> (usize, ScalarDType, usize, ScalarDType) {
         let values_low_arr = Self::_reg_to_arr(values_low);
         let index_low_arr = Self::_reg_to_arr(index_low);
         let values_high_arr = Self::_reg_to_arr(values_high);
@@ -54,7 +59,10 @@ pub trait SIMD<
     // TODO: how to handle the target feature better -> needs to move up
     #[inline(always)]
     // #[target_feature(enable = "avx2")]  // TODO: better inlining when moving this to higher level call (argminmax_generic)
-    unsafe fn _core_argminmax(arr: ArrayView1<ScalarDType>, offset: usize) -> (usize, ScalarDType, usize, ScalarDType) {
+    unsafe fn _core_argminmax(
+        arr: ArrayView1<ScalarDType>,
+        offset: usize,
+    ) -> (usize, ScalarDType, usize, ScalarDType) {
         // Efficient calculation of argmin and argmax together
         let offset = Self::_mm_set1(offset);
         let mut new_index = Self::_mm_add(Self::INITIAL_INDEX, offset);
@@ -63,7 +71,7 @@ pub trait SIMD<
 
         let increment = Self::_mm_set1(LANE_SIZE);
 
-        let new_values = Self::_mm_load(arr.as_ptr());
+        let new_values = Self::_mm_loadu(arr.as_ptr());
         let mut values_low = new_values;
         let mut values_high = new_values;
 
@@ -73,7 +81,7 @@ pub trait SIMD<
             .for_each(|step| {
                 new_index = Self::_mm_add(new_index, increment);
 
-                let new_values = Self::_mm_load(step.as_ptr());
+                let new_values = Self::_mm_loadu(step.as_ptr());
 
                 let lt_mask = Self::_mm_cmplt(new_values, values_low);
                 let gt_mask = Self::_mm_cmpgt(new_values, values_high);

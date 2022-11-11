@@ -20,7 +20,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const i64) -> __m256i {
+        unsafe fn _mm_loadu(data: *const i64) -> __m256i {
             _mm256_loadu_si256(data as *const __m256i)
         }
 
@@ -141,22 +141,34 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const i64) -> __m128i { _mm_loadu_si128(data as *const __m128i) }
+        unsafe fn _mm_loadu(data: *const i64) -> __m128i {
+            _mm_loadu_epi64(data as *const i64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i { _mm_set1_epi64x(a as i64) }
+        unsafe fn _mm_set1(a: usize) -> __m128i {
+            _mm_set1_epi64x(a as i64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i { _mm_add_epi64(a, b) }
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i {
+            _mm_add_epi64(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i { _mm_cmpgt_epi64(a, b) }
+        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmpgt_epi64(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i { _mm_cmpgt_epi64(b, a) }
+        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmpgt_epi64(b, a)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i { _mm_blendv_epi8(a, b, mask) }
+        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
+            _mm_blendv_epi8(a, b, mask)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -171,7 +183,7 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
-        use super::{SSE, SIMD};
+        use super::{SIMD, SSE};
         use crate::scalar::scalar_generic::scalar_argminmax;
 
         use ndarray::Array1;
@@ -235,14 +247,14 @@ mod sse {
 
 use super::config::AVX512;
 
-mod avx512 { 
+mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
 
     impl SIMD<i64, __m512i, u8, LANE_SIZE> for AVX512 {
-
-        const INITIAL_INDEX: __m512i = unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64]) };
+        const INITIAL_INDEX: __m512i =
+            unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64]) };
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512i) -> [i64; LANE_SIZE] {
@@ -250,22 +262,34 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const i64) -> __m512i { _mm512_load_epi64(data as *const i64) }
+        unsafe fn _mm_loadu(data: *const i64) -> __m512i {
+            _mm512_loadu_epi64(data as *const i64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i { _mm512_set1_epi64(a as i64) }
+        unsafe fn _mm_set1(a: usize) -> __m512i {
+            _mm512_set1_epi64(a as i64)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i { _mm512_add_epi64(a, b) }
+        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_add_epi64(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u8 { _mm512_cmpgt_epi64_mask(a, b) }
+        unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u8 {
+            _mm512_cmpgt_epi64_mask(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u8 { _mm512_cmpgt_epi64_mask(b, a) }
+        unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u8 {
+            _mm512_cmpgt_epi64_mask(b, a)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u8) -> __m512i { _mm512_mask_blend_epi64(mask, a, b) }
+        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u8) -> __m512i {
+            _mm512_mask_blend_epi64(mask, a, b)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -330,7 +354,7 @@ mod avx512 {
         #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
-                let data = get_array_i64(32 * 8 + 1);
+                let data = get_array_i64(16 * 2 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
                 let (argmin_simd_index, argmax_simd_index) =
                     unsafe { AVX512::argminmax(data.view()) };

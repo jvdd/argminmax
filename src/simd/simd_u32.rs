@@ -45,7 +45,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const u32) -> __m256i {
+        unsafe fn _mm_loadu(data: *const u32) -> __m256i {
             _u32_to_i32decrord(_mm256_loadu_si256(data as *const __m256i))
         }
 
@@ -203,25 +203,35 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const u32) -> __m128i { 
+        unsafe fn _mm_loadu(data: *const u32) -> __m128i {
             _u32_to_i32decrord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i { _mm_set1_epi32(a as i32) }
+        unsafe fn _mm_set1(a: usize) -> __m128i {
+            _mm_set1_epi32(a as i32)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i { _mm_add_epi32(a, b) }
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i {
+            _mm_add_epi32(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i { _mm_cmpgt_epi32(a, b) }
+        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmpgt_epi32(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i { _mm_cmplt_epi32(a, b) }
+        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmplt_epi32(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i { _mm_blendv_epi8(a, b, mask) } 
-        
+        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
+            _mm_blendv_epi8(a, b, mask)
+        }
+
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[inline]
@@ -253,12 +263,12 @@ mod sse {
             // (min_index.as_(), _ord_i16_to_u16(min_value), max_index.as_(), _ord_i16_to_u16(max_value))
         }
     }
-    
+
     // ----------------------------------------- TESTS -----------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{SSE, SIMD};
+        use super::{SIMD, SSE};
         use crate::scalar::scalar_generic::scalar_argminmax;
 
         use ndarray::Array1;
@@ -323,7 +333,7 @@ mod sse {
 
 use super::config::AVX512;
 
-mod avx512 { 
+mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
@@ -344,9 +354,13 @@ mod avx512 {
         std::mem::transmute::<__m512i, [i32; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<u32, __m512i, u16, LANE_SIZE> for AVX512{
-
-        const INITIAL_INDEX: __m512i = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32, 8i32, 9i32, 10i32, 11i32, 12i32, 13i32, 14i32, 15i32]) };
+    impl SIMD<u32, __m512i, u16, LANE_SIZE> for AVX512 {
+        const INITIAL_INDEX: __m512i = unsafe {
+            std::mem::transmute([
+                0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32, 8i32, 9i32, 10i32, 11i32, 12i32,
+                13i32, 14i32, 15i32,
+            ])
+        };
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [u32; LANE_SIZE] {
@@ -354,24 +368,34 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const u32) -> __m512i { 
-            _u32_to_i32decrord(_mm512_loadu_epi32( data as *const i32 ))
+        unsafe fn _mm_loadu(data: *const u32) -> __m512i {
+            _u32_to_i32decrord(_mm512_loadu_epi32(data as *const i32))
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i { _mm512_set1_epi32(a as i32) }
+        unsafe fn _mm_set1(a: usize) -> __m512i {
+            _mm512_set1_epi32(a as i32)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i { _mm512_add_epi32(a, b) }
+        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_add_epi32(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u16 { _mm512_cmpgt_epi32_mask(a, b) }
+        unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u16 {
+            _mm512_cmpgt_epi32_mask(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u16 { _mm512_cmplt_epi32_mask(a, b) }
+        unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u16 {
+            _mm512_cmplt_epi32_mask(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u16) -> __m512i { _mm512_mask_blend_epi32(mask, a, b) }
+        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u16) -> __m512i {
+            _mm512_mask_blend_epi32(mask, a, b)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 

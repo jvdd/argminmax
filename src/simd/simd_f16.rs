@@ -55,7 +55,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const f16) -> __m256i {
+        unsafe fn _mm_loadu(data: *const f16) -> __m256i {
             _f16_as_m256i_to_i16ord(_mm256_loadu_si256(data as *const __m256i))
         }
 
@@ -221,7 +221,8 @@ mod sse {
     }
 
     impl SIMD<f16, __m128i, __m128i, LANE_SIZE> for SSE {
-        const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16])};
+        const INITIAL_INDEX: __m128i =
+            unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [f16; LANE_SIZE] {
@@ -230,25 +231,34 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const f16) -> __m128i {
+        unsafe fn _mm_loadu(data: *const f16) -> __m128i {
             _f16_as_m128i_to_i16ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i { _mm_set1_epi16(a as i16) }
+        unsafe fn _mm_set1(a: usize) -> __m128i {
+            _mm_set1_epi16(a as i16)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i { _mm_add_epi16(a, b) }
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i {
+            _mm_add_epi16(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i { _mm_cmpgt_epi16(a, b) }
+        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmpgt_epi16(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i { _mm_cmplt_epi16(a, b) }
+        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmplt_epi16(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i { _mm_blendv_epi8(a, b, mask) }
-
+        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
+            _mm_blendv_epi8(a, b, mask)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -281,10 +291,10 @@ mod sse {
     }
 
     // ----------------------------------------- TESTS -----------------------------------------
-    
+
     #[cfg(test)]
     mod tests {
-        use super::{SSE, SIMD};
+        use super::{SIMD, SSE};
         use crate::scalar::scalar_generic::scalar_argminmax;
 
         use half::f16;
@@ -338,8 +348,7 @@ mod sse {
             for _ in 0..10_000 {
                 let data = get_array_f16(32 * 8 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-                let (argmin_simd_index, argmax_simd_index) =
-                    unsafe { SSE::argminmax(data.view()) };
+                let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }
@@ -352,7 +361,7 @@ mod sse {
 use super::config::AVX512;
 
 #[cfg(feature = "half")]
-mod avx512 { 
+mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_16;
@@ -371,7 +380,13 @@ mod avx512 {
     }
 
     impl SIMD<f16, __m512i, u32, LANE_SIZE> for AVX512 {
-        const INITIAL_INDEX: __m512i = unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16, 13i16, 14i16, 15i16, 16i16, 17i16, 18i16, 19i16, 20i16, 21i16, 22i16, 23i16, 24i16, 25i16, 26i16, 27i16, 28i16, 29i16, 30i16, 31i16]) };
+        const INITIAL_INDEX: __m512i = unsafe {
+            std::mem::transmute([
+                0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
+                13i16, 14i16, 15i16, 16i16, 17i16, 18i16, 19i16, 20i16, 21i16, 22i16, 23i16, 24i16,
+                25i16, 26i16, 27i16, 28i16, 29i16, 30i16, 31i16,
+            ])
+        };
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [f16; LANE_SIZE] {
@@ -380,25 +395,34 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_load(data: *const f16) -> __m512i {
+        unsafe fn _mm_loadu(data: *const f16) -> __m512i {
             _f16_as_m521i_to_i16ord(_mm512_loadu_epi16(data as *const i16))
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i { _mm512_set1_epi16(a as i16) }
+        unsafe fn _mm_set1(a: usize) -> __m512i {
+            _mm512_set1_epi16(a as i16)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i { _mm512_add_epi16(a, b) }
+        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_add_epi16(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u32 { _mm512_cmpgt_epi16_mask(a, b) }
+        unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u32 {
+            _mm512_cmpgt_epi16_mask(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u32 { _mm512_cmplt_epi16_mask(a, b) }
+        unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u32 {
+            _mm512_cmplt_epi16_mask(a, b)
+        }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u32) -> __m512i { _mm512_mask_blend_epi16(mask, a, b) }
-
+        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u32) -> __m512i {
+            _mm512_mask_blend_epi16(mask, a, b)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -431,7 +455,7 @@ mod avx512 {
     }
 
     // ----------------------------------------- TESTS -----------------------------------------
-    
+
     #[cfg(test)]
     mod tests {
         use super::{AVX512, SIMD};
