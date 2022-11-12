@@ -35,6 +35,7 @@ pub trait SIMD<
 
     unsafe fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
 
+    // TODO: is this now unnecessary?
     #[inline(always)]
     unsafe fn _argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize) {
         argminmax_generic(data, LANE_SIZE, Self::_core_argminmax)
@@ -57,8 +58,8 @@ pub trait SIMD<
     }
 
     // TODO: how to handle the target feature better -> needs to move up
-    #[inline(always)]
-    // #[target_feature(enable = "avx2")]  // TODO: better inlining when moving this to higher level call (argminmax_generic)
+    #[inline]
+    #[target_feature(enable = "avx512f", enable = "avx2", enable = "sse4.1")]
     unsafe fn _core_argminmax(
         arr: ArrayView1<ScalarDType>,
         offset: usize,
