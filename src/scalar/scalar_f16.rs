@@ -5,7 +5,7 @@ use ndarray::ArrayView1;
 // ------ On ArrayView1
 
 #[cfg(feature = "half")]
-#[inline]
+#[inline(always)]
 fn f16_to_i16ord(x: f16) -> i16 {
     let x = unsafe { std::mem::transmute::<f16, i16>(x) };
     ((x >> 15) & 0x7FFF) ^ x

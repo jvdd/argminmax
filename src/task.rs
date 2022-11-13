@@ -3,7 +3,7 @@ use crate::scalar::scalar_generic::scalar_argminmax; // TODO: dit in macro doorg
 use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;
 
-#[inline]
+#[inline(always)]
 pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: ArrayView1<T>,
     lane_size: usize,
@@ -34,7 +34,7 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     }
 }
 
-#[inline]
+#[inline(always)]
 fn split_array<T: Copy>(
     arr: ArrayView1<T>,
     lane_size: usize,
@@ -55,7 +55,7 @@ fn split_array<T: Copy>(
     }
 }
 
-#[inline]
+#[inline(always)]
 fn find_final_index_minmax<T: Copy + PartialOrd>(
     remainder_result: (usize, T, usize, T),
     simd_result: (usize, T, usize, T),

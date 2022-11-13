@@ -58,7 +58,6 @@ mod avx2 {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[inline(never)]
         #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: ndarray::ArrayView1<f32>) -> (usize, usize) {
             Self::_argminmax(data)
@@ -179,7 +178,6 @@ mod sse {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[inline(never)]
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: ndarray::ArrayView1<f32>) -> (usize, usize) {
             Self::_argminmax(data)
@@ -320,7 +318,6 @@ mod avx512 {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[inline(never)]
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: ndarray::ArrayView1<f32>) -> (usize, usize) {
             Self::_argminmax(data)

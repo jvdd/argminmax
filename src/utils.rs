@@ -5,7 +5,7 @@
 // registers) is not necessarily the lowest min / max index when the min / max value
 // occurs multiple times.
 
-#[inline]
+#[inline(always)]
 pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
     assert_eq!(index.len(), values.len());
     let mut min_index: usize = 0;
@@ -21,7 +21,7 @@ pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
     (index[min_index], min_value)
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
     assert_eq!(index.len(), values.len());
     let mut max_index: usize = 0;
