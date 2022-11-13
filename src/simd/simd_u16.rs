@@ -425,7 +425,7 @@ mod avx512 {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[target_feature(enable = "avx512f")]
+        #[target_feature(enable = "avx512bw")]
         unsafe fn argminmax(data: ndarray::ArrayView1<u16>) -> (usize, usize) {
             Self::_argminmax(data)
         }

@@ -144,7 +144,7 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i64) -> __m128i {
-            _mm_loadu_epi64(data as *const i64)
+            _mm_loadu_si128(data as *const __m128i)
         }
 
         #[inline(always)]
@@ -174,7 +174,7 @@ mod sse {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[target_feature(enable = "sse4.1")]
+        #[target_feature(enable = "sse4.2")]
         unsafe fn argminmax(data: ndarray::ArrayView1<i64>) -> (usize, usize) {
             Self::_argminmax(data)
         }

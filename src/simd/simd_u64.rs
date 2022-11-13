@@ -235,7 +235,7 @@ mod sse {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[target_feature(enable = "sse4.1")]
+        #[target_feature(enable = "sse4.2")]
         unsafe fn argminmax(data: ndarray::ArrayView1<u64>) -> (usize, usize) {
             Self::_argminmax(data)
         }
