@@ -13,6 +13,8 @@ pub trait SIMDInstructionSet {
     }
 }
 
+// ----------------------------- x86_64 / x86 -----------------------------
+
 pub struct AVX2;
 
 impl SIMDInstructionSet for AVX2 {
@@ -25,15 +27,18 @@ impl SIMDInstructionSet for AVX512 {
     const REGISTER_SIZE: usize = 512;
 }
 
-pub struct NEON;
-
-impl SIMDInstructionSet for NEON {
-    const REGISTER_SIZE: usize = 128;
-}
-
 pub struct SSE;
 
 impl SIMDInstructionSet for SSE {
+    const REGISTER_SIZE: usize = 128;
+}
+
+// ----------------------------- aarch64 / arm -----------------------------
+
+pub struct NEON;
+
+impl SIMDInstructionSet for NEON {
+    // TODO: implement NEON
     const REGISTER_SIZE: usize = 128;
 }
 

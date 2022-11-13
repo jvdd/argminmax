@@ -1,5 +1,8 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
 // ------------------------------------------ AVX2 ------------------------------------------
@@ -55,7 +58,7 @@ mod avx2 {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[inline]
+        #[inline(never)]
         #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: ndarray::ArrayView1<f32>) -> (usize, usize) {
             Self::_argminmax(data)
@@ -176,7 +179,7 @@ mod sse {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[inline]
+        #[inline(never)]
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: ndarray::ArrayView1<f32>) -> (usize, usize) {
             Self::_argminmax(data)
@@ -317,7 +320,7 @@ mod avx512 {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[inline]
+        #[inline(never)]
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: ndarray::ArrayView1<f32>) -> (usize, usize) {
             Self::_argminmax(data)

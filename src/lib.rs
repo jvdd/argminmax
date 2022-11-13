@@ -42,17 +42,28 @@ macro_rules! impl_argminmax {
         $(
             impl ArgMinMax for ArrayView1<'_, $t> {
                 fn argminmax(self) -> (usize, usize) {
-                    if is_x86_feature_detected!("avx512f") & (<$t>::NB_BITS > 16){
-                        // for some reason is avx512f a lot slower than avx2 for 16 bit numbers
-                        return unsafe { AVX512::argminmax(self) }
-                    } else if is_x86_feature_detected!("avx2") {
-                        return unsafe { AVX2::argminmax(self) }
-                    } else if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS < 64) {
-                        // for some reason is sse4.1 a lot slower than scalar for 64 bit numbers
-                        return unsafe { SSE::argminmax(self) }
-                    } else {
-                        return scalar_argminmax(self);
+                    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+                    {
+                        if is_x86_feature_detected!("avx512f") & (<$t>::NB_BITS > 16){
+                            // for some reason is avx512f a lot slower than avx2 for 16 bit numbers
+                            return unsafe { AVX512::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx2") {
+                            return unsafe { AVX2::argminmax(self) }
+                        } else if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS < 64) {
+                            // for some reason is sse4.1 a lot slower than scalar for 64 bit numbers
+                            return unsafe { SSE::argminmax(self) }
+                        }
+
                     }
+                    #[cfg(target_arch = "aarch64")]
+                    {
+                        // TODO: support aarch64
+                    }
+                    #[cfg(target_arch = "arm")]
+                    {
+                        // TODO: support arm
+                    }
+                    return scalar_argminmax(self);
                 }
             }
         )*
