@@ -1,3 +1,5 @@
+#![feature(stdsimd)]
+
 #[macro_use]
 extern crate criterion;
 extern crate dev_utils;
@@ -57,7 +59,7 @@ fn minmax_f16_random_array_long(c: &mut Criterion) {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
         });
     }
-    #[cfg(feature = "arm")]
+    #[cfg(target_arch = "arm")]
     if std::arch::is_arm_feature_detected!("neon") {
         c.bench_function("neon_random_long_f16", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data.view())) })
@@ -180,9 +182,9 @@ fn minmax_f16_worst_case_array_short(c: &mut Criterion) {
 criterion_group!(
     benches,
     minmax_f16_random_array_long,
-    minmax_f16_random_array_short,
-    minmax_f16_worst_case_array_long,
-    minmax_f16_worst_case_array_short
+    // minmax_f16_random_array_short,
+    // minmax_f16_worst_case_array_long,
+    // minmax_f16_worst_case_array_short
 );
 #[cfg(feature = "half")]
 criterion_main!(benches);

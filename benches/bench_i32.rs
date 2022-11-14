@@ -1,3 +1,5 @@
+#![feature(stdsimd)]
+
 #[macro_use]
 extern crate criterion;
 extern crate dev_utils;
@@ -151,8 +153,8 @@ fn minmax_i32_worst_case_array_short(c: &mut Criterion) {
 criterion_group!(
     benches,
     minmax_i32_random_array_long,
-    minmax_i32_random_array_short,
-    minmax_i32_worst_case_array_long,
-    minmax_i32_worst_case_array_short
+    // minmax_i32_random_array_short,
+    // minmax_i32_worst_case_array_long,
+    // minmax_i32_worst_case_array_short
 );
 criterion_main!(benches);

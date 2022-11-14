@@ -554,7 +554,7 @@ mod neon {
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: int16x8_t) -> [f16; LANE_SIZE] {
+        unsafe fn _reg_to_arr(_: int16x8_t) -> [f16; LANE_SIZE] {
             // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
             unimplemented!()
         }

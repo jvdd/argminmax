@@ -8,7 +8,7 @@ use argminmax::ArgMinMax;
 use criterion::{black_box, Criterion};
 use dev_utils::{config, utils};
 
-use argminmax::{AVX2, AVX512, NEON, NEON, SIMD, SSE};
+use argminmax::{AVX2, AVX512, NEON, SIMD, SSE};
 
 fn minmax_i16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
@@ -153,8 +153,8 @@ fn minmax_i16_worst_case_array_short(c: &mut Criterion) {
 criterion_group!(
     benches,
     minmax_i16_random_array_long,
-    minmax_i16_random_array_short,
-    minmax_i16_worst_case_array_long,
-    minmax_i16_worst_case_array_short
+    // minmax_i16_random_array_short,
+    // minmax_i16_worst_case_array_long,
+    // minmax_i16_worst_case_array_short
 );
 criterion_main!(benches);

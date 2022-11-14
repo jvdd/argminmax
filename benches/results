@@ -42,3 +42,46 @@ simple_worst_long_i64   time:   [3.6014 µs 3.6145 µs 3.6268 µs]
 simd_worst_long_i64     time:   [1.5548 µs 1.5559 µs 1.5571 µs]
 simple_worst_short_i64  time:   [368.24 ns 368.35 ns 368.47 ns]
 simd_worst_short_i64    time:   [165.34 ns 165.71 ns 166.19 ns]
+
+---------------------------------------------------------------
+
+Raspberry Pi 3B v1.2 (ARMv7 Processor rev 4 (v7l))
+
+scalar_random_long_f16  time:   [1.6267 ms 1.6284 ms 1.6306 ms]
+neon_random_long_f16    time:   [527.39 µs 527.54 µs 527.73 µs]
+impl_random_long_f16    time:   [547.12 µs 547.20 µs 547.29 µs]
+
+scalar_random_long_f32  time:   [947.47 µs 947.82 µs 948.20 µs]
+neon_random_long_f32    time:   [1.0173 ms 1.0184 ms 1.0199 ms]
+impl_random_long_f32    time:   [975.51 µs 977.26 µs 979.49 µs]
+
+scalar_random_long_f64  time:   [979.69 µs 980.00 µs 980.33 µs]
+impl_random_long_f64    time:   [979.82 µs 980.18 µs 980.56 µs]
+
+scalar_random_long_i16  time:   [1.5458 ms 1.5504 ms 1.5564 ms]
+neon_random_long_i16    time:   [507.58 µs 507.99 µs 508.53 µs]
+impl_random_long_i16    time:   [507.78 µs 507.96 µs 508.22 µs]
+
+scalar_random_long_i32  time:   [1.0433 ms 1.0488 ms 1.0564 ms]
+neon_random_long_i32    time:   [1.0179 ms 1.0183 ms 1.0187 ms]
+impl_random_long_i32    time:   [1.0178 ms 1.0185 ms 1.0194 ms]
+
+scalar_random_long_i64  time:   [2.2682 ms 2.2745 ms 2.2850 ms]
+impl_random_long_i64    time:   [2.2703 ms 2.2720 ms 2.2737 ms]
+
+scalar_random_long_u16  time:   [1.5725 ms 1.5746 ms 1.5767 ms]
+neon_random_long_u16    time:   [507.65 µs 507.77 µs 507.95 µs]
+impl_random_long_u16    time:   [510.35 µs 510.58 µs 510.89 µs]
+
+scalar_random_long_u32  time:   [1.0499 ms 1.0563 ms 1.0623 ms]
+neon_random_long_u32    time:   [1.0167 ms 1.0171 ms 1.0175 ms]
+impl_random_long_u32    time:   [1.0179 ms 1.0185 ms 1.0192 ms]
+
+scalar_random_long_u64  time:   [2.2662 ms 2.2673 ms 2.2686 ms]
+impl_random_long_u64    time:   [2.2670 ms 2.2688 ms 2.2708 ms]
+
+Remarks:
+- is neon worth it for 32 bits? (no significant difference vs scalar)
+- i64 and u64 are significantly slower than f64
+   => might be worth to try optimize i64 and u64 (through mapping the bit representation
+   to some ordinal f64 value)
