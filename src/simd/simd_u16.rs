@@ -19,6 +19,7 @@ fn _i16decrord_to_u16(decrord_i16: i16) -> u16 {
 
 use super::config::AVX2;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
     use super::*;
 
@@ -201,6 +202,7 @@ mod avx2 {
 
 use super::config::SSE;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
     use super::*;
 
@@ -358,6 +360,7 @@ mod sse {
 
 use super::config::AVX512;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
     use super::*;
 
