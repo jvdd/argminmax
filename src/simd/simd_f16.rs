@@ -23,6 +23,7 @@ fn _ord_i16_to_f16(ord_i16: i16) -> f16 {
 use super::config::AVX2;
 
 #[cfg(feature = "half")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
     use super::*;
 
@@ -204,6 +205,7 @@ mod avx2 {
 use super::config::SSE;
 
 #[cfg(feature = "half")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
     use super::*;
 
@@ -362,6 +364,7 @@ mod sse {
 use super::config::AVX512;
 
 #[cfg(feature = "half")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
     use super::*;
 

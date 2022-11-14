@@ -1,5 +1,6 @@
 #![feature(stdsimd)]
 #![feature(avx512_target_feature)]
+#![feature(arm_target_feature)]
 
 mod scalar;
 mod simd;
@@ -66,7 +67,9 @@ macro_rules! impl_argminmax {
                     }
                     #[cfg(target_arch = "arm")]
                     {
-                        // TODO: support arm
+                        if is_arm_feature_detected("neon") {
+                            // TODO: support neon
+                        }
                     }
                     return scalar_argminmax(self);
                 }
