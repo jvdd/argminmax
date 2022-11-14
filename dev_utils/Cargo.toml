@@ -6,6 +6,6 @@ edition = "2021"
 description = "Shared utilities for development (tests & benchmarks)"
 
 [dependencies]
-ndarray = "0.15.6"
-rand = "0.7.2"
-rand_distr = "0.2.2"
+ndarray = { version = "0.15.6", default-features = false }
+rand = { version = "0.7.2", default-features = false }
+rand_distr = { version = "0.2.2", default-features = false }
