@@ -410,7 +410,7 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
-            vld1q_f32(data) // TODO: _4 also exists
+            vld1q_f32(data as *const f32)
         }
 
         #[inline(always)]

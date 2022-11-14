@@ -488,3 +488,10 @@ mod avx512 {
         }
     }
 }
+
+// ---------------------------------------- NEON -----------------------------------------
+
+// There are no NEON intrinsics for f64, so we need to use the scalar version.
+//   although NEON intrinsics exist for i64 and u64, we cannot use them as
+//   they there is no 64-bit variant (of any data type) for the following three
+//   intrinsics: vadd_, vcgt_, vclt_

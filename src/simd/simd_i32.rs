@@ -1,5 +1,7 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
+#[cfg(target_arch = "arm")]
+use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -363,6 +365,126 @@ mod avx512 {
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
                 let (argmin_simd_index, argmax_simd_index) =
                     unsafe { AVX512::argminmax(data.view()) };
+                assert_eq!(argmin_index, argmin_simd_index);
+                assert_eq!(argmax_index, argmax_simd_index);
+            }
+        }
+    }
+}
+
+// ---------------------------------------- NEON -----------------------------------------
+
+#[cfg(target_arch = "arm")]
+mod neon {
+    use super::super::config::NEON;
+    use super::*;
+
+    const LANE_SIZE: usize = NEON::LANE_SIZE_32;
+
+    impl SIMD<i32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON {
+        const INITIAL_INDEX: int32x4_t = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr(reg: int32x4_t) -> [i32; LANE_SIZE] {
+            std::mem::transmute::<int32x4_t, [i32; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_loadu(data: *const i32) -> int32x4_t {
+            vld1q_s32(data)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_set1(a: usize) -> int32x4_t {
+            vdupq_n_s32(a as i32)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_add(a: int32x4_t, b: int32x4_t) -> int32x4_t {
+            vaddq_s32(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: int32x4_t, b: int32x4_t) -> uint32x4_t {
+            vcgtq_s32(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: int32x4_t, b: int32x4_t) -> uint32x4_t {
+            vcltq_s32(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: int32x4_t, b: int32x4_t, mask: uint32x4_t) -> int32x4_t {
+            vbslq_s32(mask, b, a)
+        }
+
+        // ------------------------------------ ARGMINMAX --------------------------------------
+
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax(data: ndarray::ArrayView1<i32>) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
+    // ------------------------------------ TESTS --------------------------------------
+
+    #[cfg(test)]
+    mod tests {
+        use super::{NEON, SIMD};
+        use crate::scalar::scalar_generic::scalar_argminmax;
+
+        use ndarray::Array1;
+
+        extern crate dev_utils;
+        use dev_utils::utils;
+
+        fn get_array_i32(n: usize) -> Array1<i32> {
+            utils::get_random_array(n, i32::MIN, i32::MAX)
+        }
+
+        #[test]
+        fn test_both_versions_return_the_same_results() {
+            let data = get_array_i32(1025);
+            assert_eq!(data.len() % 4, 1);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
+        fn test_first_index_is_returned_when_identical_values_found() {
+            let data = [
+                std::i32::MIN,
+                std::i32::MIN,
+                4,
+                6,
+                9,
+                std::i32::MAX,
+                22,
+                std::i32::MAX,
+            ];
+            let data: Vec<i32> = data.iter().map(|x| *x).collect();
+            let data = Array1::from(data);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            assert_eq!(argmin_index, 0);
+            assert_eq!(argmax_index, 5);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data.view()) };
+            assert_eq!(argmin_simd_index, 0);
+            assert_eq!(argmax_simd_index, 5);
+        }
+
+        #[test]
+        fn test_many_random_runs() {
+            for _ in 0..10_000 {
+                let data = get_array_i32(32 * 4 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+                let (argmin_simd_index, argmax_simd_index) =
+                    unsafe { NEON::argminmax(data.view()) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }

@@ -13,7 +13,7 @@ pub use scalar::scalar_generic::*;
 // pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};
 
 use ndarray::ArrayView1;
-pub use simd::{AVX2, AVX512, SIMD, SSE};
+pub use simd::{AVX2, AVX512, NEON, SIMD, SSE};
 
 trait DTypeInfo {
     const NB_BITS: usize;
@@ -67,8 +67,9 @@ macro_rules! impl_argminmax {
                     }
                     #[cfg(target_arch = "arm")]
                     {
-                        if is_arm_feature_detected("neon") {
-                            // TODO: support neon
+                        if std::arch::is_arm_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
+                            // We miss some NEON instructions for 64-bit numbers
+                            // return unsafe { NEON::argminmax(self) }
                         }
                     }
                     return scalar_argminmax(self);
