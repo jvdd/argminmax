@@ -69,7 +69,7 @@ macro_rules! impl_argminmax {
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
                             // We miss some NEON instructions for 64-bit numbers
-                            // return unsafe { NEON::argminmax(self) }
+                            return unsafe { NEON::argminmax(self) }
                         }
                     }
                     return scalar_argminmax(self);
@@ -83,43 +83,6 @@ macro_rules! impl_argminmax {
 impl_nb_bits!(false, u16 u32 u64 i16 i32 i64);
 impl_nb_bits!(true, f32 f64);
 impl_argminmax!(i16, i32, i64, f32, f64, u16, u32, u64);
-
-// macro_rules! impl_argminmax_simd {
-//     ($simd:ident, $($t:ty),*) => {
-//         $(
-//             impl ArgMinMax for ArrayView1<'_, $t> {
-//                 fn argminmax(self) -> (usize, usize) {
-//                     unsafe { $simd::argminmax(self) }
-//                 }
-//             }
-//         )*
-//     };
-// }
-
-// #[cfg(
-//     all(
-//         any(target_arch = "x86", target_arch = "x86_64"),
-//         target_feature = "avx2"
-//     )
-// )]
-// impl_argminmax_simd!(AVX2, i16, i32, i64, f32, f64, u16, u32, u64);
-
-// #[cfg(
-//     all(
-//         any(target_arch = "x86", target_arch = "x86_64"),
-//         target_feature = "sse4.1",
-//         not(target_feature = "avx2")
-//     )
-// )]
-// impl_argminmax_simd!(SSE, i16, i32, i64, f32, f64, u16, u32, u64);
-
-// #[cfg(
-//     all(
-//         not(target_feature = "sse4.1"),
-//         not(target_feature = "avx2")
-//     )
-// )]
-// impl_argminmax!(i16, i32, i64, f32, f64, u16, u32, u64);
 
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]

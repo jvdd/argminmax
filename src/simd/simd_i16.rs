@@ -1,5 +1,6 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
+use ndarray::ArrayView1;
 #[cfg(target_arch = "arm")]
 use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
@@ -62,7 +63,7 @@ mod avx2 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<i16>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<i16>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
@@ -184,7 +185,7 @@ mod sse {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<i16>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<i16>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
@@ -310,7 +311,7 @@ mod avx512 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx512bw")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<i16>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<i16>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
@@ -432,7 +433,7 @@ mod neon {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<i16>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<i16>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }

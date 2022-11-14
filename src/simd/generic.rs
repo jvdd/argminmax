@@ -95,3 +95,44 @@ pub trait SIMD<
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
     }
 }
+
+macro_rules! unimplement_simd {
+    ($scalar_type:ty, $reg:ty, $simd_type:ident) => {
+        impl SIMD<$scalar_type, $reg, $reg, 0> for $simd_type {
+            const INITIAL_INDEX: $reg = 0;
+
+            unsafe fn _reg_to_arr(_reg: $reg) -> [$scalar_type; 0] {
+                unimplemented!()
+            }
+
+            unsafe fn _mm_loadu(_data: *const $scalar_type) -> $reg {
+                unimplemented!()
+            }
+
+            unsafe fn _mm_set1(_a: usize) -> $reg {
+                unimplemented!()
+            }
+
+            unsafe fn _mm_add(_a: $reg, _b: $reg) -> $reg {
+                unimplemented!()
+            }
+
+            unsafe fn _mm_cmpgt(_a: $reg, _b: $reg) -> $reg {
+                unimplemented!()
+            }
+
+            unsafe fn _mm_cmplt(_a: $reg, _b: $reg) -> $reg {
+                unimplemented!()
+            }
+
+            unsafe fn _mm_blendv(_a: $reg, _b: $reg, _mask: $reg) -> $reg {
+                unimplemented!()
+            }
+
+            unsafe fn argminmax(_data: ArrayView1<$scalar_type>) -> (usize, usize) {
+                unimplemented!()
+            }
+        }
+    };
+}
+pub(crate) use unimplement_simd; // Now classic paths Just Work™

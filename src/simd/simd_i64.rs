@@ -1,5 +1,6 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
+use ndarray::ArrayView1;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -55,7 +56,7 @@ mod avx2 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<i64>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<i64>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
@@ -175,7 +176,7 @@ mod sse {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "sse4.2")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<i64>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<i64>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
@@ -295,7 +296,7 @@ mod avx512 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<i64>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<i64>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
@@ -371,3 +372,16 @@ mod avx512 {
 //   although NEON intrinsics exist for i64 and u64, we cannot use them as
 //   they there is no 64-bit variant (of any data type) for the following three
 //   intrinsics: vadd_, vcgt_, vclt_
+
+#[cfg(target_arch = "arm")]
+mod neon {
+    use super::super::config::NEON;
+    use super::super::generic::unimplement_simd;
+    use super::*;
+
+    // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
+    // compiler will complain that the trait is not implemented for the struct -
+    // even though we are not using the trait for the NEON struct when dealing with
+    // > 64 bit data types.
+    unimplement_simd!(i64, usize, NEON);
+}

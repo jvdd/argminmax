@@ -1,6 +1,7 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
 use crate::utils::{max_index_value, min_index_value};
+use ndarray::ArrayView1;
 use num_traits::AsPrimitive;
 #[cfg(target_arch = "arm")]
 use std::arch::arm::*;
@@ -82,7 +83,7 @@ mod avx2 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
             Self::_argminmax(data)
         }
 
@@ -239,7 +240,7 @@ mod sse {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
             Self::_argminmax(data)
         }
 
@@ -403,7 +404,7 @@ mod avx512 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
             Self::_argminmax(data)
         }
 
@@ -546,7 +547,7 @@ mod neon {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: ndarray::ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
