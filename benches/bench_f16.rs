@@ -42,19 +42,19 @@ fn minmax_f16_random_array_long(c: &mut Criterion) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
         c.bench_function("sse_random_long_f16", |b| {
-            b.iter(|| unsafe { SSE::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { SSE::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
         c.bench_function("avx2_random_long_f16", |b| {
-            b.iter(|| unsafe { AVX2::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512bw") {
         c.bench_function("avx512_random_long_f16", |b| {
-            b.iter(|| unsafe { AVX512::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
         });
     }
     c.bench_function("impl_random_long_f16", |b| {
@@ -72,19 +72,19 @@ fn minmax_f16_random_array_short(c: &mut Criterion) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
         c.bench_function("sse_random_short_f16", |b| {
-            b.iter(|| unsafe { SSE::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { SSE::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
         c.bench_function("avx2_random_short_f16", |b| {
-            b.iter(|| unsafe { AVX2::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512bw") {
         c.bench_function("avx512_random_short_f16", |b| {
-            b.iter(|| unsafe { AVX512::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
         });
     }
     c.bench_function("impl_random_short_f16", |b| {
@@ -102,19 +102,19 @@ fn minmax_f16_worst_case_array_long(c: &mut Criterion) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
         c.bench_function("sse_worst_long_f16", |b| {
-            b.iter(|| unsafe { SSE::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { SSE::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
         c.bench_function("avx2_worst_long_f16", |b| {
-            b.iter(|| unsafe { AVX2::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512bw") {
         c.bench_function("avx512_worst_long_f16", |b| {
-            b.iter(|| unsafe { AVX512::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
         });
     }
     c.bench_function("impl_worst_long_f16", |b| {
@@ -132,19 +132,19 @@ fn minmax_f16_worst_case_array_short(c: &mut Criterion) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
         c.bench_function("sse_worst_short_f16", |b| {
-            b.iter(|| unsafe { SSE::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { SSE::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
         c.bench_function("avx2_worst_short_f16", |b| {
-            b.iter(|| unsafe { AVX2::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512bw") {
         c.bench_function("avx512_worst_short_f16", |b| {
-            b.iter(|| unsafe { AVX512::argminmax_f16(black_box(data.view())) })
+            b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
         });
     }
     c.bench_function("impl_worst_short_f16", |b| {

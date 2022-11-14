@@ -20,11 +20,10 @@ fn _ord_i16_to_f16(ord_i16: i16) -> f16 {
 
 // ------------------------------------------ AVX2 ------------------------------------------
 
-use super::config::AVX2;
-
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
+    use super::super::config::AVX2;
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
@@ -202,11 +201,10 @@ mod avx2 {
 
 // ----------------------------------------- SSE -----------------------------------------
 
-use super::config::SSE;
-
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
+    use super::super::config::SSE;
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_16;
@@ -361,11 +359,10 @@ mod sse {
 
 // --------------------------------------- AVX512 ----------------------------------------
 
-use super::config::AVX512;
-
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
+    use super::super::config::AVX512;
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_16;

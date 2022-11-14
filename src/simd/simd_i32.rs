@@ -7,10 +7,9 @@ use std::arch::x86_64::*;
 
 // ------------------------------------------ AVX2 ------------------------------------------
 
-use super::config::AVX2;
-
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
+    use super::super::config::AVX2;
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_32;
@@ -129,10 +128,9 @@ mod avx2 {
 
 // ----------------------------------------- SSE -----------------------------------------
 
-use super::config::SSE;
-
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
+    use super::super::config::SSE;
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_32;
@@ -249,10 +247,9 @@ mod sse {
 
 // --------------------------------------- AVX512 ----------------------------------------
 
-use super::config::AVX512;
-
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
+    use super::super::config::AVX512;
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
