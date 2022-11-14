@@ -7,7 +7,7 @@ use argminmax::ArgMinMax;
 use criterion::{black_box, Criterion};
 use dev_utils::{config, utils};
 
-use argminmax::{AVX2, AVX512, SIMD, SSE};
+use argminmax::{AVX2, AVX512, NEON, SIMD, SSE};
 
 #[cfg(feature = "half")]
 use half::f16;
@@ -57,6 +57,12 @@ fn minmax_f16_random_array_long(c: &mut Criterion) {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
         });
     }
+    #[cfg(feature = "arm")]
+    if std::arch::is_arm_feature_detected!("neon") {
+        c.bench_function("neon_random_long_f16", |b| {
+            b.iter(|| unsafe { NEON::argminmax(black_box(data.view())) })
+        });
+    }
     c.bench_function("impl_random_long_f16", |b| {
         b.iter(|| black_box(data.view().argminmax()))
     });
@@ -85,6 +91,12 @@ fn minmax_f16_random_array_short(c: &mut Criterion) {
     if is_x86_feature_detected!("avx512bw") {
         c.bench_function("avx512_random_short_f16", |b| {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
+        });
+    }
+    #[cfg(feature = "arm")]
+    if std::arch::is_arm_feature_detected!("neon") {
+        c.bench_function("neon_random_short_f16", |b| {
+            b.iter(|| unsafe { NEON::argminmax(black_box(data.view())) })
         });
     }
     c.bench_function("impl_random_short_f16", |b| {
@@ -117,6 +129,12 @@ fn minmax_f16_worst_case_array_long(c: &mut Criterion) {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
         });
     }
+    #[cfg(feature = "arm")]
+    if std::arch::is_arm_feature_detected!("neon") {
+        c.bench_function("neon_worst_long_f16", |b| {
+            b.iter(|| unsafe { NEON::argminmax(black_box(data.view())) })
+        });
+    }
     c.bench_function("impl_worst_long_f16", |b| {
         b.iter(|| black_box(data.view().argminmax()))
     });
@@ -145,6 +163,12 @@ fn minmax_f16_worst_case_array_short(c: &mut Criterion) {
     if is_x86_feature_detected!("avx512bw") {
         c.bench_function("avx512_worst_short_f16", |b| {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data.view())) })
+        });
+    }
+    #[cfg(feature = "arm")]
+    if std::arch::is_arm_feature_detected!("neon") {
+        c.bench_function("neon_worst_short_f16", |b| {
+            b.iter(|| unsafe { NEON::argminmax(black_box(data.view())) })
         });
     }
     c.bench_function("impl_worst_short_f16", |b| {
