@@ -7,8 +7,7 @@ mod simd;
 mod task;
 mod utils;
 
-pub use scalar::scalar_f16::*;
-pub use scalar::scalar_generic::*;
+pub use scalar::{ScalarArgMinMaxArrayview1, SCALAR};
 // TODO: fix simd package private vs pub crate etc.
 // pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};
 
@@ -77,7 +76,7 @@ macro_rules! impl_argminmax {
                             return unsafe { NEON::argminmax(self) }
                         }
                     }
-                    return scalar_argminmax(self);
+                    SCALAR::argminmax(self)
                 }
             }
         )*

@@ -8,13 +8,17 @@ use argminmax::ArgMinMax;
 use criterion::{black_box, Criterion};
 use dev_utils::{config, utils};
 
-use argminmax::{AVX2, AVX512, NEON, SIMD, SSE};
+#[cfg(target_arch = "arm")]
+use argminmax::NEON;
+use argminmax::{ScalarArgMinMaxArrayview1, SCALAR};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use argminmax::{AVX2, AVX512, SIMD, SSE};
 
 fn minmax_i32_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data = utils::get_random_array::<i32>(n, i32::MIN, i32::MAX);
     c.bench_function("scalar_random_long_i32", |b| {
-        b.iter(|| argminmax::scalar_argminmax(black_box(data.view())))
+        b.iter(|| SCALAR::argminmax(black_box(data.view())))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
@@ -49,7 +53,7 @@ fn minmax_i32_random_array_short(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_SHORT;
     let data = utils::get_random_array::<i32>(n, i32::MIN, i32::MAX);
     c.bench_function("scalar_random_short_i32", |b| {
-        b.iter(|| argminmax::scalar_argminmax(black_box(data.view())))
+        b.iter(|| SCALAR::argminmax(black_box(data.view())))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
@@ -84,7 +88,7 @@ fn minmax_i32_worst_case_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data = utils::get_worst_case_array::<i32>(n, 1);
     c.bench_function("scalar_worst_long_i32", |b| {
-        b.iter(|| argminmax::scalar_argminmax(black_box(data.view())))
+        b.iter(|| SCALAR::argminmax(black_box(data.view())))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
@@ -119,7 +123,7 @@ fn minmax_i32_worst_case_array_short(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_SHORT;
     let data = utils::get_worst_case_array::<i32>(n, 1);
     c.bench_function("scalar_worst_short_i32", |b| {
-        b.iter(|| argminmax::scalar_argminmax(black_box(data.view())))
+        b.iter(|| SCALAR::argminmax(black_box(data.view())))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {

@@ -139,7 +139,7 @@ mod avx2 {
     #[cfg(test)]
     mod tests {
         use super::{AVX2, SIMD};
-        use crate::scalar::scalar_generic::scalar_argminmax;
+        use crate::scalar::generic::scalar_argminmax;
 
         use ndarray::Array1;
 
@@ -296,7 +296,7 @@ mod sse {
     #[cfg(test)]
     mod tests {
         use super::{SIMD, SSE};
-        use crate::scalar::scalar_generic::scalar_argminmax;
+        use crate::scalar::generic::scalar_argminmax;
 
         use ndarray::Array1;
 
@@ -461,7 +461,7 @@ mod avx512 {
 
     mod tests {
         use super::{AVX512, SIMD};
-        use crate::scalar::scalar_generic::scalar_argminmax;
+        use crate::scalar::generic::scalar_argminmax;
 
         use ndarray::Array1;
 
@@ -583,7 +583,7 @@ mod neon {
     #[cfg(test)]
     mod tests {
         use super::{NEON, SIMD};
-        use crate::scalar::scalar_generic::scalar_argminmax;
+        use crate::scalar::generic::scalar_argminmax;
 
         use ndarray::Array1;
 
