@@ -56,7 +56,7 @@ mod avx2 {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[target_feature(enable = "avx2")]
+        #[target_feature(enable = "avx")]
         unsafe fn argminmax(data: ArrayView1<f64>) -> (usize, usize) {
             Self::_argminmax(data)
         }

@@ -15,7 +15,13 @@ pub trait SIMDInstructionSet {
 
 // ----------------------------- x86_64 / x86 -----------------------------
 
-pub struct AVX2;
+pub struct SSE;
+
+impl SIMDInstructionSet for SSE {
+    const REGISTER_SIZE: usize = 128;
+}
+
+pub struct AVX2; // for f32 and f64 AVX is enough
 
 impl SIMDInstructionSet for AVX2 {
     const REGISTER_SIZE: usize = 256;
@@ -25,12 +31,6 @@ pub struct AVX512;
 
 impl SIMDInstructionSet for AVX512 {
     const REGISTER_SIZE: usize = 512;
-}
-
-pub struct SSE;
-
-impl SIMDInstructionSet for SSE {
-    const REGISTER_SIZE: usize = 128;
 }
 
 // ----------------------------- aarch64 / arm -----------------------------
