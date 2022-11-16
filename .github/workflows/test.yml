@@ -59,7 +59,10 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
-          components: clippy, rustfmt
+      - name: Setup Rust
+        run: |
+          rustup update nightly --no-self-update
+          rustup default nightly
 
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v1
