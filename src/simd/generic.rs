@@ -133,6 +133,7 @@ pub trait SIMD<
     }
 }
 
+#[cfg(target_arch = "arm")]
 macro_rules! unimplement_simd {
     ($scalar_type:ty, $reg:ty, $simd_type:ident) => {
         impl SIMD<$scalar_type, $reg, $reg, 0> for $simd_type {
@@ -173,4 +174,5 @@ macro_rules! unimplement_simd {
         }
     };
 }
+#[cfg(target_arch = "arm")]
 pub(crate) use unimplement_simd; // Now classic paths Just Work™

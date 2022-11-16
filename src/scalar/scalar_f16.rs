@@ -1,5 +1,6 @@
 #[cfg(feature = "half")]
 use half::f16;
+#[cfg(feature = "half")]
 use ndarray::ArrayView1;
 
 // ------ On ArrayView1

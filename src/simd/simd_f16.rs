@@ -1,18 +1,28 @@
+#[cfg(feature = "half")]
 use super::config::SIMDInstructionSet;
+#[cfg(feature = "half")]
 use super::generic::SIMD;
+#[cfg(feature = "half")]
 use ndarray::ArrayView1;
+
+#[cfg(feature = "half")]
 #[cfg(target_arch = "arm")]
 use std::arch::arm::*;
+#[cfg(feature = "half")]
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(feature = "half")]
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[cfg(feature = "half")]
 use crate::utils::{max_index_value, min_index_value};
 #[cfg(feature = "half")]
 use half::f16;
+#[cfg(feature = "half")]
 use num_traits::AsPrimitive;
 
+#[cfg(feature = "half")]
 const XOR_VALUE: i16 = 0x7FFF;
 
 #[cfg(feature = "half")]
