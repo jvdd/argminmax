@@ -1,6 +1,7 @@
 #![feature(stdsimd)]
 #![feature(avx512_target_feature)]
 #![feature(arm_target_feature)]
+#![feature(int_roundings)]
 
 mod scalar;
 mod simd;

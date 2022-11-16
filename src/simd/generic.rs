@@ -1,12 +1,12 @@
 use crate::task::argminmax_generic;
 use crate::utils::{max_index_value, min_index_value};
-use ndarray::ArrayView1;
-use num_traits::AsPrimitive;
+use ndarray::{ArrayView1,s};
+use num_traits::{AsPrimitive, Bounded};
 
 // TODO: handle overflow!!
 
 pub trait SIMD<
-    ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
+    ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + Bounded,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
     const LANE_SIZE: usize,
@@ -37,7 +37,31 @@ pub trait SIMD<
 
     #[inline(always)]
     unsafe fn _argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize) {
-        argminmax_generic(data, LANE_SIZE, Self::_core_argminmax)
+        argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax)
+    }
+
+    #[inline(always)]
+    unsafe fn _overflow_safe_core_argminmax(
+        data: ArrayView1<ScalarDType>,
+    ) -> (usize, ScalarDType, usize, ScalarDType) {
+        let max = ScalarDType::max_value();
+        let n_loops = data.len().div_ceil(max.as_());
+        let first_max = std::cmp::min(data.len(), max.as_());
+        let (mut min_index, mut min, mut max_index, mut max) = Self::_core_argminmax(data.slice(s![0..first_max]));
+        for i in 1..n_loops {
+            let start = i * max.as_();
+            let end = std::cmp::min(start + max.as_(), data.len());
+            let (min_index_i, min_i, max_index_i, max_i) = Self::_core_argminmax(data.slice(s![start..end]));
+            if min_i < min {
+                min = min_i;
+                min_index = min_index_i + start;
+            }
+            if max_i > max {
+                max = max_i;
+                max_index = max_index_i + start;
+            }
+        }
+        (min_index, min, max_index, max)
     }
 
     #[inline(always)]
@@ -59,13 +83,11 @@ pub trait SIMD<
     #[inline(always)]
     unsafe fn _core_argminmax(
         arr: ArrayView1<ScalarDType>,
-        offset: usize,
     ) -> (usize, ScalarDType, usize, ScalarDType) {
         // Efficient calculation of argmin and argmax together
-        let offset = Self::_mm_set1(offset);
-        let mut new_index = Self::_mm_add(Self::INITIAL_INDEX, offset);
-        let mut index_low = new_index;
-        let mut index_high = new_index;
+        let mut new_index = Self::INITIAL_INDEX;
+        let mut index_low = Self::INITIAL_INDEX;
+        let mut index_high = Self::INITIAL_INDEX;
 
         let increment = Self::_mm_set1(LANE_SIZE);
 
