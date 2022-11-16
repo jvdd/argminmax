@@ -19,6 +19,10 @@ jobs:
           profile: minimal
           toolchain: nightly
           components: clippy, rustfmt
+      - name: Setup Rust
+        run: |
+          rustup update nightly --no-self-update
+          rustup default nightly
 
       - name: Rust toolchain info
         run: |
