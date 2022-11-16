@@ -1,19 +1,25 @@
 use crate::task::argminmax_generic;
 use crate::utils::{max_index_value, min_index_value};
-use ndarray::{ArrayView1,s};
-use num_traits::{AsPrimitive, Bounded};
+use ndarray::{s, ArrayView1};
+use num_traits::AsPrimitive;
 
 // TODO: handle overflow!!
 
+// TODO: other potential generic SIMDIndexDtype: Copy
 pub trait SIMD<
-    ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + Bounded,
+    ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
-    // SIMDIndexDtype: Copy,  // TODO: int type (better even uint type)
     SIMDMaskDtype: Copy,
     const LANE_SIZE: usize,
 >
 {
     const INITIAL_INDEX: SIMDVecDtype;
+    const MAX_INDEX: usize; // Integers > this value **cannot** be accurately represented in SIMDVecDtype
+
+    #[inline(always)]
+    fn _find_largest_lower_multiple_of_lane_size(n: usize) -> usize {
+        n - n % LANE_SIZE
+    }
 
     // ------------------------------------ SIMD HELPERS --------------------------------------
 
@@ -42,26 +48,34 @@ pub trait SIMD<
 
     #[inline(always)]
     unsafe fn _overflow_safe_core_argminmax(
-        data: ArrayView1<ScalarDType>,
+        arr: ArrayView1<ScalarDType>,
     ) -> (usize, ScalarDType, usize, ScalarDType) {
-        let max = ScalarDType::max_value();
-        let n_loops = data.len().div_ceil(max.as_());
-        let first_max = std::cmp::min(data.len(), max.as_());
-        let (mut min_index, mut min, mut max_index, mut max) = Self::_core_argminmax(data.slice(s![0..first_max]));
-        for i in 1..n_loops {
-            let start = i * max.as_();
-            let end = std::cmp::min(start + max.as_(), data.len());
-            let (min_index_i, min_i, max_index_i, max_i) = Self::_core_argminmax(data.slice(s![start..end]));
-            if min_i < min {
-                min = min_i;
-                min_index = min_index_i + start;
+        // 0. Get the max value of the data type - which needs to be divided by LANE_SIZE
+        let dtype_max = Self::_find_largest_lower_multiple_of_lane_size(Self::MAX_INDEX);
+
+        // 1. Determine the number of loops needed
+        let n_loops = arr.len().div_ceil(dtype_max);
+
+        // 2. Peform overflow-safe _core_argminmax
+        let (mut min_index, mut min_value, mut max_index, mut max_value) = (0, arr[0], 0, arr[0]);
+        for i in 0..n_loops {
+            let start = i * dtype_max;
+            // Unbranch the min using the loop iterator
+            let end = start + (i == n_loops - 1) as usize * (arr.len() - start) + (i != n_loops - 1) as usize * dtype_max;
+            // Perform overflow-safe _core_argminmax
+            let (min_index_, min_value_, max_index_, max_value_) =
+                Self::_core_argminmax(arr.slice(s![start..end]));
+            // Update the min and max values
+            if min_value_ < min_value {
+                min_index = min_index_ + start;
+                min_value = min_value_;
             }
-            if max_i > max {
-                max = max_i;
-                max_index = max_index_i + start;
+            if max_value_ > max_value {
+                max_index = max_index_ + start;
+                max_value = max_value_;
             }
         }
-        (min_index, min, max_index, max)
+        (min_index, min_value, max_index, max_value)
     }
 
     #[inline(always)]
@@ -84,6 +98,7 @@ pub trait SIMD<
     unsafe fn _core_argminmax(
         arr: ArrayView1<ScalarDType>,
     ) -> (usize, ScalarDType, usize, ScalarDType) {
+        assert_eq!(arr.len() % LANE_SIZE, 0);
         // Efficient calculation of argmin and argmax together
         let mut new_index = Self::INITIAL_INDEX;
         let mut index_low = Self::INITIAL_INDEX;
@@ -122,6 +137,7 @@ macro_rules! unimplement_simd {
     ($scalar_type:ty, $reg:ty, $simd_type:ident) => {
         impl SIMD<$scalar_type, $reg, $reg, 0> for $simd_type {
             const INITIAL_INDEX: $reg = 0;
+            const MAX_INDEX: usize = 0;
 
             unsafe fn _reg_to_arr(_reg: $reg) -> [$scalar_type; 0] {
                 unimplemented!()

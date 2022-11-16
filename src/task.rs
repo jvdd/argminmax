@@ -41,7 +41,8 @@ fn split_array<T: Copy>(
 ) -> (Option<ArrayView1<T>>, Option<ArrayView1<T>>) {
     let n = arr.len();
 
-    if n < lane_size * 2 {  // TODO: check if this is the best threshold
+    if n < lane_size * 2 {
+        // TODO: check if this is the best threshold
         return (None, Some(arr));
     };
 

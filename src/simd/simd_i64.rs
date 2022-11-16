@@ -17,6 +17,7 @@ mod avx2 {
 
     impl SIMD<i64, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64]) };
+        const MAX_INDEX: usize = i64::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256i) -> [i64; LANE_SIZE] {
@@ -137,6 +138,7 @@ mod sse {
 
     impl SIMD<i64, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i64, 1i64]) };
+        const MAX_INDEX: usize = i64::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128i) -> [i64; LANE_SIZE] {
@@ -257,6 +259,7 @@ mod avx512 {
     impl SIMD<i64, __m512i, u8, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i =
             unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64]) };
+        const MAX_INDEX: usize = i64::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512i) -> [i64; LANE_SIZE] {

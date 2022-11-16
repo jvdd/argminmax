@@ -23,6 +23,8 @@ mod avx2 {
                 0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32,
             ])
         };
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256) -> [f32; LANE_SIZE] {
@@ -118,6 +120,17 @@ mod avx2 {
         }
 
         #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 25;
+            let data = get_array_f32(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
                 let data = get_array_f32(32 * 8 + 1);
@@ -143,6 +156,8 @@ mod sse {
     impl SIMD<f32, __m128, __m128, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128 =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128) -> [f32; LANE_SIZE] {
@@ -238,6 +253,17 @@ mod sse {
         }
 
         #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 25;
+            let data = get_array_f32(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
                 let data = get_array_f32(32 * 4 + 1);
@@ -266,6 +292,8 @@ mod avx512 {
                 10.0f32, 11.0f32, 12.0f32, 13.0f32, 14.0f32, 15.0f32,
             ])
         };
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512) -> [f32; LANE_SIZE] {
@@ -378,6 +406,17 @@ mod avx512 {
         }
 
         #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 25;
+            let data = get_array_f32(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
                 let data = get_array_f32(32 * 16 + 1);
@@ -408,6 +447,8 @@ mod neon {
         unsafe fn _reg_to_arr(reg: float32x4_t) -> [f32; LANE_SIZE] {
             std::mem::transmute::<float32x4_t, [f32; LANE_SIZE]>(reg)
         }
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
@@ -495,6 +536,17 @@ mod neon {
             let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data.view()) };
             assert_eq!(argmin_simd_index, 3);
             assert_eq!(argmax_simd_index, 1);
+        }
+
+        #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 25;
+            let data = get_array_f32(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
         }
 
         #[test]

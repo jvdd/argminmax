@@ -20,6 +20,7 @@ mod avx2 {
     impl SIMD<i32, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i =
             unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32]) };
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256i) -> [i32; LANE_SIZE] {
@@ -140,6 +141,7 @@ mod sse {
 
     impl SIMD<i32, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128i) -> [i32; LANE_SIZE] {
@@ -264,6 +266,7 @@ mod avx512 {
                 13i32, 14i32, 15i32,
             ])
         };
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512i) -> [i32; LANE_SIZE] {
@@ -384,6 +387,7 @@ mod neon {
 
     impl SIMD<i32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: int32x4_t = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: int32x4_t) -> [i32; LANE_SIZE] {

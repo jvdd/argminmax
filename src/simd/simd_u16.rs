@@ -65,6 +65,7 @@ mod avx2 {
                 13i16, 14i16, 15i16,
             ])
         };
+        const MAX_INDEX: usize = i16::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [u16; LANE_SIZE] {
@@ -187,6 +188,17 @@ mod avx2 {
         }
 
         #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 18;
+            let data = get_array_u16(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
                 let data = get_array_u16(32 * 2 + 1);
@@ -223,6 +235,7 @@ mod sse {
     impl SIMD<u16, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
+        const MAX_INDEX: usize = i16::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [u16; LANE_SIZE] {
@@ -344,6 +357,17 @@ mod sse {
         }
 
         #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 18;
+            let data = get_array_u16(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
                 let data = get_array_u16(32 * 2 + 1);
@@ -389,6 +413,7 @@ mod avx512 {
                 25i16, 26i16, 27i16, 28i16, 29i16, 30i16, 31i16,
             ])
         };
+        const MAX_INDEX: usize = i16::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [u16; LANE_SIZE] {
@@ -509,6 +534,17 @@ mod avx512 {
         }
 
         #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 18;
+            let data = get_array_u16(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
                 let data = get_array_u16(32 * 4 + 1);
@@ -534,6 +570,7 @@ mod neon {
     impl SIMD<u16, uint16x8_t, uint16x8_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: uint16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
+        const MAX_INDEX: usize = u16::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: uint16x8_t) -> [u16; LANE_SIZE] {
@@ -628,6 +665,17 @@ mod neon {
             let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data.view()) };
             assert_eq!(argmin_simd_index, 1);
             assert_eq!(argmax_simd_index, 6);
+        }
+
+        #[test]
+        fn test_no_overflow() {
+            let n: usize = 1 << 18;
+            let data = get_array_u16(n);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
         }
 
         #[test]
