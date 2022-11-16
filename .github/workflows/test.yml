@@ -1,13 +1,13 @@
 name: Test
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+  push:
+    branches:
+      - master
 
 jobs:
-  check:
+  Check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -41,7 +41,7 @@ jobs:
       # - name: check with clippy
       #   run: cargo clippy --all --all-targets --all-features -- -D warnings
 
-  test:
+  Test:
     name: argminmax test
     runs-on: ${{ matrix.os }}
     strategy:
@@ -66,11 +66,17 @@ jobs:
 
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v1
+      
+      - name: Run tests (debug)
+        run: cargo test --verbose --all-features
+      - name: Run tests (release)
+        run: cargo test --verbose --all-features --release
 
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--features half -- --test-threads 1'
 
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
+      # - name: Run cargo-tarpaulin
+      #   uses: actions-rs/tarpaulin@v0.1
+      #   with:
+      #     args: '--features half -- --test-threads 1'
+
+      # - name: Upload to codecov.io
+      #   uses: codecov/codecov-action@v3
