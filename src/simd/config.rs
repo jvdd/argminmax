@@ -38,7 +38,6 @@ impl SIMDInstructionSet for AVX512 {
 pub struct NEON;
 
 impl SIMDInstructionSet for NEON {
-    // TODO: implement NEON
     const REGISTER_SIZE: usize = 128;
 }
 

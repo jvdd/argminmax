@@ -8,11 +8,9 @@ mod simd;
 mod task;
 mod utils;
 
-pub use scalar::{ScalarArgMinMaxArrayview1, SCALAR};
-// TODO: fix simd package private vs pub crate etc.
-// pub use simd::{simd_f32, simd_f64, simd_i16, simd_i32, simd_i64};
-
+// TODO: improve ScalarArgMinMaxArrayview1 name
 use ndarray::ArrayView1;
+pub use scalar::{ScalarArgMinMaxArrayview1, SCALAR};
 pub use simd::{AVX2, AVX512, NEON, SIMD, SSE};
 
 trait DTypeInfo {

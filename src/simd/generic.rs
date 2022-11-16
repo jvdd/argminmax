@@ -3,8 +3,6 @@ use crate::utils::{max_index_value, min_index_value};
 use ndarray::{s, ArrayView1};
 use num_traits::AsPrimitive;
 
-// TODO: handle overflow!!
-
 // TODO: other potential generic SIMDIndexDtype: Copy
 pub trait SIMD<
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
