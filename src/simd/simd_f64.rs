@@ -1,125 +1,394 @@
-use crate::task::argminmax_generic;
-use crate::utils::{max_index_value, min_index_value};
+use super::config::SIMDInstructionSet;
+use super::generic::SIMD;
 use ndarray::ArrayView1;
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-const LANE_SIZE: usize = 4;
+// ------------------------------------------ AVX2 ------------------------------------------
 
-// ------------------------------------ ARGMINMAX --------------------------------------
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod avx2 {
+    use super::super::config::AVX2;
+    use super::*;
 
-pub fn argminmax_f64(arr: ArrayView1<f64>) -> (usize, usize) {
-    argminmax_generic(arr, LANE_SIZE, core_argminmax_256)
-}
+    const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
 
-#[inline]
-fn reg_to_f64_arr(reg: __m256d) -> [f64; 4] {
-    unsafe { std::mem::transmute::<__m256d, [f64; 4]>(reg) }
-}
+    impl SIMD<f64, __m256d, __m256d, LANE_SIZE> for AVX2 {
+        const INITIAL_INDEX: __m256d =
+            unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64]) };
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
 
-#[inline]
-#[target_feature(enable = "avx2")]
-unsafe fn core_argminmax_256(sim_arr: ArrayView1<f64>, offset: usize) -> (f64, usize, f64, usize) {
-    // Efficient calculation of argmin and argmax together
-    let offset = _mm256_set1_pd(offset as f64);
-    let mut new_index = _mm256_add_pd(_mm256_set_pd(3.0, 2.0, 1.0, 0.0), offset);
-    let mut index_low = new_index;
-    let mut index_high = new_index;
+        #[inline(always)]
+        unsafe fn _reg_to_arr(reg: __m256d) -> [f64; LANE_SIZE] {
+            std::mem::transmute::<__m256d, [f64; LANE_SIZE]>(reg)
+        }
 
-    let increment = _mm256_set1_pd(4.0);
+        #[inline(always)]
+        unsafe fn _mm_loadu(data: *const f64) -> __m256d {
+            _mm256_loadu_pd(data as *const f64)
+        }
 
-    let new_values = _mm256_loadu_pd(sim_arr.as_ptr() as *const f64);
-    let mut values_low = new_values;
-    let mut values_high = new_values;
+        #[inline(always)]
+        unsafe fn _mm_set1(a: usize) -> __m256d {
+            _mm256_set1_pd(a as f64)
+        }
 
-    sim_arr
-        .exact_chunks(4)
-        .into_iter()
-        .skip(1)
-        .for_each(|step| {
-            new_index = _mm256_add_pd(new_index, increment);
+        #[inline(always)]
+        unsafe fn _mm_add(a: __m256d, b: __m256d) -> __m256d {
+            _mm256_add_pd(a, b)
+        }
 
-            let new_values = _mm256_loadu_pd(step.as_ptr() as *const f64);
-            let gt_mask = _mm256_cmp_pd(new_values, values_high, _CMP_GT_OQ);
-            let lt_mask = _mm256_cmp_pd(new_values, values_low, _CMP_LT_OQ);
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: __m256d, b: __m256d) -> __m256d {
+            _mm256_cmp_pd(a, b, _CMP_GT_OQ)
+        }
 
-            values_low = _mm256_min_pd(new_values, values_low);
-            values_high = _mm256_max_pd(new_values, values_high);
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: __m256d, b: __m256d) -> __m256d {
+            _mm256_cmp_pd(b, a, _CMP_GT_OQ)
+        }
 
-            index_low = _mm256_blendv_pd(index_low, new_index, lt_mask);
-            index_high = _mm256_blendv_pd(index_high, new_index, gt_mask);
-        });
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: __m256d, b: __m256d, mask: __m256d) -> __m256d {
+            _mm256_blendv_pd(a, b, mask)
+        }
 
-    // Select max_index and max_value
-    let value_array = reg_to_f64_arr(values_high);
-    let index_array = reg_to_f64_arr(index_high);
-    let (index_max, value_max) = max_index_value(&index_array, &value_array);
+        // ------------------------------------ ARGMINMAX --------------------------------------
 
-    // Select min_index and min_value
-    let value_array = reg_to_f64_arr(values_low);
-    let index_array = reg_to_f64_arr(index_low);
-    let (index_min, value_min) = min_index_value(&index_array, &value_array);
-
-    (value_min, index_min as usize, value_max, index_max as usize)
-}
-
-//----- TESTS -----
-
-#[cfg(test)]
-mod tests {
-    use super::argminmax_f64;
-    use crate::scalar_generic::scalar_argminmax;
-
-    use ndarray::Array1;
-
-    extern crate dev_utils;
-    use dev_utils::utils;
-
-    fn get_array_f64(n: usize) -> Array1<f64> {
-        utils::get_random_array(n, f64::MIN, f64::MAX)
+        #[target_feature(enable = "avx")]
+        unsafe fn argminmax(data: ArrayView1<f64>) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
     }
 
-    #[test]
-    fn test_both_versions_return_the_same_results() {
-        let data = get_array_f64(1025);
-        assert_eq!(data.len() % 4, 1);
+    // ------------------------------------ TESTS --------------------------------------
 
-        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-        let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
-        assert_eq!(argmin_index, argmin_simd_index);
-        assert_eq!(argmax_index, argmax_simd_index);
-    }
+    #[cfg(test)]
+    mod tests {
+        use super::{AVX2, SIMD};
+        use crate::scalar::generic::scalar_argminmax;
 
-    #[test]
-    fn test_first_index_is_returned_when_identical_values_found() {
-        let data = [
-            10.,
-            std::f64::MAX,
-            6.,
-            std::f64::NEG_INFINITY,
-            std::f64::NEG_INFINITY,
-            std::f64::MAX,
-            10_000.0,
-        ];
-        let data: Vec<f64> = data.iter().map(|x| *x).collect();
-        let data = Array1::from(data);
+        use ndarray::Array1;
 
-        let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-        assert_eq!(argmin_index, 3);
-        assert_eq!(argmax_index, 1);
+        extern crate dev_utils;
+        use dev_utils::utils;
 
-        let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
-        assert_eq!(argmin_simd_index, 3);
-        assert_eq!(argmax_simd_index, 1);
-    }
+        fn get_array_f64(n: usize) -> Array1<f64> {
+            utils::get_random_array(n, f64::MIN, f64::MAX)
+        }
 
-    #[test]
-    fn test_many_random_runs() {
-        for _ in 0..10_000 {
-            let data = get_array_f64(32 * 8 + 1);
+        #[test]
+        fn test_both_versions_return_the_same_results() {
+            let data = get_array_f64(1025);
+            assert_eq!(data.len() % 4, 1);
+
             let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-            let (argmin_simd_index, argmax_simd_index) = argminmax_f64(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data.view()) };
             assert_eq!(argmin_index, argmin_simd_index);
             assert_eq!(argmax_index, argmax_simd_index);
         }
+
+        #[test]
+        fn test_first_index_is_returned_when_identical_values_found() {
+            let data = [
+                10.,
+                std::f64::MAX,
+                6.,
+                std::f64::NEG_INFINITY,
+                std::f64::NEG_INFINITY,
+                std::f64::MAX,
+                10_000.0,
+            ];
+            let data: Vec<f64> = data.iter().map(|x| *x).collect();
+            let data = Array1::from(data);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            assert_eq!(argmin_index, 3);
+            assert_eq!(argmax_index, 1);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data.view()) };
+            assert_eq!(argmin_simd_index, 3);
+            assert_eq!(argmax_simd_index, 1);
+        }
+
+        #[test]
+        fn test_many_random_runs() {
+            for _ in 0..10_000 {
+                let data = get_array_f64(32 * 8 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+                let (argmin_simd_index, argmax_simd_index) =
+                    unsafe { AVX2::argminmax(data.view()) };
+                assert_eq!(argmin_index, argmin_simd_index);
+                assert_eq!(argmax_index, argmax_simd_index);
+            }
+        }
     }
+}
+
+// ----------------------------------------- SSE -----------------------------------------
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod sse {
+    use super::super::config::SSE;
+    use super::*;
+
+    const LANE_SIZE: usize = SSE::LANE_SIZE_64;
+
+    impl SIMD<f64, __m128d, __m128d, LANE_SIZE> for SSE {
+        const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] {
+            std::mem::transmute::<__m128d, [f64; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_loadu(data: *const f64) -> __m128d {
+            _mm_loadu_pd(data as *const f64)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_set1(a: usize) -> __m128d {
+            _mm_set1_pd(a as f64)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_add(a: __m128d, b: __m128d) -> __m128d {
+            _mm_add_pd(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: __m128d, b: __m128d) -> __m128d {
+            _mm_cmpgt_pd(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: __m128d, b: __m128d) -> __m128d {
+            _mm_cmplt_pd(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: __m128d, b: __m128d, mask: __m128d) -> __m128d {
+            _mm_blendv_pd(a, b, mask)
+        }
+
+        // ------------------------------------ ARGMINMAX --------------------------------------
+
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: ArrayView1<f64>) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
+    // ------------------------------------ TESTS --------------------------------------
+
+    #[cfg(test)]
+    mod tests {
+        use super::{SIMD, SSE};
+        use crate::scalar::generic::scalar_argminmax;
+
+        use ndarray::Array1;
+
+        extern crate dev_utils;
+        use dev_utils::utils;
+
+        fn get_array_f64(n: usize) -> Array1<f64> {
+            utils::get_random_array(n, f64::MIN, f64::MAX)
+        }
+
+        #[test]
+        fn test_both_versions_return_the_same_results() {
+            let data = get_array_f64(1025);
+            assert_eq!(data.len() % 2, 1);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
+        fn test_first_index_is_returned_when_identical_values_found() {
+            let data = [
+                10.,
+                std::f64::MAX,
+                6.,
+                std::f64::NEG_INFINITY,
+                std::f64::NEG_INFINITY,
+                std::f64::MAX,
+                10_000.0,
+            ];
+            let data: Vec<f64> = data.iter().map(|x| *x).collect();
+            let data = Array1::from(data);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            assert_eq!(argmin_index, 3);
+            assert_eq!(argmax_index, 1);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            assert_eq!(argmin_simd_index, 3);
+            assert_eq!(argmax_simd_index, 1);
+        }
+
+        #[test]
+        fn test_many_random_runs() {
+            for _ in 0..10_000 {
+                let data = get_array_f64(32 * 2 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+                let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+                assert_eq!(argmin_index, argmin_simd_index);
+                assert_eq!(argmax_index, argmax_simd_index);
+            }
+        }
+    }
+}
+
+// --------------------------------------- AVX512 ----------------------------------------
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod avx512 {
+    use super::super::config::AVX512;
+    use super::*;
+
+    const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
+
+    impl SIMD<f64, __m512d, u8, LANE_SIZE> for AVX512 {
+        const INITIAL_INDEX: __m512d = unsafe {
+            std::mem::transmute([
+                0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64, 5.0f64, 6.0f64, 7.0f64,
+            ])
+        };
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] {
+            std::mem::transmute::<__m512d, [f64; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_loadu(data: *const f64) -> __m512d {
+            _mm512_loadu_pd(data as *const f64)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_set1(a: usize) -> __m512d {
+            _mm512_set1_pd(a as f64)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_add(a: __m512d, b: __m512d) -> __m512d {
+            _mm512_add_pd(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: __m512d, b: __m512d) -> u8 {
+            _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: __m512d, b: __m512d) -> u8 {
+            _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: __m512d, b: __m512d, mask: u8) -> __m512d {
+            _mm512_mask_blend_pd(mask, a, b)
+        }
+
+        // ------------------------------------ ARGMINMAX --------------------------------------
+
+        #[target_feature(enable = "avx512f")]
+        unsafe fn argminmax(data: ArrayView1<f64>) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
+    // ------------------------------------ TESTS --------------------------------------
+
+    #[cfg(test)]
+    mod tests {
+        use super::{AVX512, SIMD};
+        use crate::scalar::generic::scalar_argminmax;
+
+        use ndarray::Array1;
+
+        extern crate dev_utils;
+        use dev_utils::utils;
+
+        fn get_array_f64(n: usize) -> Array1<f64> {
+            utils::get_random_array(n, f64::MIN, f64::MAX)
+        }
+
+        #[test]
+        fn test_both_versions_return_the_same_results() {
+            let data = get_array_f64(1025);
+            assert_eq!(data.len() % 2, 1);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+            assert_eq!(argmin_index, argmin_simd_index);
+            assert_eq!(argmax_index, argmax_simd_index);
+        }
+
+        #[test]
+        fn test_first_index_is_returned_when_identical_values_found() {
+            let data = [
+                10.,
+                std::f64::MAX,
+                6.,
+                std::f64::NEG_INFINITY,
+                std::f64::NEG_INFINITY,
+                std::f64::MAX,
+                10_000.0,
+            ];
+            let data: Vec<f64> = data.iter().map(|x| *x).collect();
+            let data = Array1::from(data);
+
+            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            assert_eq!(argmin_index, 3);
+            assert_eq!(argmax_index, 1);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+            assert_eq!(argmin_simd_index, 3);
+            assert_eq!(argmax_simd_index, 1);
+        }
+
+        #[test]
+        fn test_many_random_runs() {
+            for _ in 0..10_000 {
+                let data = get_array_f64(32 * 2 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+                let (argmin_simd_index, argmax_simd_index) =
+                    unsafe { AVX512::argminmax(data.view()) };
+                assert_eq!(argmin_index, argmin_simd_index);
+                assert_eq!(argmax_index, argmax_simd_index);
+            }
+        }
+    }
+}
+
+// ---------------------------------------- NEON -----------------------------------------
+
+// There are no NEON intrinsics for f64, so we need to use the scalar version.
+//   although NEON intrinsics exist for i64 and u64, we cannot use them as
+//   they there is no 64-bit variant (of any data type) for the following three
+//   intrinsics: vadd_, vcgt_, vclt_
+
+#[cfg(target_arch = "arm")]
+mod neon {
+    use super::super::config::NEON;
+    use super::super::generic::unimplement_simd;
+    use super::*;
+
+    // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
+    // compiler will complain that the trait is not implemented for the struct -
+    // even though we are not using the trait for the NEON struct when dealing with
+    // > 64 bit data types.
+    unimplement_simd!(f64, usize, NEON);
 }

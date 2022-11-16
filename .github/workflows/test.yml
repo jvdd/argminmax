@@ -7,6 +7,40 @@ on:
     branches: [ main ]
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: clippy, rustfmt
+      - name: Setup Rust
+        run: |
+          rustup update nightly --no-self-update
+          rustup default nightly
+
+      - name: Rust toolchain info
+        run: |
+          cargo --version --verbose
+          rustc --version
+          cargo clippy --version
+          cargo fmt --version
+      
+      - name: check no optional features
+        run: cargo check --verbose
+      - name: check with all features
+        run: cargo check --verbose --all-features
+      - name: check with formatting
+        run: cargo fmt --all -- --check
+      # TODO: enable clippy once I write docs for all public items
+      # - name: check with clippy
+      #   run: cargo clippy --all --all-targets --all-features -- -D warnings
+
   test:
     name: argminmax test
     runs-on: ${{ matrix.os }}
@@ -14,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ['windows-latest', 'macOS-latest', 'ubuntu-latest']
-        rust: ['stable', 'beta', 'nightly']
+        rust: ['nightly']  # ['stable', 'beta']
     
     steps:
       - name: Checkout
@@ -26,18 +60,6 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           components: clippy, rustfmt
-
-      - name: Rust toolchain info
-        run: |
-          cargo --version --verbose
-          rustc --version
-          cargo clippy --version
-          cargo fmt --version
-
-      - name: Linting
-        run: |
-          cargo fmt -- --check
-          cargo clippy --features half -- -D warnings
 
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v1

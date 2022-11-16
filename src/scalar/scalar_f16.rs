@@ -1,45 +1,45 @@
 #[cfg(feature = "half")]
 use half::f16;
+#[cfg(feature = "half")]
 use ndarray::ArrayView1;
 
 // ------ On ArrayView1
 
 #[cfg(feature = "half")]
-#[inline]
+#[inline(always)]
 fn f16_to_i16ord(x: f16) -> i16 {
     let x = unsafe { std::mem::transmute::<f16, i16>(x) };
     ((x >> 15) & 0x7FFF) ^ x
 }
 
 #[cfg(feature = "half")]
-#[inline]
-pub fn scalar_argminmax_f16(arr: ArrayView1<f16>) -> (usize, usize) {
+#[inline(always)]
+pub(crate) fn scalar_argminmax_f16(arr: ArrayView1<f16>) -> (usize, usize) {
     // f16 is transformed to i16ord
     //   benchmarks  show:
     //     1. this is 7-10x faster than using raw f16
     //     2. this is 3x faster than transforming to f32 or f64
-    let mut low_index: usize = 0;
-    let mut high_index: usize = 0;
-    let mut low = f16_to_i16ord(arr[low_index]);
-    let mut high = f16_to_i16ord(arr[high_index]);
-    for (i, item) in arr.iter().enumerate() {
-        let item = f16_to_i16ord(*item);
-        if item < low {
-            low = item;
-            low_index = i;
-        } else if item > high {
-            high = item;
-            high_index = i;
-        }
-    }
-    (low_index, high_index)
+    let minmax_tuple: (usize, i16, usize, i16) = arr.iter().enumerate().fold(
+        (0, f16_to_i16ord(arr[0]), 0, f16_to_i16ord(arr[0])),
+        |(low_index, low, high_index, high), (i, item)| {
+            let item = f16_to_i16ord(*item);
+            if item < low {
+                (i, item, high_index, high)
+            } else if item > high {
+                (low_index, low, i, item)
+            } else {
+                (low_index, low, high_index, high)
+            }
+        },
+    );
+    (minmax_tuple.0, minmax_tuple.2)
 }
 
 #[cfg(feature = "half")]
 #[cfg(test)]
 mod tests {
     use super::scalar_argminmax_f16;
-    use crate::scalar_generic::scalar_argminmax;
+    use crate::scalar::generic::scalar_argminmax;
 
     use half::f16;
     use ndarray::Array1;

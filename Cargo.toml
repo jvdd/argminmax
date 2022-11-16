@@ -13,7 +13,8 @@ categories = ["algorithms", "mathematics", "science"]
 
 [dependencies]
 ndarray = { version = "0.15.6", default-features = false }
-half = { version = "2.1.0", default-features = false, optional = true }
+half = { version = "2.1.0", default-features = false, features=["num-traits"], optional = true }
+num-traits = { version = "0.2.15", default-features = false }
 
 [dev-dependencies]
 criterion = "0.3.0"
@@ -42,4 +43,16 @@ harness = false
 
 [[bench]]
 name = "bench_i64"
+harness = false
+
+[[bench]]
+name = "bench_u16"
+harness = false
+
+[[bench]]
+name = "bench_u32"
+harness = false
+
+[[bench]]
+name = "bench_u64"
 harness = false
