@@ -61,7 +61,9 @@ pub trait SIMD<
         for i in 0..n_loops {
             let start = i * dtype_max;
             // Unbranch the min using the loop iterator
-            let end = start + (i == n_loops - 1) as usize * (arr.len() - start) + (i != n_loops - 1) as usize * dtype_max;
+            let end = start
+                + (i == n_loops - 1) as usize * (arr.len() - start)
+                + (i != n_loops - 1) as usize * dtype_max;
             // Perform overflow-safe _core_argminmax
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(arr.slice(s![start..end]));

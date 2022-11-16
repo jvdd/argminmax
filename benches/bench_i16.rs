@@ -8,11 +8,11 @@ use argminmax::ArgMinMax;
 use criterion::{black_box, Criterion};
 use dev_utils::{config, utils};
 
-#[cfg(target_arch = "arm")]
-use argminmax::NEON;
 use argminmax::{ScalarArgMinMaxArrayview1, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use argminmax::{AVX2, AVX512, SIMD, SSE};
+#[cfg(target_arch = "arm")]
+use argminmax::{NEON, SIMD};
 
 fn minmax_i16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
