@@ -359,6 +359,10 @@ mod avx512 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
+            if !is_x86_feature_detected!("avx512bw") {
+                return;
+            }
+
             let data = get_array_i16(513);
             assert_eq!(data.len() % 8, 1);
 
@@ -370,6 +374,10 @@ mod avx512 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
+            if !is_x86_feature_detected!("avx512bw") {
+                return;
+            }
+
             let data = [
                 10,
                 std::i16::MIN,
@@ -395,6 +403,10 @@ mod avx512 {
 
         #[test]
         fn test_no_overflow() {
+            if !is_x86_feature_detected!("avx512bw") {
+                return;
+            }
+
             let n: usize = 1 << 18;
             let data = get_array_i16(n);
 
@@ -406,6 +418,10 @@ mod avx512 {
 
         #[test]
         fn test_many_random_runs() {
+            if !is_x86_feature_detected!("avx512bw") {
+                return;
+            }
+
             for _ in 0..10_000 {
                 let data = get_array_i16(1025);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
