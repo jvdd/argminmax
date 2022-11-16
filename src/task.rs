@@ -42,7 +42,7 @@ fn split_array<T: Copy>(
     let n = arr.len();
 
     if n < lane_size * 2 {  // TODO: check if this is the best threshold
-        return (Some(arr), None);
+        return (None, Some(arr));
     };
 
     let (left_arr, right_arr) = arr.split_at(Axis(0), n - n % lane_size);

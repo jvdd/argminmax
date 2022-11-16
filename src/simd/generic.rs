@@ -8,6 +8,7 @@ use num_traits::{AsPrimitive, Bounded};
 pub trait SIMD<
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + Bounded,
     SIMDVecDtype: Copy,
+    // SIMDIndexDtype: Copy,  // TODO: int type (better even uint type)
     SIMDMaskDtype: Copy,
     const LANE_SIZE: usize,
 >
@@ -16,7 +17,6 @@ pub trait SIMD<
 
     // ------------------------------------ SIMD HELPERS --------------------------------------
 
-    // TODO: make these unsafe?
     unsafe fn _reg_to_arr(reg: SIMDVecDtype) -> [ScalarDType; LANE_SIZE];
 
     unsafe fn _mm_loadu(data: *const ScalarDType) -> SIMDVecDtype;
