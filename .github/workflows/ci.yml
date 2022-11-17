@@ -42,7 +42,6 @@ jobs:
       #   run: cargo clippy --all --all-targets --all-features -- -D warnings
 
   Test:
-    name: argminmax test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -72,8 +71,35 @@ jobs:
       - name: Run tests (release)
         run: cargo test --verbose --all-features --release
   
+  Bench:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['windows-latest', 'macOS-latest', 'ubuntu-latest']
+        rust: ['nightly']  # ['stable', 'beta']
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+      - name: Setup Rust
+        run: |
+          rustup update nightly --no-self-update
+          rustup default nightly
+
+      - name: Cache Dependencies
+        uses: Swatinem/rust-cache@v1
+      
+      - name: Run benchmarks (release)
+        run: cargo bench --verbose --all-features --release
+  
   Build:
-    name: argminmax build on ${{ matrix.target }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -104,7 +130,7 @@ jobs:
           # rustup component add clippy
       # - name: Run Clippy
         # run: cargo clippy --all-targets --target ${{ matrix.target }}
-      - name: Build
+      - name: Build (release)
         run: cargo build --target ${{ matrix.target }} --release --all-features
 
 
