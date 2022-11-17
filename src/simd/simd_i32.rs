@@ -83,6 +83,10 @@ mod avx2 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
+            if !is_x86_feature_detected!("avx2") {
+                return;
+            }
+
             let data = get_array_i32(1025);
             assert_eq!(data.len() % 8, 1);
 
@@ -94,6 +98,10 @@ mod avx2 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
+            if !is_x86_feature_detected!("avx2") {
+                return;
+            }
+
             let data = [
                 std::i32::MIN,
                 std::i32::MIN,
@@ -118,6 +126,10 @@ mod avx2 {
 
         #[test]
         fn test_many_random_runs() {
+            if !is_x86_feature_detected!("avx2") {
+                return;
+            }
+
             for _ in 0..10_000 {
                 let data = get_array_i32(32 * 8 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
@@ -329,6 +341,10 @@ mod avx512 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
+            if !is_x86_feature_detected!("avx512f") {
+                return;
+            }
+
             let data = get_array_i32(1025);
             assert_eq!(data.len() % 8, 1);
 
@@ -340,6 +356,10 @@ mod avx512 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
+            if !is_x86_feature_detected!("avx512f") {
+                return;
+            }
+
             let data = [
                 std::i32::MIN,
                 std::i32::MIN,
@@ -364,6 +384,10 @@ mod avx512 {
 
         #[test]
         fn test_many_random_runs() {
+            if !is_x86_feature_detected!("avx512f") {
+                return;
+            }
+
             for _ in 0..10_000 {
                 let data = get_array_i32(32 * 8 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());

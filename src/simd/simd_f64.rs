@@ -19,7 +19,10 @@ mod avx2 {
         const INITIAL_INDEX: __m256d =
             unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64]) };
         // https://stackoverflow.com/a/3793950
+        #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
+        const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256d) -> [f64; LANE_SIZE] {
@@ -82,6 +85,10 @@ mod avx2 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
+            if !is_x86_feature_detected!("avx") {
+                return;
+            }
+
             let data = get_array_f64(1025);
             assert_eq!(data.len() % 4, 1);
 
@@ -93,6 +100,10 @@ mod avx2 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
+            if !is_x86_feature_detected!("avx") {
+                return;
+            }
+
             let data = [
                 10.,
                 std::f64::MAX,
@@ -116,6 +127,10 @@ mod avx2 {
 
         #[test]
         fn test_many_random_runs() {
+            if !is_x86_feature_detected!("avx") {
+                return;
+            }
+
             for _ in 0..10_000 {
                 let data = get_array_f64(32 * 8 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
@@ -140,7 +155,10 @@ mod sse {
     impl SIMD<f64, __m128d, __m128d, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
         // https://stackoverflow.com/a/3793950
+        #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
+        const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] {
@@ -264,7 +282,10 @@ mod avx512 {
             ])
         };
         // https://stackoverflow.com/a/3793950
+        #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
+        const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] {
@@ -327,6 +348,10 @@ mod avx512 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
+            if !is_x86_feature_detected!("avx512f") {
+                return;
+            }
+
             let data = get_array_f64(1025);
             assert_eq!(data.len() % 2, 1);
 
@@ -338,6 +363,10 @@ mod avx512 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
+            if !is_x86_feature_detected!("avx512f") {
+                return;
+            }
+
             let data = [
                 10.,
                 std::f64::MAX,
@@ -361,6 +390,10 @@ mod avx512 {
 
         #[test]
         fn test_many_random_runs() {
+            if !is_x86_feature_detected!("avx512f") {
+                return;
+            }
+
             for _ in 0..10_000 {
                 let data = get_array_f64(32 * 2 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
