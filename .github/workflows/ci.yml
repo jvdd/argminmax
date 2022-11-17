@@ -97,7 +97,7 @@ jobs:
         uses: Swatinem/rust-cache@v1
       
       - name: Run benchmarks (release)
-        run: cargo bench --verbose --all-features --release
+        run: cargo bench --quiet --message-format=short  --features half | grep "time:"
   
   Build:
     runs-on: ubuntu-latest
