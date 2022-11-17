@@ -19,7 +19,10 @@ mod avx2 {
         const INITIAL_INDEX: __m256d =
             unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64]) };
         // https://stackoverflow.com/a/3793950
+        #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
+        const MAX_INDEX: usize = u32::MAX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256d) -> [f64; LANE_SIZE] {
@@ -152,7 +155,10 @@ mod sse {
     impl SIMD<f64, __m128d, __m128d, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
         // https://stackoverflow.com/a/3793950
+        #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
+        const MAX_INDEX: usize = u32::MAX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] {
@@ -276,7 +282,10 @@ mod avx512 {
             ])
         };
         // https://stackoverflow.com/a/3793950
+        #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
+        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
+        const MAX_INDEX: usize = u32::MAX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] {

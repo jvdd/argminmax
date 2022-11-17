@@ -96,8 +96,8 @@ jobs:
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v1
       
-      - name: Run benchmarks (release)
-        run: cargo bench --quiet --message-format=short  --features half | grep "time:"
+      - name: Run benchmarks
+        run: cargo bench --quiet --message-format=short  --all-features | grep "time:"
   
   Build:
     runs-on: ubuntu-latest
