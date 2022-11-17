@@ -22,7 +22,7 @@ mod avx2 {
         #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
         #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
-        const MAX_INDEX: usize = u32::MAX;
+        const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256d) -> [f64; LANE_SIZE] {
@@ -158,7 +158,7 @@ mod sse {
         #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
         #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
-        const MAX_INDEX: usize = u32::MAX;
+        const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] {
@@ -285,7 +285,7 @@ mod avx512 {
         #[cfg(target_arch = "x86_64")]
         const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
         #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
-        const MAX_INDEX: usize = u32::MAX;
+        const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] {
