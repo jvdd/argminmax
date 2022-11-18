@@ -3,6 +3,8 @@ use crate::utils::{max_index_value, min_index_value};
 use ndarray::{s, ArrayView1};
 use num_traits::AsPrimitive;
 
+use crate::scalar::{SCALAR, ScalarArgMinMax};
+
 // TODO: other potential generic SIMDIndexDtype: Copy
 pub trait SIMD<
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
@@ -40,7 +42,8 @@ pub trait SIMD<
     unsafe fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
 
     #[inline(always)]
-    unsafe fn _argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize) {
+    unsafe fn _argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize) 
+    where SCALAR: ScalarArgMinMax<ScalarDType> {
         argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax)
     }
 

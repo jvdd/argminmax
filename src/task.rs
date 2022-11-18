@@ -1,4 +1,5 @@
-use crate::scalar::generic::scalar_argminmax; // TODO: dit in macro doorgeven
+// use crate::scalar::generic::scalar_argminmax; // TODO: dit in macro doorgeven
+use crate::scalar::{SCALAR, ScalarArgMinMax};
 
 use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;
@@ -8,11 +9,14 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: ArrayView1<T>,
     lane_size: usize,
     core_argminmax: unsafe fn(ArrayView1<T>) -> (usize, T, usize, T),
-) -> (usize, usize) {
+) -> (usize, usize)
+where
+    SCALAR: ScalarArgMinMax<T>,
+{
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
         (Some(sim), Some(rem)) => {
-            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
+            let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             let rem_result = (
                 rem_min_index + sim.len(),
                 rem[rem_min_index],
@@ -23,7 +27,7 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
             find_final_index_minmax(rem_result, sim_result)
         }
         (None, Some(rem)) => {
-            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
+            let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             (rem_min_index, rem_max_index)
         }
         (Some(sim), None) => {
@@ -41,10 +45,10 @@ fn split_array<T: Copy>(
 ) -> (Option<ArrayView1<T>>, Option<ArrayView1<T>>) {
     let n = arr.len();
 
-    if n < lane_size * 2 {
-        // TODO: check if this is the best threshold
-        return (None, Some(arr));
-    };
+    // if n < lane_size * 2 {
+    //     // TODO: check if this is the best threshold
+    //     return (None, Some(arr));
+    // };
 
     let (left_arr, right_arr) = arr.split_at(Axis(0), n - n % lane_size);
 
