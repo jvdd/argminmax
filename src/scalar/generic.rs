@@ -32,7 +32,7 @@ use ndarray::ArrayView1;
 //     high_index
 // }
 
-pub trait ScalarArgMinMaxArrayview1<ScalarDType: Copy + PartialOrd> {
+pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
     fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
 }
 
@@ -79,7 +79,7 @@ macro_rules! impl_scalar {
     ($func:ident, $($t:ty),*) =>
     {
         $(
-            impl ScalarArgMinMaxArrayview1<$t> for SCALAR {
+            impl ScalarArgMinMax<$t> for SCALAR {
                 // #[inline(always)]
                 fn argminmax(data: ArrayView1<$t>) -> (usize, usize) {
                     $func(data)
