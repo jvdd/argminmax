@@ -8,7 +8,7 @@ use argminmax::ArgMinMax;
 use criterion::{black_box, Criterion};
 use dev_utils::{config, utils};
 
-use argminmax::{ScalarArgMinMaxArrayview1, SCALAR};
+use argminmax::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use argminmax::{AVX2, AVX512, SIMD, SSE};
 

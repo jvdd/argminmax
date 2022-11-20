@@ -5,9 +5,13 @@
 
 🚀 The function is generic over the type of the array, so it can be used on an `ndarray::ArrayView1<T>` where `T` can be `f16`*, `f32`, `f64`, `i16`, `i32`, `i64`, `u16`, `u32`, `u64`.
 
-👀 Note that this implementation contains no if checks, ensuring that the runtime of the function is independent of the input data its order (best-case = worst-case = average-case).
+⚡ **Runtime CPU feature detection** is used to select the most efficient implementation for the current CPU. This means that the same binary can be used on different CPUs without recompilation. 
 
-*for `f16` you should enable the 'half' feature.
+👀 The SIMD implementation contains **no if checks**, ensuring that the runtime of the function is independent of the input data its order (best-case = worst-case = average-case).
+
+🪄 **Efficient support for f16 and uints**: through (bijective aka symmetric) bitwise operations, f16 (optional) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
+
+<small>*for `f16` you should enable the 'half' feature.</small>
 
 ## Installing
 
@@ -15,7 +19,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-argminmax = "0.1.1"
+argminmax = "0.2"
 ```
 
 ## Example usage
@@ -52,6 +56,10 @@ To run the tests use the following command:
 ```bash
 cargo test --message-format=short --features half
 ```
+
+## Limitations
+
+Does not support NaNs. *(infinites are probably not supported *for f16* either).*
 
 ---
 
