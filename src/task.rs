@@ -1,5 +1,5 @@
 // use crate::scalar::generic::scalar_argminmax; // TODO: dit in macro doorgeven
-use crate::scalar::{SCALAR, ScalarArgMinMax};
+use crate::scalar::{ScalarArgMinMax, SCALAR};
 
 use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;

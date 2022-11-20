@@ -10,7 +10,8 @@ pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
     assert_eq!(index.len(), values.len());
     let mut min_index: usize = 0;
     let mut min_value = values[min_index];
-    for (i, value) in values.iter().enumerate() { // No skip(1) here bc 5-7% slower
+    for (i, value) in values.iter().enumerate() {
+        // No skip(1) here bc 5-7% slower
         if *value < min_value {
             min_value = *value;
             min_index = i;
@@ -26,7 +27,8 @@ pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
     assert_eq!(index.len(), values.len());
     let mut max_index: usize = 0;
     let mut max_value = values[max_index];
-    for (i, value) in values.iter().enumerate() { // No skip(1) here bc 5-7% slower
+    for (i, value) in values.iter().enumerate() {
+        // No skip(1) here bc 5-7% slower
         if *value > max_value {
             max_value = *value;
             max_index = i;
