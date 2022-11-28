@@ -1,8 +1,12 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::utils::{max_index_value, min_index_value};
 use ndarray::ArrayView1;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use num_traits::AsPrimitive;
+#[cfg(target_arch = "aarch64")]
+use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
 use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
@@ -10,8 +14,10 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const XOR_VALUE: i16 = 0x7FFF;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn _i16decrord_to_u16(decrord_i16: i16) -> u16 {
     // let v = ord_i16 ^ 0x7FFF;
@@ -592,7 +598,7 @@ mod avx512 {
 
 // ---------------------------------------- NEON -----------------------------------------
 
-#[cfg(target_arch = "arm")]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
     use super::*;

@@ -128,7 +128,10 @@ macro_rules! impl_argminmax {
                     }
                     #[cfg(target_arch = "aarch64")]
                     {
-                        // TODO: support aarch64
+                        if std::arch::is_aarch64_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
+                            // We miss some NEON instructions for 64-bit numbers
+                            return unsafe { NEON::argminmax(self) }
+                        }
                     }
                     #[cfg(target_arch = "arm")]
                     {

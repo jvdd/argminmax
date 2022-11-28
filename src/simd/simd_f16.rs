@@ -6,6 +6,9 @@ use super::generic::SIMD;
 use ndarray::ArrayView1;
 
 #[cfg(feature = "half")]
+#[cfg(target_arch = "aarch64")]
+use std::arch::aarch64::*;
+#[cfg(feature = "half")]
 #[cfg(target_arch = "arm")]
 use std::arch::arm::*;
 #[cfg(feature = "half")]
@@ -607,7 +610,7 @@ mod avx512 {
 // ---------------------------------------- NEON -----------------------------------------
 
 #[cfg(feature = "half")]
-#[cfg(target_arch = "arm")]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
     use super::*;

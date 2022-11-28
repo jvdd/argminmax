@@ -59,7 +59,7 @@ cargo test --message-format=short --features half
 
 ## Limitations
 
-Does not support NaNs. *(infinites are probably not supported *for f16* either).*
+❗ Does not support NaNs.
 
 ---
 
