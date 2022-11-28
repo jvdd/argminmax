@@ -60,45 +60,6 @@ impl_random_long_u64    time:   [15.363 µs 15.371 µs 15.381 µs]
 
 ### Server: Intel Xeon E5-2650 v2 (32) @ 3.400GHz
 
-scalar_random_long_f16  time:   [211.66 µs 211.81 µs 211.99 µs]
-sse_random_long_f16     time:   [21.414 µs 21.439 µs 21.470 µs]
-impl_random_long_f16    time:   [21.425 µs 21.439 µs 21.456 µs]
-
-scalar_random_long_f32  time:   [121.08 µs 121.21 µs 121.38 µs]
-sse_random_long_f32     time:   [54.123 µs 54.136 µs 54.152 µs]
-avx_random_long_f32     time:   [27.494 µs 27.499 µs 27.504 µs]
-impl_random_long_f32    time:   [27.523 µs 27.534 µs 27.548 µs]
-
-scalar_random_long_f64  time:   [121.17 µs 121.61 µs 122.18 µs]
-sse_random_long_f64     time:   [112.14 µs 112.17 µs 112.20 µs]
-avx_random_long_f64     time:   [55.061 µs 55.090 µs 55.126 µs]
-impl_random_long_f64    time:   [55.043 µs 55.064 µs 55.095 µs]
-
-scalar_random_long_i16  time:   [181.34 µs 181.44 µs 181.56 µs]
-sse_random_long_i16     time:   [18.950 µs 18.961 µs 18.974 µs]
-impl_random_long_i16    time:   [18.964 µs 18.979 µs 18.997 µs]
-
-scalar_random_long_i32  time:   [181.34 µs 181.42 µs 181.51 µs]
-sse_random_long_i32     time:   [35.674 µs 35.686 µs 35.702 µs]
-impl_random_long_i32    time:   [35.697 µs 35.709 µs 35.724 µs]
-
-scalar_random_long_i64  time:   [181.40 µs 182.04 µs 182.85 µs]
-sse_random_long_i64     time:   [166.41 µs 166.52 µs 166.66 µs]
-impl_random_long_i64    time:   [166.53 µs 166.64 µs 166.79 µs]
-
-scalar_random_long_u16  time:   [182.02 µs 182.18 µs 182.38 µs]
-sse_random_long_u16     time:   [18.896 µs 18.904 µs 18.915 µs]
-impl_random_long_u16    time:   [18.902 µs 18.907 µs 18.913 µs]
-
-scalar_random_long_u32  time:   [188.12 µs 188.23 µs 188.36 µs]
-sse_random_long_u32     time:   [35.408 µs 35.429 µs 35.453 µs]
-impl_random_long_u32    time:   [35.422 µs 35.499 µs 35.598 µs]
-
-scalar_random_long_u64  time:   [185.09 µs 185.20 µs 185.32 µs]
-sse_random_long_u64     time:   [189.41 µs 189.55 µs 189.71 µs]
-impl_random_long_u64    time:   [189.39 µs 189.51 µs 189.65 µs]
-
-
 scalar_random_long_f16  time:   [124.96 µs 125.02 µs 125.10 µs]
 sse_random_long_f16     time:   [21.346 µs 21.367 µs 21.397 µs]
 impl_random_long_f16    time:   [21.361 µs 21.380 µs 21.402 µs]
@@ -144,7 +105,6 @@ impl_random_long_u64    time:   [136.01 µs 136.07 µs 136.14 µs]
 ## ARM
 
 ### Raspberry Pi 3B v1.2 (ARMv7 Processor rev 4 (v7l))
-
 
 scalar_random_long_f16  time:   [856.07 µs 856.20 µs 856.39 µs]
 neon_random_long_f16    time:   [550.08 µs 550.34 µs 550.65 µs]
@@ -192,7 +152,6 @@ Remarks:
 
 ### Raspberry Pi 4B v1.1 (AArch64 Processor rev 4 (aarch64))
 
-
 scalar_random_long_f16  time:   [343.87 µs 343.90 µs 343.95 µs]
 neon_random_long_f16    time:   [96.913 µs 96.927 µs 96.945 µs]
 impl_random_long_f16    time:   [96.939 µs 96.963 µs 96.992 µs]
@@ -225,6 +184,7 @@ impl_random_long_u32    time:   [106.50 µs 106.62 µs 106.76 µs]
 
 scalar_random_long_u64  time:   [270.92 µs 271.23 µs 271.52 µs]
 impl_random_long_u64    time:   [269.62 µs 269.88 µs 270.14 µs]
+
 
 Remarks:
 - f16 NEON is a lot slower than i16 en u16 NEON
