@@ -1,3 +1,4 @@
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
 use ndarray::ArrayView1;
@@ -400,7 +401,7 @@ mod avx512 {
 //   they there is no 64-bit variant (of any data type) for the following three
 //   intrinsics: vadd_, vcgt_, vclt_
 
-#[cfg(target_arch = "arm")]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
     use super::super::generic::unimplement_simd;

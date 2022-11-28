@@ -185,3 +185,49 @@ Remarks:
    => might be worth to try optimize i64 and u64 (through mapping the bit representation
    to some ordinal f64 value)
    !! Problems with such a mapping: floats have nans and infinities...
+
+---------------------------------------------------------------
+
+## AArch64
+
+### Raspberry Pi 4B v1.1 (AArch64 Processor rev 4 (aarch64))
+
+
+scalar_random_long_f16  time:   [343.87 µs 343.90 µs 343.95 µs]
+neon_random_long_f16    time:   [96.913 µs 96.927 µs 96.945 µs]
+impl_random_long_f16    time:   [96.939 µs 96.963 µs 96.992 µs]
+
+scalar_random_long_f32  time:   [209.96 µs 210.03 µs 210.10 µs]
+neon_random_long_f32    time:   [149.40 µs 149.60 µs 149.86 µs]
+impl_random_long_f32    time:   [149.68 µs 149.80 µs 149.93 µs]
+
+scalar_random_long_f64  time:   [241.56 µs 241.87 µs 242.18 µs]
+impl_random_long_f64    time:   [241.48 µs 241.78 µs 242.08 µs]
+
+scalar_random_long_i16  time:   [274.92 µs 274.94 µs 274.97 µs]
+neon_random_long_i16    time:   [55.036 µs 55.055 µs 55.084 µs]
+impl_random_long_i16    time:   [54.987 µs 54.993 µs 55.001 µs]
+
+scalar_random_long_i32  time:   [242.40 µs 242.45 µs 242.50 µs]
+neon_random_long_i32    time:   [106.25 µs 106.31 µs 106.39 µs]
+impl_random_long_i32    time:   [106.32 µs 106.37 µs 106.42 µs]
+
+scalar_random_long_i64  time:   [270.37 µs 270.61 µs 270.84 µs]
+impl_random_long_i64    time:   [270.45 µs 270.72 µs 271.00 µs]
+
+scalar_random_long_u16  time:   [274.93 µs 275.00 µs 275.08 µs]
+neon_random_long_u16    time:   [54.712 µs 54.724 µs 54.740 µs]
+impl_random_long_u16    time:   [54.679 µs 54.684 µs 54.690 µs]
+
+scalar_random_long_u32  time:   [242.49 µs 242.58 µs 242.70 µs]
+neon_random_long_u32    time:   [106.46 µs 106.52 µs 106.59 µs]
+impl_random_long_u32    time:   [106.50 µs 106.62 µs 106.76 µs]
+
+scalar_random_long_u64  time:   [270.92 µs 271.23 µs 271.52 µs]
+impl_random_long_u64    time:   [269.62 µs 269.88 µs 270.14 µs]
+
+Remarks:
+- f16 NEON is a lot slower than i16 en u16 NEON
+- f32 NEON is a lot slower than i32 en u32 NEON
+  => f32 naar i32 casten en dan i32 NEON gebruiken??
+!! TODO zeker nog eens naar code kijken voor float dtypes

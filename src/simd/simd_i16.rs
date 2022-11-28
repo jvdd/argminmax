@@ -1,6 +1,8 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
 use ndarray::ArrayView1;
+#[cfg(target_arch = "aarch64")]
+use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
 use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
@@ -452,7 +454,7 @@ mod avx512 {
 
 // ---------------------------------------- NEON -----------------------------------------
 
-#[cfg(target_arch = "arm")]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
     use super::*;

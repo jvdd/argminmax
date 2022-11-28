@@ -1,15 +1,20 @@
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::utils::{max_index_value, min_index_value};
 use ndarray::ArrayView1;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use num_traits::AsPrimitive;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const XOR_VALUE: i64 = 0x7FFFFFFFFFFFFFFF;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn _i64decrord_to_u64(ord_i64: i64) -> u64 {
     // let v = ord_i64 ^ 0x7FFFFFFFFFFFFFFF;
@@ -524,7 +529,7 @@ mod avx512 {
 //   they there is no 64-bit variant (of any data type) for the following three
 //   intrinsics: vadd_, vcgt_, vclt_
 
-#[cfg(target_arch = "arm")]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
     use super::super::generic::unimplement_simd;
