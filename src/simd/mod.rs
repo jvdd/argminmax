@@ -7,10 +7,10 @@ mod simd_f16;
 mod simd_f32;
 mod simd_f64;
 // SIGNED INT
-mod simd_i8;
 mod simd_i16;
 mod simd_i32;
 mod simd_i64;
+mod simd_i8;
 // UNSIGNED INT
 mod simd_u16;
 mod simd_u32;

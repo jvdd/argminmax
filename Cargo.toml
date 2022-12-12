@@ -35,6 +35,10 @@ name = "bench_f64"
 harness = false
 
 [[bench]]
+name = "bench_i8"
+harness = false
+
+[[bench]]
 name = "bench_i16"
 harness = false
 

@@ -22,9 +22,9 @@ mod avx2 {
     impl SIMD<i8, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
-                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8, 15i8,
-                16i8, 17i8, 18i8, 19i8, 20i8, 21i8, 22i8, 23i8, 24i8, 25i8, 26i8, 27i8, 28i8, 29i8, 30i8,
-                31i8
+                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
+                15i8, 16i8, 17i8, 18i8, 19i8, 20i8, 21i8, 22i8, 23i8, 24i8, 25i8, 26i8, 27i8, 28i8,
+                29i8, 30i8, 31i8,
             ])
         };
         const MAX_INDEX: usize = i8::MAX as usize;
@@ -109,17 +109,7 @@ mod avx2 {
                 return;
             }
 
-            let data = [
-                10,
-                std::i8::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i8::MAX,
-                4,
-                std::i8::MAX,
-            ];
+            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data = Array1::from(data);
 
@@ -154,7 +144,7 @@ mod avx2 {
             }
 
             for _ in 0..10_000 {
-                let data = get_array_i8(8*32 + 1);
+                let data = get_array_i8(8 * 32 + 1);
                 let (argmin_index, argmax_index) = scalar_argminmax(data.view());
                 let (argmin_simd_index, argmax_simd_index) =
                     unsafe { AVX2::argminmax(data.view()) };
@@ -177,7 +167,8 @@ mod sse {
     impl SIMD<i8, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe {
             std::mem::transmute([
-                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8, 15i8,
+                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
+                15i8,
             ])
         };
         const MAX_INDEX: usize = i8::MAX as usize;
@@ -254,17 +245,7 @@ mod sse {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::i8::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i8::MAX,
-                4,
-                std::i8::MAX,
-            ];
+            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data = Array1::from(data);
 
@@ -313,11 +294,11 @@ mod avx512 {
     impl SIMD<i8, __m512i, u64, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
-                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8, 15i8,
-                16i8, 17i8, 18i8, 19i8, 20i8, 21i8, 22i8, 23i8, 24i8, 25i8, 26i8, 27i8, 28i8, 29i8, 30i8,
-                31i8, 32i8, 33i8, 34i8, 35i8, 36i8, 37i8, 38i8, 39i8, 40i8, 41i8, 42i8, 43i8, 44i8, 45i8,
-                46i8, 47i8, 48i8, 49i8, 50i8, 51i8, 52i8, 53i8, 54i8, 55i8, 56i8, 57i8, 58i8, 59i8, 60i8,
-                61i8, 62i8, 63i8
+                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
+                15i8, 16i8, 17i8, 18i8, 19i8, 20i8, 21i8, 22i8, 23i8, 24i8, 25i8, 26i8, 27i8, 28i8,
+                29i8, 30i8, 31i8, 32i8, 33i8, 34i8, 35i8, 36i8, 37i8, 38i8, 39i8, 40i8, 41i8, 42i8,
+                43i8, 44i8, 45i8, 46i8, 47i8, 48i8, 49i8, 50i8, 51i8, 52i8, 53i8, 54i8, 55i8, 56i8,
+                57i8, 58i8, 59i8, 60i8, 61i8, 62i8, 63i8,
             ])
         };
         const MAX_INDEX: usize = i8::MAX as usize;
@@ -402,17 +383,7 @@ mod avx512 {
                 return;
             }
 
-            let data = [
-                10,
-                std::i8::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i8::MAX,
-                4,
-                std::i8::MAX,
-            ];
+            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data = Array1::from(data);
 
@@ -468,8 +439,12 @@ mod neon {
     const LANE_SIZE: usize = NEON::LANE_SIZE_16;
 
     impl SIMD<i8, int8x16_t, uint8x16_t, LANE_SIZE> for NEON {
-        const INITIAL_INDEX: int8x16_t =
-            unsafe { std::mem::transmute([0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8, 15i8]) };
+        const INITIAL_INDEX: int8x16_t = unsafe {
+            std::mem::transmute([
+                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
+                15i8,
+            ])
+        };
         const MAX_INDEX: usize = i8::MAX as usize;
 
         #[inline(always)]
@@ -545,17 +520,7 @@ mod neon {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::i8::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i8::MAX,
-                4,
-                std::i8::MAX,
-            ];
+            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data = Array1::from(data);
 
