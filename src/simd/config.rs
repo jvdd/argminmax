@@ -4,6 +4,7 @@ pub trait SIMDInstructionSet {
     const REGISTER_SIZE: usize;
 
     // Set the const lanesize for each datatype
+    const LANE_SIZE_8: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u8>() * 8);
     const LANE_SIZE_16: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u16>() * 8);
     const LANE_SIZE_32: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u32>() * 8);
     const LANE_SIZE_64: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u64>() * 8);
@@ -74,6 +75,14 @@ mod tests {
     }
 
     #[test]
+    fn test_lane_size_i8() {
+        assert_eq!(AVX2::get_lane_size::<i8>(), 32);
+        assert_eq!(AVX512::get_lane_size::<i8>(), 64);
+        assert_eq!(NEON::get_lane_size::<i8>(), 16);
+        assert_eq!(SSE::get_lane_size::<i8>(), 16);
+    }
+
+    #[test]
     fn test_lane_size_i16() {
         assert_eq!(AVX2::get_lane_size::<i16>(), 16);
         assert_eq!(AVX512::get_lane_size::<i16>(), 32);
@@ -95,5 +104,37 @@ mod tests {
         assert_eq!(AVX512::get_lane_size::<i64>(), 8);
         assert_eq!(NEON::get_lane_size::<i64>(), 2);
         assert_eq!(SSE::get_lane_size::<i64>(), 2);
+    }
+
+    #[test]
+    fn test_lane_size_u8() {
+        assert_eq!(AVX2::get_lane_size::<u8>(), 32);
+        assert_eq!(AVX512::get_lane_size::<u8>(), 64);
+        assert_eq!(NEON::get_lane_size::<u8>(), 16);
+        assert_eq!(SSE::get_lane_size::<u8>(), 16);
+    }
+
+    #[test]
+    fn test_lane_size_u16() {
+        assert_eq!(AVX2::get_lane_size::<u16>(), 16);
+        assert_eq!(AVX512::get_lane_size::<u16>(), 32);
+        assert_eq!(NEON::get_lane_size::<u16>(), 8);
+        assert_eq!(SSE::get_lane_size::<u16>(), 8);
+    }
+
+    #[test]
+    fn test_lane_size_u32() {
+        assert_eq!(AVX2::get_lane_size::<u32>(), 8);
+        assert_eq!(AVX512::get_lane_size::<u32>(), 16);
+        assert_eq!(NEON::get_lane_size::<u32>(), 4);
+        assert_eq!(SSE::get_lane_size::<u32>(), 4);
+    }
+
+    #[test]
+    fn test_lane_size_u64() {
+        assert_eq!(AVX2::get_lane_size::<u64>(), 4);
+        assert_eq!(AVX512::get_lane_size::<u64>(), 8);
+        assert_eq!(NEON::get_lane_size::<u64>(), 2);
+        assert_eq!(SSE::get_lane_size::<u64>(), 2);
     }
 }
