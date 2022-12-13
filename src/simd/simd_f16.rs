@@ -19,11 +19,7 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 #[cfg(feature = "half")]
-use crate::utils::{max_index_value, min_index_value};
-#[cfg(feature = "half")]
 use half::f16;
-#[cfg(feature = "half")]
-use num_traits::AsPrimitive;
 
 #[cfg(feature = "half")]
 const XOR_VALUE: i16 = 0x7FFF;

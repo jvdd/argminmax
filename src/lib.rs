@@ -152,9 +152,9 @@ macro_rules! impl_argminmax {
 }
 
 // Implement ArgMinMax for the rust primitive types
-impl_nb_bits!(false, i8 i16 i32 i64 u16 u32 u64);
+impl_nb_bits!(false, i8 i16 i32 i64 u8 u16 u32 u64);
 impl_nb_bits!(true, f32 f64);
-impl_argminmax!(i8, i16, i32, i64, f32, f64, u16, u32, u64);
+impl_argminmax!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
 
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]

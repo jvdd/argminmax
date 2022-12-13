@@ -1,6 +1,6 @@
 [package]
 name = "argminmax"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Jeroen Van Der Donckt"]
 edition = "2021"
 readme = "README.md"
@@ -48,6 +48,10 @@ harness = false
 
 [[bench]]
 name = "bench_i64"
+harness = false
+
+[[bench]]
+name = "bench_u8"
 harness = false
 
 [[bench]]
