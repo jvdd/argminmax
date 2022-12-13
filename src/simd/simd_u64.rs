@@ -1,11 +1,7 @@
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use crate::utils::{max_index_value, min_index_value};
 use ndarray::ArrayView1;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use num_traits::AsPrimitive;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -97,17 +93,13 @@ mod avx2 {
             index_high: __m256i,
             values_high: __m256i,
         ) -> (usize, u64, usize, u64) {
-            let index_low_arr = _reg_to_i64_arr(index_low);
-            let values_low_arr = _reg_to_i64_arr(values_low);
-            let index_high_arr = _reg_to_i64_arr(index_high);
-            let values_high_arr = _reg_to_i64_arr(values_high);
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-            // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
+            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
+            // Swap min and max here because we worked with i64ord in decreasing order (max => actual min, and vice versa)
             (
-                max_index.as_(),
+                max_index,
                 _i64decrord_to_u64(max_value),
-                min_index.as_(),
+                min_index,
                 _i64decrord_to_u64(min_value),
             )
         }
@@ -267,20 +259,15 @@ mod sse {
             index_high: __m128i,
             values_high: __m128i,
         ) -> (usize, u64, usize, u64) {
-            let index_low_arr = _reg_to_i64_arr(index_low);
-            let values_low_arr = _reg_to_i64_arr(values_low);
-            let index_high_arr = _reg_to_i64_arr(index_high);
-            let values_high_arr = _reg_to_i64_arr(values_high);
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-            // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
+            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
+            // Swap min and max here because we worked with i64ord in decreasing order (max => actual min, and vice versa)
             (
-                max_index.as_(),
+                max_index,
                 _i64decrord_to_u64(max_value),
-                min_index.as_(),
+                min_index,
                 _i64decrord_to_u64(min_value),
             )
-            // (min_index.as_(), _ord_i16_to_u16(min_value), max_index.as_(), _ord_i16_to_u16(max_value))
         }
     }
 
@@ -428,17 +415,13 @@ mod avx512 {
             index_high: __m512i,
             values_high: __m512i,
         ) -> (usize, u64, usize, u64) {
-            let index_low_arr = _reg_to_i64_arr(index_low);
-            let values_low_arr = _reg_to_i64_arr(values_low);
-            let index_high_arr = _reg_to_i64_arr(index_high);
-            let values_high_arr = _reg_to_i64_arr(values_high);
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-            // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
+            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
+            // Swap min and max here because we worked with i64ord in decreasing order (max => actual min, and vice versa)
             (
-                max_index.as_(),
+                max_index,
                 _i64decrord_to_u64(max_value),
-                min_index.as_(),
+                min_index,
                 _i64decrord_to_u64(min_value),
             )
         }

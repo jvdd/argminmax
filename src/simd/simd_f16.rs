@@ -19,11 +19,7 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 #[cfg(feature = "half")]
-use crate::utils::{max_index_value, min_index_value};
-#[cfg(feature = "half")]
 use half::f16;
-#[cfg(feature = "half")]
-use num_traits::AsPrimitive;
 
 #[cfg(feature = "half")]
 const XOR_VALUE: i16 = 0x7FFF;
@@ -136,16 +132,12 @@ mod avx2 {
             index_high: __m256i,
             values_high: __m256i,
         ) -> (usize, f16, usize, f16) {
-            let index_low_arr = _reg_to_i16_arr(index_low);
-            let values_low_arr = _reg_to_i16_arr(values_low);
-            let index_high_arr = _reg_to_i16_arr(index_high);
-            let values_high_arr = _reg_to_i16_arr(values_high);
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
             (
-                min_index.as_(),
+                min_index,
                 _ord_i16_to_f16(min_value),
-                max_index.as_(),
+                max_index,
                 _ord_i16_to_f16(max_value),
             )
         }
@@ -323,16 +315,12 @@ mod sse {
             index_high: __m128i,
             values_high: __m128i,
         ) -> (usize, f16, usize, f16) {
-            let index_low_arr = _reg_to_i16_arr(index_low);
-            let values_low_arr = _reg_to_i16_arr(values_low);
-            let index_high_arr = _reg_to_i16_arr(index_high);
-            let values_high_arr = _reg_to_i16_arr(values_high);
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
             (
-                min_index.as_(),
+                min_index,
                 _ord_i16_to_f16(min_value),
-                max_index.as_(),
+                max_index,
                 _ord_i16_to_f16(max_value),
             )
         }
@@ -498,16 +486,12 @@ mod avx512 {
             index_high: __m512i,
             values_high: __m512i,
         ) -> (usize, f16, usize, f16) {
-            let index_low_arr = _reg_to_i16_arr(index_low);
-            let values_low_arr = _reg_to_i16_arr(values_low);
-            let index_high_arr = _reg_to_i16_arr(index_high);
-            let values_high_arr = _reg_to_i16_arr(values_high);
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
             (
-                min_index.as_(),
+                min_index,
                 _ord_i16_to_f16(min_value),
-                max_index.as_(),
+                max_index,
                 _ord_i16_to_f16(max_value),
             )
         }
@@ -687,16 +671,12 @@ mod neon {
             index_high: int16x8_t,
             values_high: int16x8_t,
         ) -> (usize, f16, usize, f16) {
-            let index_low_arr = _reg_to_i16_arr(index_low);
-            let values_low_arr = _reg_to_i16_arr(values_low);
-            let index_high_arr = _reg_to_i16_arr(index_high);
-            let values_high_arr = _reg_to_i16_arr(values_high);
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
             (
-                min_index.as_(),
+                min_index,
                 _ord_i16_to_f16(min_value),
-                max_index.as_(),
+                max_index,
                 _ord_i16_to_f16(max_value),
             )
         }

@@ -107,8 +107,11 @@ macro_rules! impl_argminmax {
                 fn argminmax(self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("avx512bw") & (<$t>::NB_BITS <= 16) {
-                            // BW (ByteWord) instructions are needed for 16-bit avx512
+                        if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
+                            // 8-bit numbers are best handled by SSE4.1
+                            return unsafe { SSE::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx512bw") & (<$t>::NB_BITS <= 16) {
+                            // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                             return unsafe { AVX512::argminmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
                             return unsafe { AVX512::argminmax(self) }
@@ -149,9 +152,9 @@ macro_rules! impl_argminmax {
 }
 
 // Implement ArgMinMax for the rust primitive types
-impl_nb_bits!(false, u16 u32 u64 i16 i32 i64);
+impl_nb_bits!(false, i8 i16 i32 i64 u8 u16 u32 u64);
 impl_nb_bits!(true, f32 f64);
-impl_argminmax!(i16, i32, i64, f32, f64, u16, u32, u64);
+impl_argminmax!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
 
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
