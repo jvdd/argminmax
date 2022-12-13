@@ -29,9 +29,7 @@ pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
         .iter()
         .enumerate()
         .fold((index[0], values[0]), |(min_idx, min), (idx, item)| {
-            if *item < min {
-                (index[idx], *item)
-            } else if *item == min && index[idx] < min_idx {
+            if *item < min || (*item == min && index[idx] < min_idx) {
                 (index[idx], *item)
             } else {
                 (min_idx, min)
@@ -70,9 +68,7 @@ pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
         .iter()
         .enumerate()
         .fold((index[0], values[0]), |(max_idx, max), (idx, item)| {
-            if *item > max {
-                (index[idx], *item)
-            } else if *item == max && index[idx] < max_idx {
+            if *item > max || (*item == max && index[idx] < max_idx) {
                 (index[idx], *item)
             } else {
                 (max_idx, max)
