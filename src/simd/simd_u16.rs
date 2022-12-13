@@ -237,6 +237,8 @@ mod sse {
 
     #[inline(always)]
     unsafe fn _u16_to_i16decrord(u16: __m128i) -> __m128i {
+        // on a scalar: v^ 0x7F
+        // transforms to monotonically **decreasing** order
         _mm_xor_si128(u16, XOR_MASK)
     }
 

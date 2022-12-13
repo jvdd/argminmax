@@ -6,7 +6,7 @@ use num_traits::AsPrimitive;
 use crate::scalar::{ScalarArgMinMax, SCALAR};
 
 // TODO: other potential generic SIMDIndexDtype: Copy
-#[allow(clippy::missing_safety_doc)]  // TODO: add safety docs?
+#[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMD<
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
     SIMDVecDtype: Copy,

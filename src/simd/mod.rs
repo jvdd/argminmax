@@ -15,3 +15,4 @@ mod simd_i8;
 mod simd_u16;
 mod simd_u32;
 mod simd_u64;
+mod simd_u8;
