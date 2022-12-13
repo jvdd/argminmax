@@ -37,6 +37,36 @@ pub trait SIMD<
 
     unsafe fn _mm_blendv(a: SIMDVecDtype, b: SIMDVecDtype, mask: SIMDMaskDtype) -> SIMDVecDtype;
 
+    // #[inline(always)]
+    unsafe fn _horiz_min(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
+        // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
+        // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
+        // to avoid overflow.
+        // To tackle this bottleneck, we use a different approach for 8-bit data types:
+        // -> we overwrite this method to perform (in SIMD) the horizontal min
+        // Note: this is not a bottleneck for 16-bit data types, as the termination of
+        // the SIMD inner loop is 2**8 times less frequent.
+        let index_arr = Self::_reg_to_arr(index);
+        let value_arr = Self::_reg_to_arr(value);
+        let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
+        (min_index.as_(), min_value)
+    }
+
+    // #[inline(always)]
+    unsafe fn _horiz_max(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
+        // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
+        // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
+        // to avoid overflow.
+        // To tackle this bottleneck, we use a different approach for 8-bit data types:
+        // -> we overwrite this method to perform (in SIMD) the horizontal max
+        // Note: this is not a bottleneck for 16-bit data types, as the termination of
+        // the SIMD inner loop is 2**8 times less frequent.
+        let index_arr = Self::_reg_to_arr(index);
+        let value_arr = Self::_reg_to_arr(value);
+        let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
+        (max_index.as_(), max_value)
+    }
+
     // ------------------------------------ ARGMINMAX --------------------------------------
 
     unsafe fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
@@ -57,32 +87,43 @@ pub trait SIMD<
         let dtype_max = Self::_find_largest_lower_multiple_of_lane_size(Self::MAX_INDEX);
 
         // 1. Determine the number of loops needed
-        let n_loops = arr.len().div_ceil(dtype_max);
-
-        // 2. Peform overflow-safe _core_argminmax
-        let (mut min_index, mut min_value, mut max_index, mut max_value) = (0, arr[0], 0, arr[0]);
-        for i in 0..n_loops {
-            let start = i * dtype_max;
-            // Unbranch the min using the loop iterator
-            let end = start
-                + (i == n_loops - 1) as usize * (arr.len() - start)
-                + (i != n_loops - 1) as usize * dtype_max;
-            // Perform overflow-safe _core_argminmax
+        let n_loops = arr.len() / dtype_max;
+        // 2. Perform overflow-safe _core_argminmax
+        let (mut min_index, mut min_value, mut max_index, mut max_value) =
+            arr.exact_chunks(dtype_max).into_iter().enumerate().fold(
+                (0, arr[0], 0, arr[0]),
+                |(min_index, min_value, max_index, max_value), (i, chunk)| {
+                    let (min_index_, min_value_, max_index_, max_value_) =
+                        Self::_core_argminmax(chunk);
+                    let start = i * dtype_max;
+                    let cmp1 = min_value_ < min_value;
+                    let cmp2 = max_value_ > max_value;
+                    (
+                        if cmp1 { min_index_ + start } else { min_index },
+                        if cmp1 { min_value_ } else { min_value },
+                        if cmp2 { max_index_ + start } else { max_index },
+                        if cmp2 { max_value_ } else { max_value },
+                    )
+                },
+            );
+        // 3. Handle the remainder
+        if n_loops * dtype_max < arr.len() {
             let (min_index_, min_value_, max_index_, max_value_) =
-                Self::_core_argminmax(arr.slice(s![start..end]));
-            // Update the min and max values
+                Self::_core_argminmax(arr.slice(s![n_loops * dtype_max..arr.len()]));
             if min_value_ < min_value {
-                min_index = min_index_ + start;
+                min_index = min_index_ + n_loops * dtype_max;
                 min_value = min_value_;
             }
             if max_value_ > max_value {
-                max_index = max_index_ + start;
+                max_index = max_index_ + n_loops * dtype_max;
                 max_value = max_value_;
             }
         }
+
         (min_index, min_value, max_index, max_value)
     }
 
+    // TODO: remove this
     #[inline(always)]
     unsafe fn _get_min_max_index_value(
         index_low: SIMDVecDtype,
@@ -90,13 +131,18 @@ pub trait SIMD<
         index_high: SIMDVecDtype,
         values_high: SIMDVecDtype,
     ) -> (usize, ScalarDType, usize, ScalarDType) {
-        let values_low_arr = Self::_reg_to_arr(values_low);
-        let index_low_arr = Self::_reg_to_arr(index_low);
-        let values_high_arr = Self::_reg_to_arr(values_high);
-        let index_high_arr = Self::_reg_to_arr(index_high);
-        let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-        let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-        (min_index.as_(), min_value, max_index.as_(), max_value)
+        // let values_low_arr = Self::_reg_to_arr(values_low);
+        // let index_low_arr = Self::_reg_to_arr(index_low);
+        // let values_high_arr = Self::_reg_to_arr(values_high);
+        // let index_high_arr = Self::_reg_to_arr(index_high);
+        // (0, values_low_arr[0], 0, values_high_arr[0])
+        // (index_low_arr[0].as_(), values_low_arr[0], index_high_arr[0].as_(), values_high_arr[0])
+        // let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
+        // let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+        // (min_index.as_(), min_value, max_index.as_(), max_value)
+        let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+        let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
+        (min_index, min_value, max_index, max_value)
     }
 
     #[inline(always)]
@@ -133,8 +179,11 @@ pub trait SIMD<
                 values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
             });
 
-        // (min_value, min_index, max_value, max_index)
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
+        // TODO: implement this as below and remove _get_min_max_index_value
+        // let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
+        // let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
+        // (min_index, min_value, max_index, max_value)
     }
 }
 
