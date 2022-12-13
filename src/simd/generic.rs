@@ -6,6 +6,7 @@ use num_traits::AsPrimitive;
 use crate::scalar::{ScalarArgMinMax, SCALAR};
 
 // TODO: other potential generic SIMDIndexDtype: Copy
+#[allow(clippy::missing_safety_doc)]  // TODO: add safety docs?
 pub trait SIMD<
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
@@ -37,7 +38,7 @@ pub trait SIMD<
 
     unsafe fn _mm_blendv(a: SIMDVecDtype, b: SIMDVecDtype, mask: SIMDMaskDtype) -> SIMDVecDtype;
 
-    // #[inline(always)]
+    #[inline(always)]
     unsafe fn _horiz_min(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
         // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
         // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
@@ -53,7 +54,7 @@ pub trait SIMD<
         (min_index.as_(), min_value)
     }
 
-    // #[inline(always)]
+    #[inline(always)]
     unsafe fn _horiz_max(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
         // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
         // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
@@ -125,7 +126,7 @@ pub trait SIMD<
         (min_index, min_value, max_index, max_value)
     }
 
-    // TODO: remove this
+    // TODO: can be cleaner (perhaps?)
     #[inline(always)]
     unsafe fn _get_min_max_index_value(
         index_low: SIMDVecDtype,
@@ -133,15 +134,6 @@ pub trait SIMD<
         index_high: SIMDVecDtype,
         values_high: SIMDVecDtype,
     ) -> (usize, ScalarDType, usize, ScalarDType) {
-        // let values_low_arr = Self::_reg_to_arr(values_low);
-        // let index_low_arr = Self::_reg_to_arr(index_low);
-        // let values_high_arr = Self::_reg_to_arr(values_high);
-        // let index_high_arr = Self::_reg_to_arr(index_high);
-        // (0, values_low_arr[0], 0, values_high_arr[0])
-        // (index_low_arr[0].as_(), values_low_arr[0], index_high_arr[0].as_(), values_high_arr[0])
-        // let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-        // let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-        // (min_index.as_(), min_value, max_index.as_(), max_value)
         let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
         let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
         (min_index, min_value, max_index, max_value)
@@ -182,10 +174,6 @@ pub trait SIMD<
             });
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
-        // TODO: implement this as below and remove _get_min_max_index_value
-        // let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
-        // let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
-        // (min_index, min_value, max_index, max_value)
     }
 }
 
