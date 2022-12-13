@@ -44,6 +44,7 @@ pub trait SIMD<
         // to avoid overflow.
         // To tackle this bottleneck, we use a different approach for 8-bit data types:
         // -> we overwrite this method to perform (in SIMD) the horizontal min
+        //    see: https://stackoverflow.com/a/9798369
         // Note: this is not a bottleneck for 16-bit data types, as the termination of
         // the SIMD inner loop is 2**8 times less frequent.
         let index_arr = Self::_reg_to_arr(index);
@@ -59,6 +60,7 @@ pub trait SIMD<
         // to avoid overflow.
         // To tackle this bottleneck, we use a different approach for 8-bit data types:
         // -> we overwrite this method to perform (in SIMD) the horizontal max
+        //    see: https://stackoverflow.com/a/9798369
         // Note: this is not a bottleneck for 16-bit data types, as the termination of
         // the SIMD inner loop is 2**8 times less frequent.
         let index_arr = Self::_reg_to_arr(index);

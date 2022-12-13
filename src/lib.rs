@@ -107,8 +107,11 @@ macro_rules! impl_argminmax {
                 fn argminmax(self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("avx512bw") & (<$t>::NB_BITS <= 16) {
-                            // BW (ByteWord) instructions are needed for 16-bit avx512
+                        if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
+                            // 8-bit numbers are best handled by SSE4.1
+                            return unsafe { SSE::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx512bw") & (<$t>::NB_BITS <= 16) {
+                            // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                             return unsafe { AVX512::argminmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
                             return unsafe { AVX512::argminmax(self) }
