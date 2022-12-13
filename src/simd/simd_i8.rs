@@ -329,7 +329,7 @@ mod sse {
                 mask,
             );
             // 3. Find the minimum index
-            let mut imin = search_index;
+            let mut imin: __m128i = search_index;
             imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 8));
             imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 4));
             imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 2));
@@ -628,7 +628,7 @@ mod neon {
     use super::super::config::NEON;
     use super::*;
 
-    const LANE_SIZE: usize = NEON::LANE_SIZE_16;
+    const LANE_SIZE: usize = NEON::LANE_SIZE_8;
 
     impl SIMD<i8, int8x16_t, uint8x16_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: int8x16_t = unsafe {
@@ -680,6 +680,66 @@ mod neon {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: ArrayView1<i8>) -> (usize, usize) {
             Self::_argminmax(data)
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_min(index: int8x16_t, value: int8x16_t) -> (usize, i8) {
+            // 0. Find the minimum value
+            let mut vmin: int8x16_t = value;
+            vmin = vminq_s8(vmin, vextq_s8(vmin, vmin, 8));
+            vmin = vminq_s8(vmin, vextq_s8(vmin, vmin, 4));
+            vmin = vminq_s8(vmin, vextq_s8(vmin, vmin, 2));
+            vmin = vminq_s8(vmin, vextq_s8(vmin, vmin, 1));
+            let min_value: i8 = vgetq_lane_s8(vmin, 0);
+
+            // Extract the index of the minimum value
+            // 1. Create a mask with the index of the minimum value
+            let mask = vceqq_s8(value, vmin);
+            // 2. Blend the mask with the index
+            let search_index = vbslq_s8(
+                mask,
+                index,               // if mask is 1, use index
+                vdupq_n_s8(i8::MAX), // if mask is 0, use i8::MAX
+            );
+            // 3. Find the minimum index
+            let mut imin: int8x16_t = search_index;
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 8));
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 4));
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 2));
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 1));
+            let min_index: usize = vgetq_lane_s8(imin, 0) as usize;
+
+            (min_index, min_value)
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: int8x16_t, value: int8x16_t) -> (usize, i8) {
+            // 0. Find the maximum value
+            let mut vmax: int8x16_t = value;
+            vmax = vmaxq_s8(vmax, vextq_s8(vmax, vmax, 8));
+            vmax = vmaxq_s8(vmax, vextq_s8(vmax, vmax, 4));
+            vmax = vmaxq_s8(vmax, vextq_s8(vmax, vmax, 2));
+            vmax = vmaxq_s8(vmax, vextq_s8(vmax, vmax, 1));
+            let max_value: i8 = vgetq_lane_s8(vmax, 0);
+
+            // Extract the index of the maximum value
+            // 1. Create a mask with the index of the maximum value
+            let mask = vceqq_s8(value, vmax);
+            // 2. Blend the mask with the index
+            let search_index = vbslq_s8(
+                mask,
+                index,               // if mask is 1, use index
+                vdupq_n_s8(i8::MAX), // if mask is 0, use i8::MAX
+            );
+            // 3. Find the maximum index
+            let mut imin: int8x16_t = search_index;
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 8));
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 4));
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 2));
+            imin = vminq_s8(imin, vextq_s8(imin, imin, 1));
+            let max_index: usize = vgetq_lane_s8(imin, 0) as usize;
+
+            (max_index, max_value)
         }
     }
 
