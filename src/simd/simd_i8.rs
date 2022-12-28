@@ -772,7 +772,7 @@ mod neon {
                 vdupq_n_u8(u8::MAX), // if mask is 0, use u8::MAX
             );
             // 3. Find the maximum index
-            let mut imin: int8x16_t = search_index;
+            let mut imin: uint8x16_t = search_index;
             imin = vminq_u8(imin, vextq_u8(imin, imin, 8));
             imin = vminq_u8(imin, vextq_u8(imin, imin, 4));
             imin = vminq_u8(imin, vextq_u8(imin, imin, 2));

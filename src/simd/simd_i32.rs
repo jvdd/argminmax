@@ -442,7 +442,7 @@ mod neon {
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
 
     impl SIMD<i32, int32x4_t, u32, uint32x4_t, uint32x4_t, LANE_SIZE> for NEON {
-        const INITIAL_INDEX: int32x4_t = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
+        const INITIAL_INDEX: uint32x4_t = unsafe { std::mem::transmute([0u32, 1u32, 2u32, 3u32]) };
         const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
