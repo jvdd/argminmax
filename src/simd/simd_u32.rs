@@ -54,7 +54,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _reg_to_arr_indices(reg: __m256i) -> [i32; LANE_SIZE] {
+        unsafe fn _reg_to_arr_indices(_: __m256i) -> [i32; LANE_SIZE] {
             // Not used because we work with i32ord and override _get_min_index_value and _get_max_index_value
             unimplemented!()
         }
@@ -231,7 +231,7 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _reg_to_arr_indices(reg: __m128i) -> [i32; LANE_SIZE] {
+        unsafe fn _reg_to_arr_indices(_: __m128i) -> [i32; LANE_SIZE] {
             // Not used because we work with i32ord and override _get_min_index_value and _get_max_index_value
             unimplemented!()
         }
@@ -402,7 +402,7 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _reg_to_arr_indices(reg: __m512i) -> [i32; LANE_SIZE] {
+        unsafe fn _reg_to_arr_indices(_: __m512i) -> [i32; LANE_SIZE] {
             unimplemented!("We work with decrordu32 and override _get_min_index_value and _get_max_index_value")
         }
 

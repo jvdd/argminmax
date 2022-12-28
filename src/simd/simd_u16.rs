@@ -270,7 +270,7 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _reg_to_arr_indices(reg: __m128i) -> [i16; LANE_SIZE] {
+        unsafe fn _reg_to_arr_indices(_: __m128i) -> [i16; LANE_SIZE] {
             // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
             unimplemented!()
         }

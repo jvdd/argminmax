@@ -194,11 +194,15 @@ pub trait SIMD<
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 macro_rules! unimplement_simd {
     ($scalar_type:ty, $reg:ty, $simd_type:ident) => {
-        impl SIMD<$scalar_type, $reg, $reg, 0> for $simd_type {
+        impl SIMD<$scalar_type, $reg, $scalar_type, $reg, $reg, 0> for $simd_type {
             const INITIAL_INDEX: $reg = 0;
             const MAX_INDEX: usize = 0;
 
-            unsafe fn _reg_to_arr(_reg: $reg) -> [$scalar_type; 0] {
+            unsafe fn _reg_to_arr_values(_reg: $reg) -> [$scalar_type; 0] {
+                unimplemented!()
+            }
+
+            unsafe fn _reg_to_arr_indices(_reg: $reg) -> [$scalar_type; 0] {
                 unimplemented!()
             }
 
@@ -222,7 +226,11 @@ macro_rules! unimplement_simd {
                 unimplemented!()
             }
 
-            unsafe fn _mm_blendv(_a: $reg, _b: $reg, _mask: $reg) -> $reg {
+            unsafe fn _mm_blendv_values(_a: $reg, _b: $reg, _mask: $reg) -> $reg {
+                unimplemented!()
+            }
+
+            unsafe fn _mm_blendv_indices(_a: $reg, _b: $reg, _mask: $reg) -> $reg {
                 unimplemented!()
             }
 
