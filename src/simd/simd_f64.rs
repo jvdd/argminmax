@@ -67,7 +67,7 @@ mod avx2 {
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[target_feature(enable = "avx")]
+        #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: ArrayView1<f64>) -> (usize, usize) {
             Self::_argminmax(data)
         }
@@ -91,7 +91,7 @@ mod avx2 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -106,7 +106,7 @@ mod avx2 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -133,7 +133,7 @@ mod avx2 {
 
         #[test]
         fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
