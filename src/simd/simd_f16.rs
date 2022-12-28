@@ -648,8 +648,8 @@ mod neon {
     }
 
     impl SIMD<f16, int16x8_t, u16, uint16x8_t, uint16x8_t, LANE_SIZE> for NEON {
-        const INITIAL_INDEX: int16x8_t =
-            unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
+        const INITIAL_INDEX: uint16x8_t =
+            unsafe { std::mem::transmute([0u16, 1u16, 2u16, 3u16, 4u16, 5u16, 6u16, 7u16]) };
         const MAX_INDEX: usize = u16::MAX as usize;
 
         #[inline(always)]
@@ -710,9 +710,9 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _get_min_max_index_value(
-            index_low: int16x8_t,
+            index_low: uint16x8_t,
             values_low: int16x8_t,
-            index_high: int16x8_t,
+            index_high: uint16x8_t,
             values_high: int16x8_t,
         ) -> (usize, f16, usize, f16) {
             let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
