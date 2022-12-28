@@ -8,14 +8,16 @@ use crate::scalar::{ScalarArgMinMax, SCALAR};
 // TODO: other potential generic SIMDIndexDtype: Copy
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMD<
-    ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
-    SIMDVecDtype: Copy,
+    ValueDType: Copy + PartialOrd,
+    SIMDValueDtype: Copy,
+    IndexDtype: Copy + PartialOrd + AsPrimitive<usize>,
+    SIMDIndexDtype: Copy,
     SIMDMaskDtype: Copy,
     const LANE_SIZE: usize,
 >
 {
-    const INITIAL_INDEX: SIMDVecDtype;
-    const MAX_INDEX: usize; // Integers > this value **cannot** be accurately represented in SIMDVecDtype
+    const INITIAL_INDEX: SIMDIndexDtype;
+    const MAX_INDEX: usize; // Integers > this value **cannot** be accurately represented in SIMDIndexDtype
 
     #[inline(always)]
     fn _find_largest_lower_multiple_of_lane_size(n: usize) -> usize {
@@ -24,22 +26,34 @@ pub trait SIMD<
 
     // ------------------------------------ SIMD HELPERS --------------------------------------
 
-    unsafe fn _reg_to_arr(reg: SIMDVecDtype) -> [ScalarDType; LANE_SIZE];
+    unsafe fn _reg_to_arr_values(reg: SIMDValueDtype) -> [ValueDType; LANE_SIZE];
 
-    unsafe fn _mm_loadu(data: *const ScalarDType) -> SIMDVecDtype;
+    unsafe fn _reg_to_arr_indices(reg: SIMDIndexDtype) -> [IndexDtype; LANE_SIZE];
 
-    unsafe fn _mm_set1(a: usize) -> SIMDVecDtype;
+    unsafe fn _mm_loadu(data: *const ValueDType) -> SIMDValueDtype;
 
-    unsafe fn _mm_add(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype;
+    unsafe fn _mm_set1(a: usize) -> SIMDIndexDtype;
 
-    unsafe fn _mm_cmpgt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
+    unsafe fn _mm_add(a: SIMDIndexDtype, b: SIMDIndexDtype) -> SIMDIndexDtype;
 
-    unsafe fn _mm_cmplt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
+    unsafe fn _mm_cmpgt(a: SIMDValueDtype, b: SIMDValueDtype) -> SIMDMaskDtype;
 
-    unsafe fn _mm_blendv(a: SIMDVecDtype, b: SIMDVecDtype, mask: SIMDMaskDtype) -> SIMDVecDtype;
+    unsafe fn _mm_cmplt(a: SIMDValueDtype, b: SIMDValueDtype) -> SIMDMaskDtype;
+
+    unsafe fn _mm_blendv_values(
+        a: SIMDValueDtype,
+        b: SIMDValueDtype,
+        mask: SIMDMaskDtype,
+    ) -> SIMDValueDtype;
+
+    unsafe fn _mm_blendv_indices(
+        a: SIMDIndexDtype,
+        b: SIMDIndexDtype,
+        mask: SIMDMaskDtype,
+    ) -> SIMDIndexDtype;
 
     #[inline(always)]
-    unsafe fn _horiz_min(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
+    unsafe fn _horiz_min(index: SIMDIndexDtype, value: SIMDValueDtype) -> (usize, ValueDType) {
         // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
         // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
         // to avoid overflow.
@@ -48,14 +62,14 @@ pub trait SIMD<
         //    see: https://stackoverflow.com/a/9798369
         // Note: this is not a bottleneck for 16-bit data types, as the termination of
         // the SIMD inner loop is 2**8 times less frequent.
-        let index_arr = Self::_reg_to_arr(index);
-        let value_arr = Self::_reg_to_arr(value);
+        let index_arr = Self::_reg_to_arr_indices(index);
+        let value_arr = Self::_reg_to_arr_values(value);
         let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
         (min_index.as_(), min_value)
     }
 
     #[inline(always)]
-    unsafe fn _horiz_max(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
+    unsafe fn _horiz_max(index: SIMDIndexDtype, value: SIMDValueDtype) -> (usize, ValueDType) {
         // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
         // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
         // to avoid overflow.
@@ -64,28 +78,28 @@ pub trait SIMD<
         //    see: https://stackoverflow.com/a/9798369
         // Note: this is not a bottleneck for 16-bit data types, as the termination of
         // the SIMD inner loop is 2**8 times less frequent.
-        let index_arr = Self::_reg_to_arr(index);
-        let value_arr = Self::_reg_to_arr(value);
+        let index_arr = Self::_reg_to_arr_indices(index);
+        let value_arr = Self::_reg_to_arr_values(value);
         let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
         (max_index.as_(), max_value)
     }
 
     // ------------------------------------ ARGMINMAX --------------------------------------
 
-    unsafe fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
+    unsafe fn argminmax(data: ArrayView1<ValueDType>) -> (usize, usize);
 
     #[inline(always)]
-    unsafe fn _argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize)
+    unsafe fn _argminmax(data: ArrayView1<ValueDType>) -> (usize, usize)
     where
-        SCALAR: ScalarArgMinMax<ScalarDType>,
+        SCALAR: ScalarArgMinMax<ValueDType>,
     {
         argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax)
     }
 
     #[inline(always)]
     unsafe fn _overflow_safe_core_argminmax(
-        arr: ArrayView1<ScalarDType>,
-    ) -> (usize, ScalarDType, usize, ScalarDType) {
+        arr: ArrayView1<ValueDType>,
+    ) -> (usize, ValueDType, usize, ValueDType) {
         // 0. Get the max value of the data type - which needs to be divided by LANE_SIZE
         let dtype_max = Self::_find_largest_lower_multiple_of_lane_size(Self::MAX_INDEX);
 
@@ -129,11 +143,11 @@ pub trait SIMD<
     // TODO: can be cleaner (perhaps?)
     #[inline(always)]
     unsafe fn _get_min_max_index_value(
-        index_low: SIMDVecDtype,
-        values_low: SIMDVecDtype,
-        index_high: SIMDVecDtype,
-        values_high: SIMDVecDtype,
-    ) -> (usize, ScalarDType, usize, ScalarDType) {
+        index_low: SIMDIndexDtype,
+        values_low: SIMDValueDtype,
+        index_high: SIMDIndexDtype,
+        values_high: SIMDValueDtype,
+    ) -> (usize, ValueDType, usize, ValueDType) {
         let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
         let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
         (min_index, min_value, max_index, max_value)
@@ -141,8 +155,8 @@ pub trait SIMD<
 
     #[inline(always)]
     unsafe fn _core_argminmax(
-        arr: ArrayView1<ScalarDType>,
-    ) -> (usize, ScalarDType, usize, ScalarDType) {
+        arr: ArrayView1<ValueDType>,
+    ) -> (usize, ValueDType, usize, ValueDType) {
         assert_eq!(arr.len() % LANE_SIZE, 0);
         // Efficient calculation of argmin and argmax together
         let mut new_index = Self::INITIAL_INDEX;
@@ -166,11 +180,11 @@ pub trait SIMD<
                 let lt_mask = Self::_mm_cmplt(new_values, values_low);
                 let gt_mask = Self::_mm_cmpgt(new_values, values_high);
 
-                index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-                index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+                index_low = Self::_mm_blendv_indices(index_low, new_index, lt_mask);
+                index_high = Self::_mm_blendv_indices(index_high, new_index, gt_mask);
 
-                values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-                values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+                values_low = Self::_mm_blendv_values(values_low, new_values, lt_mask);
+                values_high = Self::_mm_blendv_values(values_high, new_values, gt_mask);
             });
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)

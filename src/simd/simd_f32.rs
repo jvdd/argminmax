@@ -19,18 +19,19 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_32;
 
-    impl SIMD<f32, __m256, __m256, LANE_SIZE> for AVX2 {
-        const INITIAL_INDEX: __m256 = unsafe {
-            std::mem::transmute([
-                0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32,
-            ])
-        };
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+    impl SIMD<f32, __m256, i32, __m256i, __m256, LANE_SIZE> for AVX2 {
+        const INITIAL_INDEX: __m256i =
+            unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32]) };
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m256) -> [f32; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m256) -> [f32; LANE_SIZE] {
             std::mem::transmute::<__m256, [f32; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m256i) -> [i32; LANE_SIZE] {
+            std::mem::transmute::<__m256i, [i32; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
@@ -39,13 +40,13 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256 {
-            _mm256_set1_ps(a as f32)
+        unsafe fn _mm_set1(a: usize) -> __m256i {
+            _mm256_set1_epi32(a as i32)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m256, b: __m256) -> __m256 {
-            _mm256_add_ps(a, b)
+        unsafe fn _mm_add(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_add_epi32(a, b)
         }
 
         #[inline(always)]
@@ -59,8 +60,13 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m256, b: __m256, mask: __m256) -> __m256 {
+        unsafe fn _mm_blendv_values(a: __m256, b: __m256, mask: __m256) -> __m256 {
             _mm256_blendv_ps(a, b, mask)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m256i, b: __m256i, mask: __m256) -> __m256i {
+            _mm256_blendv_epi8(a, b, _mm256_castps_si256(mask))
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
@@ -171,15 +177,18 @@ mod sse {
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_32;
 
-    impl SIMD<f32, __m128, __m128, LANE_SIZE> for SSE {
-        const INITIAL_INDEX: __m128 =
-            unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+    impl SIMD<f32, __m128, i32, __m128i, __m128, LANE_SIZE> for SSE {
+        const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m128) -> [f32; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m128) -> [f32; LANE_SIZE] {
             std::mem::transmute::<__m128, [f32; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m128i) -> [i32; LANE_SIZE] {
+            std::mem::transmute::<__m128i, [i32; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
@@ -188,13 +197,13 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128 {
-            _mm_set1_ps(a as f32)
+        unsafe fn _mm_set1(a: usize) -> __m128i {
+            _mm_set1_epi32(a as i32)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m128, b: __m128) -> __m128 {
-            _mm_add_ps(a, b)
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i {
+            _mm_add_epi32(a, b)
         }
 
         #[inline(always)]
@@ -208,8 +217,13 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128, b: __m128, mask: __m128) -> __m128 {
+        unsafe fn _mm_blendv_values(a: __m128, b: __m128, mask: __m128) -> __m128 {
             _mm_blendv_ps(a, b, mask)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m128i, b: __m128i, mask: __m128) -> __m128i {
+            _mm_blendv_epi8(a, b, _mm_castps_si128(mask))
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
@@ -303,19 +317,23 @@ mod avx512 {
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
 
-    impl SIMD<f32, __m512, u16, LANE_SIZE> for AVX512 {
-        const INITIAL_INDEX: __m512 = unsafe {
+    impl SIMD<f32, __m512, i32, __m512i, u16, LANE_SIZE> for AVX512 {
+        const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
-                0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32, 8.0f32, 9.0f32,
-                10.0f32, 11.0f32, 12.0f32, 13.0f32, 14.0f32, 15.0f32,
+                0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32, 8i32, 9i32, 10i32, 11i32, 12i32,
+                13i32, 14i32, 15i32,
             ])
         };
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m512) -> [f32; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m512) -> [f32; LANE_SIZE] {
             std::mem::transmute::<__m512, [f32; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m512i) -> [i32; LANE_SIZE] {
+            std::mem::transmute::<__m512i, [i32; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
@@ -324,13 +342,13 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512 {
-            _mm512_set1_ps(a as f32)
+        unsafe fn _mm_set1(a: usize) -> __m512i {
+            _mm512_set1_epi32(a as i32)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m512, b: __m512) -> __m512 {
-            _mm512_add_ps(a, b)
+        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_add_epi32(a, b)
         }
 
         #[inline(always)]
@@ -354,7 +372,7 @@ mod avx512 {
         // { _mm512_cmp_ps_mask(a, b, _CMP_LT_OQ) }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m512, b: __m512, mask: u16) -> __m512 {
+        unsafe fn _mm_blendv_values(a: __m512, b: __m512, mask: u16) -> __m512 {
             _mm512_mask_blend_ps(mask, a, b)
         }
         // unimplemented!("AVX512 blendv instructions for ps require a u16 mask.")
@@ -364,6 +382,11 @@ mod avx512 {
         // _mm512_mask_blend_ps(u16_mask, a, b)
         // _mm512_mask_mov_ps(a, _mm512_castps_si512(mask), b)
         // }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m512i, b: __m512i, mask: u16) -> __m512i {
+            _mm512_mask_blend_epi32(mask, a, b)
+        }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -473,16 +496,19 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
 
-    impl SIMD<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEON {
-        const INITIAL_INDEX: float32x4_t =
-            unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
+    impl SIMD<f32, float32x4_t, u32, uint32x4_t, uint32x4_t, LANE_SIZE> for NEON {
+        const INITIAL_INDEX: uint32x4_t = unsafe { std::mem::transmute([0u32, 1u32, 2u32, 3u32]) };
+        const MAX_INDEX: usize = u32::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: float32x4_t) -> [f32; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: float32x4_t) -> [f32; LANE_SIZE] {
             std::mem::transmute::<float32x4_t, [f32; LANE_SIZE]>(reg)
         }
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: uint32x4_t) -> [u32; LANE_SIZE] {
+            std::mem::transmute::<uint32x4_t, [u32; LANE_SIZE]>(reg)
+        }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
@@ -490,13 +516,13 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> float32x4_t {
-            vdupq_n_f32(a as f32)
+        unsafe fn _mm_set1(a: usize) -> uint32x4_t {
+            vdupq_n_u32(a as u32)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: float32x4_t, b: float32x4_t) -> float32x4_t {
-            vaddq_f32(a, b)
+        unsafe fn _mm_add(a: uint32x4_t, b: uint32x4_t) -> uint32x4_t {
+            vaddq_u32(a, b)
         }
 
         #[inline(always)]
@@ -510,8 +536,17 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: float32x4_t, b: float32x4_t, mask: uint32x4_t) -> float32x4_t {
+        unsafe fn _mm_blendv_values(
+            a: float32x4_t,
+            b: float32x4_t,
+            mask: uint32x4_t,
+        ) -> float32x4_t {
             vbslq_f32(mask, b, a)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: uint32x4_t, b: uint32x4_t, mask: uint32x4_t) -> uint32x4_t {
+            vbslq_u32(mask, b, a)
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
