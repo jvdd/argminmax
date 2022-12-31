@@ -114,8 +114,9 @@ pub trait SIMD<
         //     );
 
         let mut arr_ptr = arr.as_ptr();
-        let (mut min_index, mut min_value, mut max_index, mut max_value) =
-            (0..n_loops).fold((0, arr[0], 0, arr[0]), |(min_index, min_value, max_index, max_value), i| {
+        let (mut min_index, mut min_value, mut max_index, mut max_value) = (0..n_loops).fold(
+            (0, arr[0], 0, arr[0]),
+            |(min_index, min_value, max_index, max_value), i| {
                 let (min_index_, min_value_, max_index_, max_value_) =
                     Self::_core_argminmax(ArrayView1::from_shape_ptr((dtype_max,), arr_ptr)); // TODO: is this safe? ()
                 let start = i * dtype_max;
@@ -128,7 +129,8 @@ pub trait SIMD<
                     if cmp2 { max_index_ + start } else { max_index },
                     if cmp2 { max_value_ } else { max_value },
                 )
-            });
+            },
+        );
 
         // 3. Handle the remainder
         if n_loops * dtype_max < arr.len() {
@@ -198,7 +200,7 @@ pub trait SIMD<
 
         for _ in 1..arr.len() / LANE_SIZE {
             new_index = Self::_mm_add(new_index, increment);
-            arr_ptr = arr_ptr.add(LANE_SIZE);  // TODO: is this safe? (array should be aligned)
+            arr_ptr = arr_ptr.add(LANE_SIZE); // TODO: is this safe? (array should be aligned)
 
             let new_values = Self::_mm_loadu(arr_ptr);
 
