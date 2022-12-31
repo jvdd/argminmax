@@ -151,27 +151,45 @@ pub trait SIMD<
 
         let increment = Self::_mm_set1(LANE_SIZE);
 
-        let new_values = Self::_mm_loadu(arr.as_ptr());
+        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
+        let new_values = Self::_mm_loadu(arr_ptr);
         let mut values_low = new_values;
         let mut values_high = new_values;
 
-        arr.exact_chunks(LANE_SIZE)
-            .into_iter()
-            .skip(1)
-            .for_each(|step| {
-                new_index = Self::_mm_add(new_index, increment);
+        // This is 10% slower than the loop below
+        // arr.exact_chunks(LANE_SIZE)
+        //     .into_iter()
+        //     .skip(1)
+        //     .for_each(|step| {
+        //         new_index = Self::_mm_add(new_index, increment);
 
-                let new_values = Self::_mm_loadu(step.as_ptr());
+        //         let new_values = Self::_mm_loadu(step.as_ptr());
 
-                let lt_mask = Self::_mm_cmplt(new_values, values_low);
-                let gt_mask = Self::_mm_cmpgt(new_values, values_high);
+        //         let lt_mask = Self::_mm_cmplt(new_values, values_low);
+        //         let gt_mask = Self::_mm_cmpgt(new_values, values_high);
 
-                index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-                index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+        //         index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
+        //         index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
 
-                values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-                values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
-            });
+        //         values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
+        //         values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+        //     });
+
+        for _ in 1..arr.len() / LANE_SIZE {
+            new_index = Self::_mm_add(new_index, increment);
+            arr_ptr = arr_ptr.add(LANE_SIZE);
+
+            let new_values = Self::_mm_loadu(arr_ptr);
+
+            let lt_mask = Self::_mm_cmplt(new_values, values_low);
+            let gt_mask = Self::_mm_cmpgt(new_values, values_high);
+
+            index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
+            index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+
+            values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
+            values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+        }
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
     }
