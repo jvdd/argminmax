@@ -6,7 +6,7 @@ edition = "2021"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/jvdd/argminmax"
-description = "ArgMinMax (argmin & argmax in 1 function) with SIMD for f32, f64, i16, i32, i64"
+description = "ArgMinMax (argmin & argmax in 1 function) with SIMD for floats and integers"
 keywords = ["argminmax", "simd", "ndarray"]
 categories = ["algorithms", "mathematics", "science"]
 

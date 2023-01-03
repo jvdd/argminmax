@@ -79,14 +79,11 @@ pub trait SIMD<
             #[cfg(target_arch = "x86_64")]
             use std::arch::x86_64::_mm_prefetch;
 
-            _mm_prefetch(data as *const i8, 0); // 0=NTA
+            _mm_prefetch(data as *const i8, 1); // 0=NTA
         }
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(target_arch = "aarch64")]
         {
-            #[cfg(target_arch = "aarch64")]
             use std::arch::aarch64::_prefetch;
-            #[cfg(target_arch = "arm")]
-            use std::arch::arm::_prefetch;
 
             _prefetch(data as *const i8, 0, 0); // 0=READ, 0=NTA
         }
@@ -238,7 +235,9 @@ pub trait SIMD<
             index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
             index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
 
-            Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 5)); // Hint to the CPU to prefetch upcoming data
+            // TODO: 25 is a non-scientific number, but seems to work overall
+            //  => TODO: probably this should be in function of the data type
+            Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
         }
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
