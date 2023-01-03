@@ -328,6 +328,12 @@ mod sse {
             _mm_blendv_epi8(a, b, mask)
         }
 
+        #[inline(always)]
+        unsafe fn _mm_prefetch(_data: *const f16) {
+            // do nothing (no prefetch for SSE f16 -> seems to be slower)
+            // TODO: suspect this is slower bc of the as *const i8 cast
+        }
+
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "sse4.1")]

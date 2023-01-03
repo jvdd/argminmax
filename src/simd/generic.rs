@@ -70,6 +70,28 @@ pub trait SIMD<
         (max_index.as_(), max_value)
     }
 
+    #[inline(always)]
+    unsafe fn _mm_prefetch(data: *const ScalarDType) {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            #[cfg(target_arch = "x86")]
+            use std::arch::x86::_mm_prefetch;
+            #[cfg(target_arch = "x86_64")]
+            use std::arch::x86_64::_mm_prefetch;
+
+            _mm_prefetch(data as *const i8, 0); // 0=NTA
+        }
+        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        {
+            #[cfg(target_arch = "aarch64")]
+            use std::arch::aarch64::_prefetch;
+            #[cfg(target_arch = "arm")]
+            use std::arch::arm::_prefetch;
+
+            _prefetch(data as *const i8, 0, 0); // 0=READ, 0=NTA
+        }
+    }
+
     // ------------------------------------ ARGMINMAX --------------------------------------
 
     unsafe fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
@@ -200,6 +222,7 @@ pub trait SIMD<
         for _ in 1..arr.len() / LANE_SIZE {
             // Load the next chunk of data
             arr_ptr = arr_ptr.add(LANE_SIZE); // TODO: is this safe? (array should be aligned)
+            Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
             let new_values = Self::_mm_loadu(arr_ptr);
 
             let lt_mask = Self::_mm_cmplt(new_values, values_low);
@@ -214,6 +237,8 @@ pub trait SIMD<
             // Update the index if the new value is lower/higher
             index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
             index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+
+            Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 5)); // Hint to the CPU to prefetch upcoming data
         }
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
