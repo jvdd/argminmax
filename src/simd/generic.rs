@@ -235,7 +235,7 @@ pub trait SIMD<
             index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
             index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
 
-            // TODO: 25 is a non-scientific number, but seems to work overall
+            // 25 is a non-scientific number, but seems to work overall
             //  => TODO: probably this should be in function of the data type
             Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
         }
