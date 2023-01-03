@@ -687,6 +687,62 @@ mod neon {
         unsafe fn argminmax(data: ArrayView1<i16>) -> (usize, usize) {
             Self::_argminmax(data)
         }
+
+        #[inline(always)]
+        unsafe fn _horiz_min(index: int16x8_t, value: int16x8_t) -> (usize, i16) {
+            // 0. Find the minimum value
+            let mut vmin: int16x8_t = value;
+            vmin = vminq_s16(vmin, vextq_s16(vmin, vmin, 4));
+            vmin = vminq_s16(vmin, vextq_s16(vmin, vmin, 2));
+            vmin = vminq_s16(vmin, vextq_s16(vmin, vmin, 1));
+            let min_value: i16 = vgetq_lane_s16(vmin, 0);
+
+            // Extract the index of the minimum value
+            // 1. Create a mask with the index of the minimum value
+            let mask = vceqq_s16(value, vmin);
+            // 2. Blend the mask with the index
+            let search_index = vbslq_s16(
+                mask,
+                index,                 // if mask is 1, use index
+                vdupq_n_s16(i16::MAX), // if mask is 0, use i16::MAX
+            );
+            // 3. Find the minimum index
+            let mut imin: int16x8_t = search_index;
+            imin = vminq_s16(imin, vextq_s16(imin, imin, 4));
+            imin = vminq_s16(imin, vextq_s16(imin, imin, 2));
+            imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
+            let min_index: usize = vgetq_lane_s16(imin, 0) as usize;
+
+            (min_index, min_value)
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: int16x8_t, value: int16x8_t) -> (usize, i16) {
+            // 0. Find the maximum value
+            let mut vmax: int16x8_t = value;
+            vmax = vmaxq_s16(vmax, vextq_s16(vmax, vmax, 4));
+            vmax = vmaxq_s16(vmax, vextq_s16(vmax, vmax, 2));
+            vmax = vmaxq_s16(vmax, vextq_s16(vmax, vmax, 1));
+            let max_value: i16 = vgetq_lane_s16(vmax, 0);
+
+            // Extract the index of the maximum value
+            // 1. Create a mask with the index of the maximum value
+            let mask = vceqq_s16(value, vmax);
+            // 2. Blend the mask with the index
+            let search_index = vbslq_s16(
+                mask,
+                index,                 // if mask is 1, use index
+                vdupq_n_s16(i16::MAX), // if mask is 0, use i16::MAX
+            );
+            // 3. Find the maximum index
+            let mut imin: int16x8_t = search_index;
+            imin = vminq_s16(imin, vextq_s16(imin, imin, 4));
+            imin = vminq_s16(imin, vextq_s16(imin, imin, 2));
+            imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
+            let max_index: usize = vgetq_lane_s16(imin, 0) as usize;
+
+            (max_index, max_value)
+        }
     }
 
     // ------------------------------------ TESTS --------------------------------------
