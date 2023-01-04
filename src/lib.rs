@@ -138,7 +138,7 @@ macro_rules! impl_argminmax {
                     }
                     #[cfg(target_arch = "arm")]
                     {
-                        if std::arch::is_arm_feature_detected!("neon") & (<$t>::NB_BITS <= 32) {
+                        if std::arch::is_arm_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
                             // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::argminmax(self) }
