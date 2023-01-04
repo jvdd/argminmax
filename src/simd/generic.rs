@@ -137,7 +137,7 @@ pub trait SIMD<
             (0, arr[0], 0, arr[0]),
             |(min_index, min_value, max_index, max_value), i| {
                 let (min_index_, min_value_, max_index_, max_value_) =
-                    Self::_core_argminmax(ArrayView1::from_shape_ptr((dtype_max,), arr_ptr)); // TODO: is this safe? ()
+                    Self::_core_argminmax(ArrayView1::from_shape_ptr((dtype_max,), arr_ptr));
                 let start = i * dtype_max;
                 let cmp1 = min_value_ < min_value;
                 let cmp2 = max_value_ > max_value;
