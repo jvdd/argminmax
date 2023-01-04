@@ -328,7 +328,6 @@ mod sse {
             _mm_blendv_epi8(a, b, mask)
         }
 
-
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "sse4.1")]
