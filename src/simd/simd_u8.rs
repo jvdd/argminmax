@@ -30,10 +30,6 @@ mod avx2 {
     const LANE_SIZE: usize = AVX2::LANE_SIZE_8;
     const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
-    // TODO: add vs xor? (also for other unsigned dtypes)
-    // Fan van committen nr xor - maar denk dat implementatie nog cleaner kan
-    //  - comparison swappen => dan moeten we opt einde niet meer swappen?
-
     #[inline(always)]
     unsafe fn _u8_to_i8decrord(u8: __m256i) -> __m256i {
         // on a scalar: v^ 0x7F
