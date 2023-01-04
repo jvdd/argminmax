@@ -217,9 +217,11 @@ pub trait SIMD<
         //     });
 
         for _ in 1..arr.len() / LANE_SIZE {
+            // Increment the index
+            new_index = Self::_mm_add(new_index, increment);
             // Load the next chunk of data
-            arr_ptr = arr_ptr.add(LANE_SIZE); // TODO: is this safe? (array should be aligned)
-            Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
+            arr_ptr = arr_ptr.add(LANE_SIZE);
+            // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
             let new_values = Self::_mm_loadu(arr_ptr);
 
             let lt_mask = Self::_mm_cmplt(new_values, values_low);
@@ -229,15 +231,13 @@ pub trait SIMD<
             values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
             values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
 
-            // Increment the index
-            new_index = Self::_mm_add(new_index, increment);
             // Update the index if the new value is lower/higher
             index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
             index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
 
             // 25 is a non-scientific number, but seems to work overall
             //  => TODO: probably this should be in function of the data type
-            Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
+            // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
         }
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
