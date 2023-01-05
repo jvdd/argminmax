@@ -29,11 +29,6 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
     const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
-    // const ONES_MASK: __m256i = unsafe { std::mem::transmute([1i16; LANE_SIZE]) };
-
-    // TODO: add vs xor? (also for other unsigned dtypes)
-    // Fan van committen nr xor - maar denk dat implementatie nog cleaner kan
-    //  - comparison swappen => dan moeten we opt einde niet meer swappen?
 
     #[inline(always)]
     unsafe fn _u16_to_i16decrord(u16: __m256i) -> __m256i {
@@ -41,19 +36,6 @@ mod avx2 {
         // transforms to monotonically **decreasing** order
         _mm256_xor_si256(u16, XOR_MASK) // Only 1 operation
     }
-
-    // #[inline(always)]
-    // unsafe fn _u16_to_i16ord(u16: __m256i) -> __m256i {
-    //     // on a scalar: v + 0x8000
-    //     // transforms to monotonically **increasing** order
-    //     _mm256_add_epi16(_mm256_add_epi16(u16, XOR_MASK), ONES_MASK)
-    // }
-
-    // #[inline(always)]
-    // fn _ord_i16_to_u16(ord_i16: i16) -> u16 {
-    //     // let v = ord_i16 - 0x8000;
-    //     unsafe { std::mem::transmute::<i16, u16>(ord_i16.wrapping_add(0x7FFF).wrapping_add(1)) }
-    // }
 
     #[inline(always)]
     unsafe fn _reg_to_i16_arr(reg: __m256i) -> [i16; LANE_SIZE] {
@@ -84,7 +66,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u16) -> __m256i {
             _u16_to_i16decrord(_mm256_loadu_si256(data as *const __m256i))
-            // unsafe { _u16_to_i16ord(_mm256_loadu_si256(data as *const __m256i)) }
         }
 
         #[inline(always)]
@@ -125,6 +106,66 @@ mod avx2 {
         }
 
         #[inline(always)]
+        unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, u16) {
+            // 0. Find the minimum value
+            let mut vmin: __m256i = value;
+            vmin = _mm256_min_epi16(vmin, _mm256_permute2x128_si256(vmin, vmin, 1));
+            vmin = _mm256_min_epi16(vmin, _mm256_alignr_epi8(vmin, vmin, 8));
+            vmin = _mm256_min_epi16(vmin, _mm256_alignr_epi8(vmin, vmin, 4));
+            vmin = _mm256_min_epi16(vmin, _mm256_alignr_epi8(vmin, vmin, 2));
+            let min_value: i16 = _mm256_extract_epi16(vmin, 0) as i16;
+
+            // Extract the index of the minimum value
+            // 1. Create a mask with the index of the minimum value
+            let mask = _mm256_cmpeq_epi16(value, vmin);
+            // 2. Blend the mask with the index
+            let search_index = _mm256_blendv_epi8(
+                _mm256_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
+                index,                       // if mask is 1, use index
+                mask,
+            );
+            // 3. Find the minimum index
+            let mut imin: __m256i = search_index;
+            imin = _mm256_min_epi16(imin, _mm256_permute2x128_si256(imin, imin, 1));
+            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 8));
+            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 4));
+            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
+            let min_index: usize = _mm256_extract_epi16(imin, 0) as usize;
+
+            (min_index, _i16decrord_to_u16(min_value))
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, u16) {
+            // 0. Find the maximum value
+            let mut vmax: __m256i = value;
+            vmax = _mm256_max_epi16(vmax, _mm256_permute2x128_si256(vmax, vmax, 1));
+            vmax = _mm256_max_epi16(vmax, _mm256_alignr_epi8(vmax, vmax, 8));
+            vmax = _mm256_max_epi16(vmax, _mm256_alignr_epi8(vmax, vmax, 4));
+            vmax = _mm256_max_epi16(vmax, _mm256_alignr_epi8(vmax, vmax, 2));
+            let max_value: i16 = _mm256_extract_epi16(vmax, 0) as i16;
+
+            // Extract the index of the maximum value
+            // 1. Create a mask with the index of the maximum value
+            let mask = _mm256_cmpeq_epi16(value, vmax);
+            // 2. Blend the mask with the index
+            let search_index = _mm256_blendv_epi8(
+                _mm256_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
+                index,                       // if mask is 1, use index
+                mask,
+            );
+            // 3. Find the maximum index
+            let mut imin: __m256i = search_index;
+            imin = _mm256_min_epi16(imin, _mm256_permute2x128_si256(imin, imin, 1));
+            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 8));
+            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 4));
+            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
+            let max_index: usize = _mm256_extract_epi16(imin, 0) as usize;
+
+            (max_index, _i16decrord_to_u16(max_value))
+        }
+
+        #[inline(always)]
         unsafe fn _get_min_max_index_value(
             index_low: __m256i,
             values_low: __m256i,
@@ -134,12 +175,7 @@ mod avx2 {
             let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
             let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
             // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
-            (
-                max_index,
-                _i16decrord_to_u16(max_value),
-                min_index,
-                _i16decrord_to_u16(min_value),
-            )
+            (max_index, max_value, min_index, min_value)
         }
     }
 
@@ -318,6 +354,62 @@ mod sse {
         }
 
         #[inline(always)]
+        unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, u16) {
+            // 0. Find the minimum value
+            let mut vmin: __m128i = value;
+            vmin = _mm_min_epi16(vmin, _mm_alignr_epi8(vmin, vmin, 8));
+            vmin = _mm_min_epi16(vmin, _mm_alignr_epi8(vmin, vmin, 4));
+            vmin = _mm_min_epi16(vmin, _mm_alignr_epi8(vmin, vmin, 2));
+            let min_value: i16 = _mm_extract_epi16(vmin, 0) as i16;
+
+            // Extract the index of the minimum value
+            // 1. Create a mask with the index of the minimum value
+            let mask = _mm_cmpeq_epi16(value, vmin);
+            // 2. Blend the mask with the index
+            let search_index = _mm_blendv_epi8(
+                _mm_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
+                index,                    // if mask is 1, use index
+                mask,
+            );
+            // 3. Find the minimum index
+            let mut imin: __m128i = search_index;
+            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 8));
+            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 4));
+            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
+            let min_index: usize = _mm_extract_epi16(imin, 0) as usize;
+
+            (min_index, _i16decrord_to_u16(min_value))
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, u16) {
+            // 0. Find the maximum value
+            let mut vmax: __m128i = value;
+            vmax = _mm_max_epi16(vmax, _mm_alignr_epi8(vmax, vmax, 8));
+            vmax = _mm_max_epi16(vmax, _mm_alignr_epi8(vmax, vmax, 4));
+            vmax = _mm_max_epi16(vmax, _mm_alignr_epi8(vmax, vmax, 2));
+            let max_value: i16 = _mm_extract_epi16(vmax, 0) as i16;
+
+            // Extract the index of the maximum value
+            // 1. Create a mask with the index of the maximum value
+            let mask = _mm_cmpeq_epi16(value, vmax);
+            // 2. Blend the mask with the index
+            let search_index = _mm_blendv_epi8(
+                _mm_set1_epi16(i16::MAX), // if mask is 0, use i8::MAX
+                index,                    // if mask is 1, use index
+                mask,
+            );
+            // 3. Find the maximum index
+            let mut imin: __m128i = search_index;
+            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 8));
+            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 4));
+            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
+            let max_index: usize = _mm_extract_epi16(imin, 0) as usize;
+
+            (max_index, _i16decrord_to_u16(max_value))
+        }
+
+        #[inline(always)]
         unsafe fn _get_min_max_index_value(
             index_low: __m128i,
             values_low: __m128i,
@@ -327,12 +419,7 @@ mod sse {
             let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
             let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
             // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
-            (
-                max_index,
-                _i16decrord_to_u16(max_value),
-                min_index,
-                _i16decrord_to_u16(min_value),
-            )
+            (max_index, max_value, min_index, min_value)
         }
     }
 
@@ -500,6 +587,70 @@ mod avx512 {
         }
 
         #[inline(always)]
+        unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, u16) {
+            // 0. Find the minimum value
+            let mut vmin: __m512i = value;
+            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi32(vmin, vmin, 8));
+            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi32(vmin, vmin, 4));
+            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi8(vmin, vmin, 8));
+            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi8(vmin, vmin, 4));
+            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi8(vmin, vmin, 2));
+            let min_value: i16 = _mm_extract_epi16(_mm512_castsi512_si128(vmin), 0) as i16;
+
+            // Extract the index of the minimum value
+            // 1. Create a mask with the index of the minimum value
+            let mask = _mm512_cmpeq_epi16_mask(value, vmin);
+            // 2. Blend the mask with the index
+            let search_index = _mm512_mask_blend_epi16(
+                mask,
+                _mm512_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
+                index,                       // if mask is 1, use index
+            );
+            // 3. Find the minimum index
+            let mut imin: __m512i = search_index;
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 8));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 4));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 8));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 4));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
+            let min_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
+
+            (min_index, _i16decrord_to_u16(min_value))
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, u16) {
+            // 0. Find the maximum value
+            let mut vmax: __m512i = value;
+            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi32(vmax, vmax, 8));
+            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi32(vmax, vmax, 4));
+            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi8(vmax, vmax, 8));
+            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi8(vmax, vmax, 4));
+            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi8(vmax, vmax, 2));
+            let max_value: i16 = _mm_extract_epi16(_mm512_castsi512_si128(vmax), 0) as i16;
+
+            // Extract the index of the maximum value
+            // 1. Create a mask with the index of the maximum value
+            let mask = _mm512_cmpeq_epi16_mask(value, vmax);
+            // 2. Blend the mask with the index
+            let search_index = _mm512_mask_blend_epi16(
+                mask,
+                _mm512_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
+                index,                       // if mask is 1, use index
+            );
+            // 3. Find the maximum index
+            let mut imin: __m512i = search_index;
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 8));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 4));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 8));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 4));
+            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
+            let max_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
+
+            (max_index, _i16decrord_to_u16(max_value))
+        }
+
+        #[inline(always)]
         unsafe fn _get_min_max_index_value(
             index_low: __m512i,
             values_low: __m512i,
@@ -509,12 +660,7 @@ mod avx512 {
             let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
             let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
             // Swap min and max here because we worked with i16ord in decreasing order (max => actual min, and vice versa)
-            (
-                max_index,
-                _i16decrord_to_u16(max_value),
-                min_index,
-                _i16decrord_to_u16(min_value),
-            )
+            (max_index, max_value, min_index, min_value)
         }
     }
 
@@ -676,6 +822,62 @@ mod neon {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: ArrayView1<u16>) -> (usize, usize) {
             Self::_argminmax(data)
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_min(index: uint16x8_t, value: uint16x8_t) -> (usize, u16) {
+            // 0. Find the minimum value
+            let mut vmin: uint16x8_t = value;
+            vmin = vminq_u16(vmin, vextq_u16(vmin, vmin, 4));
+            vmin = vminq_u16(vmin, vextq_u16(vmin, vmin, 2));
+            vmin = vminq_u16(vmin, vextq_u16(vmin, vmin, 1));
+            let min_value: u16 = vgetq_lane_u16(vmin, 0);
+
+            // Extract the index of the minimum value
+            // 1. Create a mask with the index of the minimum value
+            let mask = vceqq_u16(value, vmin);
+            // 2. Blend the mask with the index
+            let search_index = vbslq_u16(
+                mask,
+                index,                 // if mask is 1, use index
+                vdupq_n_u16(u16::MAX), // if mask is 0, use u16::MAX
+            );
+            // 3. Find the minimum index
+            let mut imin: uint16x8_t = search_index;
+            imin = vminq_u16(imin, vextq_u16(imin, imin, 4));
+            imin = vminq_u16(imin, vextq_u16(imin, imin, 2));
+            imin = vminq_u16(imin, vextq_u16(imin, imin, 1));
+            let min_index: usize = vgetq_lane_u16(imin, 0) as usize;
+
+            (min_index, min_value)
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: uint16x8_t, value: uint16x8_t) -> (usize, u16) {
+            // 0. Find the maximum value
+            let mut vmax: uint16x8_t = value;
+            vmax = vmaxq_u16(vmax, vextq_u16(vmax, vmax, 4));
+            vmax = vmaxq_u16(vmax, vextq_u16(vmax, vmax, 2));
+            vmax = vmaxq_u16(vmax, vextq_u16(vmax, vmax, 1));
+            let max_value: u16 = vgetq_lane_u16(vmax, 0);
+
+            // Extract the index of the maximum value
+            // 1. Create a mask with the index of the maximum value
+            let mask = vceqq_u16(value, vmax);
+            // 2. Blend the mask with the index
+            let search_index = vbslq_u16(
+                mask,
+                index,                 // if mask is 1, use index
+                vdupq_n_u16(u16::MAX), // if mask is 0, use u16::MAX
+            );
+            // 3. Find the maximum index
+            let mut imin: uint16x8_t = search_index;
+            imin = vminq_u16(imin, vextq_u16(imin, imin, 4));
+            imin = vminq_u16(imin, vextq_u16(imin, imin, 2));
+            imin = vminq_u16(imin, vextq_u16(imin, imin, 1));
+            let max_index: usize = vgetq_lane_u16(imin, 0) as usize;
+
+            (max_index, max_value)
         }
     }
 
