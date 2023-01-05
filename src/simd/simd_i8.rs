@@ -19,7 +19,7 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_8;
 
-    impl SIMD<i8, __m256i, __m256i, LANE_SIZE> for AVX2 {
+    impl SIMD<i8, __m256i, i8, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -30,7 +30,12 @@ mod avx2 {
         const MAX_INDEX: usize = i8::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m256i) -> [i8; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m256i) -> [i8; LANE_SIZE] {
+            std::mem::transmute::<__m256i, [i8; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m256i) -> [i8; LANE_SIZE] {
             std::mem::transmute::<__m256i, [i8; LANE_SIZE]>(reg)
         }
 
@@ -60,7 +65,12 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
+        unsafe fn _mm_blendv_values(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
+            _mm256_blendv_epi8(a, b, mask)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
             _mm256_blendv_epi8(a, b, mask)
         }
 
@@ -228,7 +238,7 @@ mod sse {
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_8;
 
-    impl SIMD<i8, __m128i, __m128i, LANE_SIZE> for SSE {
+    impl SIMD<i8, __m128i, i8, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -238,7 +248,12 @@ mod sse {
         const MAX_INDEX: usize = i8::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m128i) -> [i8; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m128i) -> [i8; LANE_SIZE] {
+            std::mem::transmute::<__m128i, [i8; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m128i) -> [i8; LANE_SIZE] {
             std::mem::transmute::<__m128i, [i8; LANE_SIZE]>(reg)
         }
 
@@ -268,7 +283,12 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
+        unsafe fn _mm_blendv_values(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
+            _mm_blendv_epi8(a, b, mask)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
             _mm_blendv_epi8(a, b, mask)
         }
 
@@ -415,7 +435,7 @@ mod avx512 {
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_8;
 
-    impl SIMD<i8, __m512i, u64, LANE_SIZE> for AVX512 {
+    impl SIMD<i8, __m512i, i8, __m512i, u64, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -428,7 +448,12 @@ mod avx512 {
         const MAX_INDEX: usize = i8::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m512i) -> [i8; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m512i) -> [i8; LANE_SIZE] {
+            std::mem::transmute::<__m512i, [i8; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m512i) -> [i8; LANE_SIZE] {
             std::mem::transmute::<__m512i, [i8; LANE_SIZE]>(reg)
         }
 
@@ -458,7 +483,12 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u64) -> __m512i {
+        unsafe fn _mm_blendv_values(a: __m512i, b: __m512i, mask: u64) -> __m512i {
+            _mm512_mask_blend_epi8(mask, a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m512i, b: __m512i, mask: u64) -> __m512i {
             _mm512_mask_blend_epi8(mask, a, b)
         }
 
@@ -630,18 +660,23 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_8;
 
-    impl SIMD<i8, int8x16_t, uint8x16_t, LANE_SIZE> for NEON {
-        const INITIAL_INDEX: int8x16_t = unsafe {
+    impl SIMD<i8, int8x16_t, u8, uint8x16_t, uint8x16_t, LANE_SIZE> for NEON {
+        const INITIAL_INDEX: uint8x16_t = unsafe {
             std::mem::transmute([
-                0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
-                15i8,
+                0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8,
+                15u8,
             ])
         };
-        const MAX_INDEX: usize = i8::MAX as usize;
+        const MAX_INDEX: usize = u8::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: int8x16_t) -> [i8; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: int8x16_t) -> [i8; LANE_SIZE] {
             std::mem::transmute::<int8x16_t, [i8; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: uint8x16_t) -> [u8; LANE_SIZE] {
+            std::mem::transmute::<uint8x16_t, [u8; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
@@ -651,13 +686,13 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> int8x16_t {
-            vdupq_n_s8(a as i8)
+        unsafe fn _mm_set1(a: usize) -> uint8x16_t {
+            vdupq_n_u8(a as u8)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: int8x16_t, b: int8x16_t) -> int8x16_t {
-            vaddq_s8(a, b)
+        unsafe fn _mm_add(a: uint8x16_t, b: uint8x16_t) -> uint8x16_t {
+            vaddq_u8(a, b)
         }
 
         #[inline(always)]
@@ -671,8 +706,13 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: int8x16_t, b: int8x16_t, mask: uint8x16_t) -> int8x16_t {
+        unsafe fn _mm_blendv_values(a: int8x16_t, b: int8x16_t, mask: uint8x16_t) -> int8x16_t {
             vbslq_s8(mask, b, a)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: uint8x16_t, b: uint8x16_t, mask: uint8x16_t) -> uint8x16_t {
+            vbslq_u8(mask, b, a)
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
@@ -683,7 +723,7 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _horiz_min(index: int8x16_t, value: int8x16_t) -> (usize, i8) {
+        unsafe fn _horiz_min(index: uint8x16_t, value: int8x16_t) -> (usize, i8) {
             // 0. Find the minimum value
             let mut vmin: int8x16_t = value;
             vmin = vminq_s8(vmin, vextq_s8(vmin, vmin, 8));
@@ -696,24 +736,24 @@ mod neon {
             // 1. Create a mask with the index of the minimum value
             let mask = vceqq_s8(value, vmin);
             // 2. Blend the mask with the index
-            let search_index = vbslq_s8(
+            let search_index = vbslq_u8(
                 mask,
                 index,               // if mask is 1, use index
-                vdupq_n_s8(i8::MAX), // if mask is 0, use i8::MAX
+                vdupq_n_u8(u8::MAX), // if mask is 0, use u8::MAX
             );
             // 3. Find the minimum index
-            let mut imin: int8x16_t = search_index;
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 8));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 4));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 2));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 1));
-            let min_index: usize = vgetq_lane_s8(imin, 0) as usize;
+            let mut imin: uint8x16_t = search_index;
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 8));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 4));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 2));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 1));
+            let min_index: usize = vgetq_lane_u8(imin, 0) as usize;
 
             (min_index, min_value)
         }
 
         #[inline(always)]
-        unsafe fn _horiz_max(index: int8x16_t, value: int8x16_t) -> (usize, i8) {
+        unsafe fn _horiz_max(index: uint8x16_t, value: int8x16_t) -> (usize, i8) {
             // 0. Find the maximum value
             let mut vmax: int8x16_t = value;
             vmax = vmaxq_s8(vmax, vextq_s8(vmax, vmax, 8));
@@ -726,18 +766,18 @@ mod neon {
             // 1. Create a mask with the index of the maximum value
             let mask = vceqq_s8(value, vmax);
             // 2. Blend the mask with the index
-            let search_index = vbslq_s8(
+            let search_index = vbslq_u8(
                 mask,
                 index,               // if mask is 1, use index
-                vdupq_n_s8(i8::MAX), // if mask is 0, use i8::MAX
+                vdupq_n_u8(u8::MAX), // if mask is 0, use u8::MAX
             );
             // 3. Find the maximum index
-            let mut imin: int8x16_t = search_index;
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 8));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 4));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 2));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 1));
-            let max_index: usize = vgetq_lane_s8(imin, 0) as usize;
+            let mut imin: uint8x16_t = search_index;
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 8));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 4));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 2));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 1));
+            let max_index: usize = vgetq_lane_u8(imin, 0) as usize;
 
             (max_index, max_value)
         }

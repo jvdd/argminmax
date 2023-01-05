@@ -117,9 +117,6 @@ macro_rules! impl_argminmax {
                             return unsafe { AVX512::argminmax(self) }
                         } else if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx")  & (<$t>::NB_BITS >= 32) & (<$t>::IS_FLOAT == true) {
-                            // f32 and f64 do not require avx2
-                            return unsafe { AVX2::argminmax(self) }
                         // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
                         // // } else if is_x86_feature_detected!("sse4.2") & (<$t>::NB_BITS == 64) & (<$t>::IS_FLOAT == false) {
                         //     // SSE4.2 is needed for comparing 64-bit integers

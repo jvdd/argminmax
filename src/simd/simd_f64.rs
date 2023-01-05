@@ -16,18 +16,18 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
 
-    impl SIMD<f64, __m256d, __m256d, LANE_SIZE> for AVX2 {
-        const INITIAL_INDEX: __m256d =
-            unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64]) };
-        // https://stackoverflow.com/a/3793950
-        #[cfg(target_arch = "x86_64")]
-        const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
-        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
-        const MAX_INDEX: usize = u32::MAX as usize;
+    impl SIMD<f64, __m256d, i64, __m256i, __m256d, LANE_SIZE> for AVX2 {
+        const INITIAL_INDEX: __m256i = unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64]) };
+        const MAX_INDEX: usize = i64::MAX as usize; // TODO overflow on x86?
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m256d) -> [f64; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m256d) -> [f64; LANE_SIZE] {
             std::mem::transmute::<__m256d, [f64; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m256i) -> [i64; LANE_SIZE] {
+            std::mem::transmute::<__m256i, [i64; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
@@ -36,13 +36,13 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256d {
-            _mm256_set1_pd(a as f64)
+        unsafe fn _mm_set1(a: usize) -> __m256i {
+            _mm256_set1_epi64x(a as i64)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m256d, b: __m256d) -> __m256d {
-            _mm256_add_pd(a, b)
+        unsafe fn _mm_add(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_add_epi64(a, b)
         }
 
         #[inline(always)]
@@ -56,13 +56,18 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m256d, b: __m256d, mask: __m256d) -> __m256d {
+        unsafe fn _mm_blendv_values(a: __m256d, b: __m256d, mask: __m256d) -> __m256d {
             _mm256_blendv_pd(a, b, mask)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m256i, b: __m256i, mask: __m256d) -> __m256i {
+            _mm256_blendv_epi8(a, b, _mm256_castpd_si256(mask))
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
 
-        #[target_feature(enable = "avx")]
+        #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: ArrayView1<f64>) -> (usize, usize) {
             Self::_argminmax(data)
         }
@@ -86,7 +91,7 @@ mod avx2 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -101,7 +106,7 @@ mod avx2 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -128,7 +133,7 @@ mod avx2 {
 
         #[test]
         fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -153,17 +158,18 @@ mod sse {
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_64;
 
-    impl SIMD<f64, __m128d, __m128d, LANE_SIZE> for SSE {
-        const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
-        // https://stackoverflow.com/a/3793950
-        #[cfg(target_arch = "x86_64")]
-        const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
-        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
-        const MAX_INDEX: usize = u32::MAX as usize;
+    impl SIMD<f64, __m128d, i64, __m128i, __m128d, LANE_SIZE> for SSE {
+        const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i64, 1i64]) };
+        const MAX_INDEX: usize = i64::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m128d) -> [f64; LANE_SIZE] {
             std::mem::transmute::<__m128d, [f64; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m128i) -> [i64; LANE_SIZE] {
+            std::mem::transmute::<__m128i, [i64; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
@@ -172,13 +178,13 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128d {
-            _mm_set1_pd(a as f64)
+        unsafe fn _mm_set1(a: usize) -> __m128i {
+            _mm_set1_epi64x(a as i64)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m128d, b: __m128d) -> __m128d {
-            _mm_add_pd(a, b)
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i {
+            _mm_add_epi64(a, b)
         }
 
         #[inline(always)]
@@ -192,8 +198,13 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128d, b: __m128d, mask: __m128d) -> __m128d {
+        unsafe fn _mm_blendv_values(a: __m128d, b: __m128d, mask: __m128d) -> __m128d {
             _mm_blendv_pd(a, b, mask)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m128i, b: __m128i, mask: __m128d) -> __m128i {
+            _mm_blendv_epi8(a, b, _mm_castpd_si128(mask))
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
@@ -276,21 +287,19 @@ mod avx512 {
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
 
-    impl SIMD<f64, __m512d, u8, LANE_SIZE> for AVX512 {
-        const INITIAL_INDEX: __m512d = unsafe {
-            std::mem::transmute([
-                0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64, 5.0f64, 6.0f64, 7.0f64,
-            ])
-        };
-        // https://stackoverflow.com/a/3793950
-        #[cfg(target_arch = "x86_64")]
-        const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
-        #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
-        const MAX_INDEX: usize = u32::MAX as usize;
+    impl SIMD<f64, __m512d, i64, __m512i, u8, LANE_SIZE> for AVX512 {
+        const INITIAL_INDEX: __m512i =
+            unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64]) };
+        const MAX_INDEX: usize = i64::MAX as usize;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] {
+        unsafe fn _reg_to_arr_values(reg: __m512d) -> [f64; LANE_SIZE] {
             std::mem::transmute::<__m512d, [f64; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr_indices(reg: __m512i) -> [i64; LANE_SIZE] {
+            std::mem::transmute::<__m512i, [i64; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
@@ -299,13 +308,13 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512d {
-            _mm512_set1_pd(a as f64)
+        unsafe fn _mm_set1(a: usize) -> __m512i {
+            _mm512_set1_epi64(a as i64)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m512d, b: __m512d) -> __m512d {
-            _mm512_add_pd(a, b)
+        unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_add_epi64(a, b)
         }
 
         #[inline(always)]
@@ -319,8 +328,13 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m512d, b: __m512d, mask: u8) -> __m512d {
+        unsafe fn _mm_blendv_values(a: __m512d, b: __m512d, mask: u8) -> __m512d {
             _mm512_mask_blend_pd(mask, a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv_indices(a: __m512i, b: __m512i, mask: u8) -> __m512i {
+            _mm512_mask_blend_epi64(mask, a, b)
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------

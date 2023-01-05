@@ -23,7 +23,11 @@
 // }
 
 #[inline(always)]
-pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+pub(crate) fn min_index_value<Tidx, Tval>(index: &[Tidx], values: &[Tval]) -> (Tidx, Tval)
+where
+    Tidx: Copy + PartialOrd,
+    Tval: Copy + PartialOrd,
+{
     assert_eq!(index.len(), values.len());
     values
         .iter()
@@ -62,7 +66,11 @@ pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
 // }
 
 #[inline(always)]
-pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+pub(crate) fn max_index_value<Tidx, Tval>(index: &[Tidx], values: &[Tval]) -> (Tidx, Tval)
+where
+    Tidx: Copy + PartialOrd,
+    Tval: Copy + PartialOrd,
+{
     assert_eq!(index.len(), values.len());
     values
         .iter()

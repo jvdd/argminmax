@@ -25,7 +25,7 @@ fn minmax_f64_random_array_long(c: &mut Criterion) {
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx") {
+    if is_x86_feature_detected!("avx2") {
         c.bench_function("avx_random_long_f64", |b| {
             b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
@@ -54,7 +54,7 @@ fn minmax_f64_random_array_short(c: &mut Criterion) {
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx") {
+    if is_x86_feature_detected!("avx2") {
         c.bench_function("avx_random_short_f64", |b| {
             b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
@@ -83,7 +83,7 @@ fn minmax_f64_worst_case_array_long(c: &mut Criterion) {
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx") {
+    if is_x86_feature_detected!("avx2") {
         c.bench_function("avx_worst_long_f64", |b| {
             b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
@@ -112,7 +112,7 @@ fn minmax_f64_worst_case_array_short(c: &mut Criterion) {
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx") {
+    if is_x86_feature_detected!("avx2") {
         c.bench_function("avx_worst_short_f64", |b| {
             b.iter(|| unsafe { AVX2::argminmax(black_box(data.view())) })
         });
