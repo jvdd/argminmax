@@ -85,7 +85,7 @@ pub trait SIMD<
     }
 
     #[inline(always)]
-    unsafe fn _mm_prefetch(data: *const ScalarDType) {
+    unsafe fn _mm_prefetch(data: *const ValueDType) {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             #[cfg(target_arch = "x86")]
@@ -242,12 +242,12 @@ pub trait SIMD<
             let gt_mask = Self::_mm_cmpgt(new_values, values_high);
 
             // Update the highest and lowest values
-            values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-            values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+            values_low = Self::_mm_blendv_values(values_low, new_values, lt_mask);
+            values_high = Self::_mm_blendv_values(values_high, new_values, gt_mask);
 
             // Update the index if the new value is lower/higher
-            index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-            index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+            index_low = Self::_mm_blendv_indices(index_low, new_index, lt_mask);
+            index_high = Self::_mm_blendv_indices(index_high, new_index, gt_mask);
 
             // 25 is a non-scientific number, but seems to work overall
             //  => TODO: probably this should be in function of the data type
