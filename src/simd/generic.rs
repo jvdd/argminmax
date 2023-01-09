@@ -1,6 +1,5 @@
 use crate::task::argminmax_generic;
 use crate::utils::{max_index_value, min_index_value};
-use ndarray::{s, ArrayView1};
 use num_traits::AsPrimitive;
 
 use crate::scalar::{ScalarArgMinMax, SCALAR};
@@ -91,10 +90,10 @@ pub trait SIMD<
 
     // ------------------------------------ ARGMINMAX --------------------------------------
 
-    unsafe fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
+    unsafe fn argminmax(data: &[ScalarDType]) -> (usize, usize);
 
     #[inline(always)]
-    unsafe fn _argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize)
+    unsafe fn _argminmax(data: &[ScalarDType]) -> (usize, usize)
     where
         SCALAR: ScalarArgMinMax<ScalarDType>,
     {
@@ -103,7 +102,7 @@ pub trait SIMD<
 
     #[inline(always)]
     unsafe fn _overflow_safe_core_argminmax(
-        arr: ArrayView1<ScalarDType>,
+        arr: &[ScalarDType],
     ) -> (usize, ScalarDType, usize, ScalarDType) {
         // 0. Get the max value of the data type - which needs to be divided by LANE_SIZE
         let dtype_max = Self::_find_largest_lower_multiple_of_lane_size(Self::MAX_INDEX);
@@ -115,7 +114,7 @@ pub trait SIMD<
 
         // This is (10%-0.x%) slower than the loop below (depending on the data type & array size)
         // let (mut min_index, mut min_value, mut max_index, mut max_value) =
-        //     arr.exact_chunks(dtype_max).into_iter().enumerate().fold(
+        //     arr.chunks_exact(dtype_max).into_iter().enumerate().fold(
         //         (0, arr[0], 0, arr[0]),
         //         |(min_index, min_value, max_index, max_value), (i, chunk)| {
         //             let (min_index_, min_value_, max_index_, max_value_) =
@@ -137,7 +136,8 @@ pub trait SIMD<
             (0, arr[0], 0, arr[0]),
             |(min_index, min_value, max_index, max_value), i| {
                 let (min_index_, min_value_, max_index_, max_value_) =
-                    Self::_core_argminmax(ArrayView1::from_shape_ptr((dtype_max,), arr_ptr));
+                    // Self::_core_argminmax(ArrayView1::from_shape_ptr((dtype_max,), arr_ptr));
+                    Self::_core_argminmax(std::slice::from_raw_parts(arr_ptr, dtype_max));
                 let start = i * dtype_max;
                 let cmp1 = min_value_ < min_value;
                 let cmp2 = max_value_ > max_value;
@@ -154,7 +154,7 @@ pub trait SIMD<
         // 3. Handle the remainder
         if n_loops * dtype_max < arr.len() {
             let (min_index_, min_value_, max_index_, max_value_) =
-                Self::_core_argminmax(arr.slice(s![n_loops * dtype_max..arr.len()]));
+                Self::_core_argminmax(&arr[n_loops * dtype_max..arr.len()]);
             if min_value_ < min_value {
                 min_index = min_index_ + n_loops * dtype_max;
                 min_value = min_value_;
@@ -182,9 +182,7 @@ pub trait SIMD<
     }
 
     #[inline(always)]
-    unsafe fn _core_argminmax(
-        arr: ArrayView1<ScalarDType>,
-    ) -> (usize, ScalarDType, usize, ScalarDType) {
+    unsafe fn _core_argminmax(arr: &[ScalarDType]) -> (usize, ScalarDType, usize, ScalarDType) {
         assert_eq!(arr.len() % LANE_SIZE, 0);
         // Efficient calculation of argmin and argmax together
         let mut new_index = Self::INITIAL_INDEX;
@@ -198,7 +196,7 @@ pub trait SIMD<
         let mut values_high = Self::_mm_loadu(arr_ptr);
 
         // This is (40%-5%) slower than the loop below (depending on the data type)
-        // arr.exact_chunks(LANE_SIZE)
+        // arr.chunks_exact(LANE_SIZE)
         //     .into_iter()
         //     .skip(1)
         //     .for_each(|step| {
@@ -216,9 +214,62 @@ pub trait SIMD<
         //         values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
         //     });
 
+        // // -v2
+        // new_index = Self::_mm_add(new_index, increment);
+        // for _ in 1..arr.len() / LANE_SIZE {
+        //     // Increment the index
+        //     // Load the next chunk of data
+        //     arr_ptr = arr_ptr.add(LANE_SIZE);
+        //     // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
+        //     let new_values = Self::_mm_loadu(arr_ptr);
+
+        //     let lt_mask = Self::_mm_cmplt(new_values, values_low);
+        //     let gt_mask = Self::_mm_cmpgt(new_values, values_high);
+
+        //     // Update the highest and lowest values
+        //     values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
+        //     values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+
+        //     // Update the index if the new value is lower/higher
+        //     index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
+        //     index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+
+        //     // 25 is a non-scientific number, but seems to work overall
+        //     //  => TODO: probably this should be in function of the data type
+        //     // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
+
+        //     new_index = Self::_mm_add(new_index, increment);
+        // }
+
+        // // -v3
+        // new_index = Self::_mm_add(new_index, increment);
+        // arr_ptr = arr_ptr.add(LANE_SIZE);
+        // for _ in 0..arr.len() / LANE_SIZE - 1 {
+        //     // Increment the index
+        //     // Load the next chunk of data
+        //     // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
+        //     let new_values = Self::_mm_loadu(arr_ptr);
+
+        //     let lt_mask = Self::_mm_cmplt(new_values, values_low);
+        //     let gt_mask = Self::_mm_cmpgt(new_values, values_high);
+
+        //     // Update the highest and lowest values
+        //     values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
+        //     values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+
+        //     // Update the index if the new value is lower/higher
+        //     index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
+        //     index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+
+        //     // 25 is a non-scientific number, but seems to work overall
+        //     //  => TODO: probably this should be in function of the data type
+        //     // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
+
+        //     arr_ptr = arr_ptr.add(LANE_SIZE);
+        //     new_index = Self::_mm_add(new_index, increment);
+        // }
+
         for _ in 1..arr.len() / LANE_SIZE {
-            // Increment the index
-            new_index = Self::_mm_add(new_index, increment);
             // Load the next chunk of data
             arr_ptr = arr_ptr.add(LANE_SIZE);
             // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
@@ -231,6 +282,9 @@ pub trait SIMD<
             values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
             values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
 
+            // Increment the index
+            new_index = Self::_mm_add(new_index, increment);
+
             // Update the index if the new value is lower/higher
             index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
             index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
@@ -239,6 +293,25 @@ pub trait SIMD<
             //  => TODO: probably this should be in function of the data type
             // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
         }
+
+        // // new_index = Self::_mm_add(new_index, increment);
+        // arr.chunks_exact(LANE_SIZE)
+        // .into_iter()
+        // // .skip(1)
+        // .for_each(|step| {
+        //     let new_values = Self::_mm_loadu(step.as_ptr());
+
+        //     let lt_mask = Self::_mm_cmplt(new_values, values_low);
+        //     let gt_mask = Self::_mm_cmpgt(new_values, values_high);
+
+        //     values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
+        //     values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+
+        //     index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
+        //     index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
+
+        //     new_index = Self::_mm_add(new_index, increment);
+        // });
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
     }
@@ -279,7 +352,7 @@ macro_rules! unimplement_simd {
                 unimplemented!()
             }
 
-            unsafe fn argminmax(_data: ArrayView1<$scalar_type>) -> (usize, usize) {
+            unsafe fn argminmax(_data: &[$scalar_type]) -> (usize, usize) {
                 unimplemented!()
             }
         }

@@ -2,7 +2,6 @@
 use super::scalar_f16::scalar_argminmax_f16;
 #[cfg(feature = "half")]
 use half::f16;
-use ndarray::ArrayView1;
 
 // ------ On ArrayView1
 
@@ -33,14 +32,14 @@ use ndarray::ArrayView1;
 // }
 
 pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
-    fn argminmax(data: ArrayView1<ScalarDType>) -> (usize, usize);
+    fn argminmax(data: &[ScalarDType]) -> (usize, usize);
 }
 
 pub struct SCALAR;
 
 // 33% slower than the fold implementation below
 // #[inline(always)]
-// pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: ArrayView1<T>) -> (usize, usize) {
+// pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
 //     let mut low_index: usize = 0;
 //     let mut high_index: usize = 0;
 //     let mut low = arr[low_index];
@@ -58,8 +57,9 @@ pub struct SCALAR;
 // }
 
 // Note: 33% faster than the above implementation
+// TODO: check this (also for f16)
 #[inline(always)]
-pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: ArrayView1<T>) -> (usize, usize) {
+pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     let minmax_tuple: (usize, T, usize, T) = arr.iter().enumerate().fold(
         (0usize, arr[0], 0usize, arr[0]),
         |(min_idx, min, max_idx, max), (idx, item)| {
@@ -81,7 +81,7 @@ macro_rules! impl_scalar {
         $(
             impl ScalarArgMinMax<$t> for SCALAR {
                 // #[inline(always)]
-                fn argminmax(data: ArrayView1<$t>) -> (usize, usize) {
+                fn argminmax(data: &[$t]) -> (usize, usize) {
                     $func(data)
                 }
             }

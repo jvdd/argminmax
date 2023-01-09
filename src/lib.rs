@@ -1,7 +1,6 @@
 #![feature(stdsimd)]
 #![feature(avx512_target_feature)]
 #![feature(arm_target_feature)]
-#![feature(int_roundings)]
 
 // #[macro_use]
 // extern crate lazy_static;
@@ -11,14 +10,11 @@ mod simd;
 mod task;
 mod utils;
 
-use ndarray::ArrayView1;
 pub use scalar::{ScalarArgMinMax, SCALAR};
 pub use simd::{AVX2, AVX512, NEON, SIMD, SSE};
 
-trait DTypeInfo {
-    const NB_BITS: usize;
-    const IS_FLOAT: bool;
-}
+#[cfg(feature = "half")]
+use half::f16;
 
 pub trait ArgMinMax {
     // TODO: future work implement these other functions?
@@ -31,6 +27,13 @@ pub trait ArgMinMax {
     fn argminmax(self) -> (usize, usize);
 }
 
+// ---- Helper macros ----
+
+trait DTypeInfo {
+    const NB_BITS: usize;
+    const IS_FLOAT: bool;
+}
+
 macro_rules! impl_nb_bits {
     ($is_float:expr, $($t:ty)*) => ($(
         impl DTypeInfo for $t {
@@ -39,6 +42,11 @@ macro_rules! impl_nb_bits {
         }
     )*)
 }
+
+impl_nb_bits!(false, i8 i16 i32 i64 u8 u16 u32 u64);
+impl_nb_bits!(true, f32 f64);
+#[cfg(feature = "half")]
+impl_nb_bits!(true, f16);
 
 // use once_cell::sync::Lazy;
 
@@ -100,10 +108,12 @@ macro_rules! impl_nb_bits {
 //     };
 // }
 
+// ------------------------------ &[T] ------------------------------
+
 macro_rules! impl_argminmax {
     ($($t:ty),*) => {
         $(
-            impl ArgMinMax for ArrayView1<'_, $t> {
+            impl ArgMinMax for &[$t] {
                 fn argminmax(self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
@@ -152,16 +162,56 @@ macro_rules! impl_argminmax {
 }
 
 // Implement ArgMinMax for the rust primitive types
-impl_nb_bits!(false, i8 i16 i32 i64 u8 u16 u32 u64);
-impl_nb_bits!(true, f32 f64);
 impl_argminmax!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
-
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
-mod half_impl {
-    use super::*;
-    use half::f16;
+impl_argminmax!(f16);
 
-    impl_nb_bits!(true, f16);
-    impl_argminmax!(f16);
+// ------------------------------ Vec ------------------------------
+
+macro_rules! impl_argminmax_vec {
+    ($($t:ty),*) => {
+        $(
+            impl ArgMinMax for Vec<$t> {
+                fn argminmax(self) -> (usize, usize) {
+                    self.as_slice().argminmax()
+                }
+            }
+        )*
+    };
+}
+
+impl_argminmax_vec!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
+#[cfg(feature = "half")]
+impl_argminmax_vec!(f16);
+
+// ----------------------- (optional) ndarray ----------------------
+
+#[cfg(feature = "ndarray")]
+mod ndarray_impl {
+    use super::*;
+    use ndarray::{Array1, ArrayView1};
+
+    // Use the slice implementation
+    // -> implement for T where slice implementation available
+    macro_rules! impl_argminmax_ndarray {
+        ($($t:ty),*) => {
+            $(
+                impl ArgMinMax for ArrayView1<'_, $t> {
+                    fn argminmax(self) -> (usize, usize) {
+                        self.as_slice().unwrap().argminmax()
+                    }
+                }
+                impl ArgMinMax for Array1<$t> {
+                    fn argminmax(self) -> (usize, usize) {
+                        self.as_slice().unwrap().argminmax()
+                    }
+                }
+            )*
+        };
+    }
+
+    impl_argminmax_ndarray!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
+    #[cfg(feature = "half")]
+    impl_argminmax_ndarray!(f16);
 }

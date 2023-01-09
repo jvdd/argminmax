@@ -1,14 +1,14 @@
-// use crate::scalar::generic::scalar_argminmax; // TODO: dit in macro doorgeven
 use crate::scalar::{ScalarArgMinMax, SCALAR};
 
-use ndarray::{ArrayView1, Axis};
 use std::cmp::Ordering;
+
+// TODO: can be cleaner perhaps.. (inside generic of simd)
 
 #[inline(always)]
 pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
-    arr: ArrayView1<T>,
+    arr: &[T],
     lane_size: usize,
-    core_argminmax: unsafe fn(ArrayView1<T>) -> (usize, T, usize, T),
+    core_argminmax: unsafe fn(&[T]) -> (usize, T, usize, T),
 ) -> (usize, usize)
 where
     SCALAR: ScalarArgMinMax<T>,
@@ -39,10 +39,7 @@ where
 }
 
 #[inline(always)]
-fn split_array<T: Copy>(
-    arr: ArrayView1<T>,
-    lane_size: usize,
-) -> (Option<ArrayView1<T>>, Option<ArrayView1<T>>) {
+fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[T]>) {
     let n = arr.len();
 
     // if n < lane_size * 2 {
@@ -50,7 +47,7 @@ fn split_array<T: Copy>(
     //     return (None, Some(arr));
     // };
 
-    let (left_arr, right_arr) = arr.split_at(Axis(0), n - n % lane_size);
+    let (left_arr, right_arr) = arr.split_at(n - n % lane_size);
 
     match (left_arr.is_empty(), right_arr.is_empty()) {
         (true, true) => (None, None),
