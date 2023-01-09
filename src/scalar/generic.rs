@@ -42,7 +42,7 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     let minmax_tuple: (usize, T, usize, T) = arr.iter().enumerate().fold(
         (0usize, arr[0], 0usize, arr[0]),
         |(min_idx, min, max_idx, max), (idx, item)| {
-            if *item > min {
+            if *item < min {
                 (idx, *item, max_idx, max)
             } else if *item > max {
                 (min_idx, min, idx, *item)
