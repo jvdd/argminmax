@@ -270,6 +270,8 @@ pub trait SIMD<
         // }
 
         for _ in 1..arr.len() / LANE_SIZE {
+            // Increment the index
+            new_index = Self::_mm_add(new_index, increment);
             // Load the next chunk of data
             arr_ptr = arr_ptr.add(LANE_SIZE);
             // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
@@ -281,9 +283,6 @@ pub trait SIMD<
             // Update the highest and lowest values
             values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
             values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
-
-            // Increment the index
-            new_index = Self::_mm_add(new_index, increment);
 
             // Update the index if the new value is lower/higher
             index_low = Self::_mm_blendv(index_low, new_index, lt_mask);

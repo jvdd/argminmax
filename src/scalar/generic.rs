@@ -37,33 +37,12 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
 
 pub struct SCALAR;
 
-// 33% slower than the fold implementation below
-// #[inline(always)]
-// pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
-//     let mut low_index: usize = 0;
-//     let mut high_index: usize = 0;
-//     let mut low = arr[low_index];
-//     let mut high = arr[high_index];
-//     for (i, item) in arr.iter().enumerate() {
-//         if *item < low {
-//             low = *item;
-//             low_index = i;
-//         } else if *item > high {
-//             high = *item;
-//             high_index = i;
-//         }
-//     }
-//     (low_index, high_index)
-// }
-
-// Note: 33% faster than the above implementation
-// TODO: check this (also for f16)
 #[inline(always)]
 pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     let minmax_tuple: (usize, T, usize, T) = arr.iter().enumerate().fold(
         (0usize, arr[0], 0usize, arr[0]),
         |(min_idx, min, max_idx, max), (idx, item)| {
-            if *item < min {
+            if *item > min {
                 (idx, *item, max_idx, max)
             } else if *item > max {
                 (min_idx, min, idx, *item)
@@ -80,7 +59,6 @@ macro_rules! impl_scalar {
     {
         $(
             impl ScalarArgMinMax<$t> for SCALAR {
-                // #[inline(always)]
                 fn argminmax(data: &[$t]) -> (usize, usize) {
                     $func(data)
                 }
