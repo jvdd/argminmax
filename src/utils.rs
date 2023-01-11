@@ -22,19 +22,36 @@
 //     (index[min_index], min_value)
 // }
 
+// #[inline(always)]
+// pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+//     assert_eq!(index.len(), values.len());
+//     values
+//         .iter()
+//         .enumerate()
+//         .fold((index[0], values[0]), |(min_idx, min), (idx, item)| {
+//             if *item < min || (*item == min && index[idx] < min_idx) {
+//                 (index[idx], *item)
+//             } else {
+//                 (min_idx, min)
+//             }
+//         })
+// }
+
 #[inline(always)]
 pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+    assert!(!index.is_empty());
     assert_eq!(index.len(), values.len());
-    values
-        .iter()
-        .enumerate()
-        .fold((index[0], values[0]), |(min_idx, min), (idx, item)| {
-            if *item < min || (*item == min && index[idx] < min_idx) {
-                (index[idx], *item)
-            } else {
-                (min_idx, min)
-            }
-        })
+    let mut min_index: T = unsafe { *index.get_unchecked(0) };
+    let mut min_value: T = unsafe { *values.get_unchecked(0) };
+    for i in 0..values.len() {
+        let v: T = unsafe { *values.get_unchecked(i) };
+        let idx: T = unsafe { *index.get_unchecked(i) };
+        if v < min_value || (v == min_value && idx < min_index) {
+            min_value = v;
+            min_index = idx;
+        }
+    }
+    (min_index, min_value)
 }
 
 // #[inline(always)]
@@ -61,17 +78,34 @@ pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
 //     (index[max_index], max_value)
 // }
 
+// #[inline(always)]
+// pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+//     assert_eq!(index.len(), values.len());
+//     values
+//         .iter()
+//         .enumerate()
+//         .fold((index[0], values[0]), |(max_idx, max), (idx, item)| {
+//             if *item > max || (*item == max && index[idx] < max_idx) {
+//                 (index[idx], *item)
+//             } else {
+//                 (max_idx, max)
+//             }
+//         })
+// }
+
 #[inline(always)]
 pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+    assert!(!index.is_empty());
     assert_eq!(index.len(), values.len());
-    values
-        .iter()
-        .enumerate()
-        .fold((index[0], values[0]), |(max_idx, max), (idx, item)| {
-            if *item > max || (*item == max && index[idx] < max_idx) {
-                (index[idx], *item)
-            } else {
-                (max_idx, max)
-            }
-        })
+    let mut max_index: T = unsafe { *index.get_unchecked(0) };
+    let mut max_value: T = unsafe { *values.get_unchecked(0) };
+    for i in 0..values.len() {
+        let v: T = unsafe { *values.get_unchecked(i) };
+        let idx: T = unsafe { *index.get_unchecked(i) };
+        if v > max_value || (v == max_value && idx < max_index) {
+            max_value = v;
+            max_index = idx;
+        }
+    }
+    (max_index, max_value)
 }

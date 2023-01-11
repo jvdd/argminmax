@@ -15,20 +15,24 @@ pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
     //   benchmarks  show:
     //     1. this is 7-10x faster than using raw f16
     //     2. this is 3x faster than transforming to f32 or f64
-    let minmax_tuple: (usize, i16, usize, i16) = arr.iter().enumerate().fold(
-        (0, f16_to_i16ord(arr[0]), 0, f16_to_i16ord(arr[0])),
-        |(low_index, low, high_index, high), (i, item)| {
-            let item = f16_to_i16ord(*item);
-            if item < low {
-                (i, item, high_index, high)
-            } else if item > high {
-                (low_index, low, i, item)
-            } else {
-                (low_index, low, high_index, high)
-            }
-        },
-    );
-    (minmax_tuple.0, minmax_tuple.2)
+    assert!(!arr.is_empty());
+    let mut low_index: usize = 0;
+    let mut high_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
+    let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
+    for i in 0..arr.len() {
+        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
+        if v < low {
+            low = v;
+            low_index = i;
+        } else if v > high {
+            high = v;
+            high_index = i;
+        }
+    }
+    (low_index, high_index)
 }
 
 #[cfg(feature = "half")]

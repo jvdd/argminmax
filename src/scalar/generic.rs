@@ -39,13 +39,35 @@ pub struct SCALAR;
 
 #[inline(always)]
 pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
+    assert!(!arr.is_empty());
+    let mut low_index: usize = 0;
+    let mut high_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let mut low: T = unsafe { *arr.get_unchecked(low_index) };
+    let mut high: T = unsafe { *arr.get_unchecked(high_index) };
+    for i in 0..arr.len() {
+        let v: T = unsafe { *arr.get_unchecked(i) };
+        if v < low {
+            low = v;
+            low_index = i;
+        } else if v > high {
+            high = v;
+            high_index = i;
+        }
+    }
+    (low_index, high_index)
+}
+
+#[inline(always)]
+pub fn scalar_argminmax_fold<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     let minmax_tuple: (usize, T, usize, T) = arr.iter().enumerate().fold(
         (0usize, arr[0], 0usize, arr[0]),
-        |(min_idx, min, max_idx, max), (idx, item)| {
-            if *item < min {
-                (idx, *item, max_idx, max)
-            } else if *item > max {
-                (min_idx, min, idx, *item)
+        |(min_idx, min, max_idx, max), (idx, &item)| {
+            if item < min {
+                (idx, item, max_idx, max)
+            } else if item > max {
+                (min_idx, min, idx, item)
             } else {
                 (min_idx, min, max_idx, max)
             }
@@ -69,16 +91,17 @@ macro_rules! impl_scalar {
 
 impl_scalar!(
     scalar_argminmax,
-    i8,
+    // i8,
     i16,
-    i32,
-    i64,
-    u8,
-    u16,
-    u32,
-    u64,
+    // i32,
+    // i64,
+    // u8,
+    // u16,
+    // u32,
+    // u64,
     f32,
     f64
 );
+impl_scalar!(scalar_argminmax_fold, i8, i32, i64, u8, u16, u32, u64);
 #[cfg(feature = "half")]
 impl_scalar!(scalar_argminmax_f16, f16);

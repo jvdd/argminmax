@@ -104,6 +104,7 @@ pub trait SIMD<
     unsafe fn _overflow_safe_core_argminmax(
         arr: &[ScalarDType],
     ) -> (usize, ScalarDType, usize, ScalarDType) {
+        assert!(!arr.is_empty());
         // 0. Get the max value of the data type - which needs to be divided by LANE_SIZE
         let dtype_max = Self::_find_largest_lower_multiple_of_lane_size(Self::MAX_INDEX);
 
@@ -111,56 +112,35 @@ pub trait SIMD<
         let n_loops = arr.len() / dtype_max;
 
         // 2. Perform overflow-safe _core_argminmax
-
-        // This is (10%-0.x%) slower than the loop below (depending on the data type & array size)
-        // let (mut min_index, mut min_value, mut max_index, mut max_value) =
-        //     arr.chunks_exact(dtype_max).into_iter().enumerate().fold(
-        //         (0, arr[0], 0, arr[0]),
-        //         |(min_index, min_value, max_index, max_value), (i, chunk)| {
-        //             let (min_index_, min_value_, max_index_, max_value_) =
-        //                 Self::_core_argminmax(chunk);
-        //             let start = i * dtype_max;
-        //             let cmp1 = min_value_ < min_value;
-        //             let cmp2 = max_value_ > max_value;
-        //             (
-        //                 if cmp1 { min_index_ + start } else { min_index },
-        //                 if cmp1 { min_value_ } else { min_value },
-        //                 if cmp2 { max_index_ + start } else { max_index },
-        //                 if cmp2 { max_value_ } else { max_value },
-        //             )
-        //         },
-        //     );
-
-        let mut arr_ptr = arr.as_ptr();
-        let (mut min_index, mut min_value, mut max_index, mut max_value) = (0..n_loops).fold(
-            (0, arr[0], 0, arr[0]),
-            |(min_index, min_value, max_index, max_value), i| {
-                let (min_index_, min_value_, max_index_, max_value_) =
-                    // Self::_core_argminmax(ArrayView1::from_shape_ptr((dtype_max,), arr_ptr));
-                    Self::_core_argminmax(std::slice::from_raw_parts(arr_ptr, dtype_max));
-                let start = i * dtype_max;
-                let cmp1 = min_value_ < min_value;
-                let cmp2 = max_value_ > max_value;
-                arr_ptr = arr_ptr.add(dtype_max);
-                (
-                    if cmp1 { min_index_ + start } else { min_index },
-                    if cmp1 { min_value_ } else { min_value },
-                    if cmp2 { max_index_ + start } else { max_index },
-                    if cmp2 { max_value_ } else { max_value },
-                )
-            },
-        );
-
-        // 3. Handle the remainder
-        if n_loops * dtype_max < arr.len() {
+        let mut min_index = 0;
+        let mut min_value = unsafe { *arr.get_unchecked(0) };
+        let mut max_index = 0;
+        let mut max_value = unsafe { *arr.get_unchecked(0) };
+        // 2.1 Handle the full loops
+        for i in 0..n_loops {
+            let start = i * dtype_max;
             let (min_index_, min_value_, max_index_, max_value_) =
-                Self::_core_argminmax(&arr[n_loops * dtype_max..arr.len()]);
+                Self::_core_argminmax(&arr[start..start + dtype_max]);
             if min_value_ < min_value {
-                min_index = min_index_ + n_loops * dtype_max;
+                min_index = start + min_index_;
                 min_value = min_value_;
             }
             if max_value_ > max_value {
-                max_index = max_index_ + n_loops * dtype_max;
+                max_index = start + max_index_;
+                max_value = max_value_;
+            }
+        }
+        // 2.2 Handle the remainder
+        if n_loops * dtype_max < arr.len() {
+            let start = n_loops * dtype_max;
+            let (min_index_, min_value_, max_index_, max_value_) =
+                Self::_core_argminmax(&arr[start..arr.len()]);
+            if min_value_ < min_value {
+                min_index = start + min_index_;
+                min_value = min_value_;
+            }
+            if max_value_ > max_value {
+                max_index = start + max_index_;
                 max_value = max_value_;
             }
         }
@@ -269,7 +249,7 @@ pub trait SIMD<
         //     new_index = Self::_mm_add(new_index, increment);
         // }
 
-        for _ in 1..arr.len() / LANE_SIZE {
+        for _ in 0..arr.len() / LANE_SIZE - 1 {
             // Increment the index
             new_index = Self::_mm_add(new_index, increment);
             // Load the next chunk of data
