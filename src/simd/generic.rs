@@ -109,18 +109,21 @@ pub trait SIMD<
         let dtype_max = Self::_find_largest_lower_multiple_of_lane_size(Self::MAX_INDEX);
 
         // 1. Determine the number of loops needed
-        let n_loops = arr.len() / dtype_max;
+        let n_loops = (arr.len() + dtype_max - 1) / dtype_max; // ceil division
 
         // 2. Perform overflow-safe _core_argminmax
-        let mut min_index = 0;
-        let mut min_value = unsafe { *arr.get_unchecked(0) };
-        let mut max_index = 0;
-        let mut max_value = unsafe { *arr.get_unchecked(0) };
-        // 2.1 Handle the full loops
-        for i in 0..n_loops {
-            let start = i * dtype_max;
+        let mut min_index: usize = 0;
+        let mut min_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+        let mut max_index: usize = 0;
+        let mut max_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+        let mut start: usize = 0;
+        for _ in 0..n_loops {
+            let mut end = start + dtype_max;
+            if end >= arr.len() {
+                end = arr.len()
+            };
             let (min_index_, min_value_, max_index_, max_value_) =
-                Self::_core_argminmax(&arr[start..start + dtype_max]);
+                Self::_core_argminmax(&arr[start..end]);
             if min_value_ < min_value {
                 min_index = start + min_index_;
                 min_value = min_value_;
@@ -129,22 +132,10 @@ pub trait SIMD<
                 max_index = start + max_index_;
                 max_value = max_value_;
             }
-        }
-        // 2.2 Handle the remainder
-        if n_loops * dtype_max < arr.len() {
-            let start = n_loops * dtype_max;
-            let (min_index_, min_value_, max_index_, max_value_) =
-                Self::_core_argminmax(&arr[start..arr.len()]);
-            if min_value_ < min_value {
-                min_index = start + min_index_;
-                min_value = min_value_;
-            }
-            if max_value_ > max_value {
-                max_index = start + max_index_;
-                max_value = max_value_;
-            }
+            start += dtype_max;
         }
 
+        // 3. Return the min/max index and corresponding value
         (min_index, min_value, max_index, max_value)
     }
 
@@ -273,8 +264,8 @@ pub trait SIMD<
             // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
         }
 
-        // // new_index = Self::_mm_add(new_index, increment);
-        // arr.chunks_exact(LANE_SIZE)
+        // new_index = Self::_mm_add(new_index, increment);
+        // arr[LANE_SIZE..].chunks_exact(LANE_SIZE)
         // .into_iter()
         // // .skip(1)
         // .for_each(|step| {
