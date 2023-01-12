@@ -7,8 +7,6 @@
 
 mod scalar;
 mod simd;
-mod task;
-mod utils;
 
 pub use scalar::{ScalarArgMinMax, SCALAR};
 pub use simd::{AVX2, AVX512, NEON, SIMD, SSE};

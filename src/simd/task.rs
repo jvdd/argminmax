@@ -2,8 +2,6 @@ use crate::scalar::{ScalarArgMinMax, SCALAR};
 
 use std::cmp::Ordering;
 
-// TODO: can be cleaner perhaps.. (inside generic of simd)
-
 #[inline(always)]
 pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: &[T],
@@ -38,7 +36,7 @@ where
     }
 }
 
-#[inline(always)]
+// #[inline(always)]
 fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[T]>) {
     let n = arr.len();
 
@@ -75,4 +73,40 @@ fn find_final_index_minmax<T: Copy + PartialOrd>(
     };
 
     (min_result, max_result)
+}
+
+// ------------ Other helper functions
+
+// #[inline(always)]
+pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+    assert!(!index.is_empty());
+    assert_eq!(index.len(), values.len());
+    let mut min_index: T = unsafe { *index.get_unchecked(0) };
+    let mut min_value: T = unsafe { *values.get_unchecked(0) };
+    for i in 0..values.len() {
+        let v: T = unsafe { *values.get_unchecked(i) };
+        let idx: T = unsafe { *index.get_unchecked(i) };
+        if v < min_value || (v == min_value && idx < min_index) {
+            min_value = v;
+            min_index = idx;
+        }
+    }
+    (min_index, min_value)
+}
+
+// #[inline(always)]
+pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
+    assert!(!index.is_empty());
+    assert_eq!(index.len(), values.len());
+    let mut max_index: T = unsafe { *index.get_unchecked(0) };
+    let mut max_value: T = unsafe { *values.get_unchecked(0) };
+    for i in 0..values.len() {
+        let v: T = unsafe { *values.get_unchecked(i) };
+        let idx: T = unsafe { *index.get_unchecked(i) };
+        if v > max_value || (v == max_value && idx < max_index) {
+            max_value = v;
+            max_index = idx;
+        }
+    }
+    (max_index, max_value)
 }

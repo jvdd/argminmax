@@ -1,7 +1,6 @@
-use crate::task::argminmax_generic;
-use crate::utils::{max_index_value, min_index_value};
 use num_traits::AsPrimitive;
 
+use super::task::*;
 use crate::scalar::{ScalarArgMinMax, SCALAR};
 
 // TODO: other potential generic SIMDIndexDtype: Copy

@@ -9,7 +9,7 @@ fn f16_to_i16ord(x: f16) -> i16 {
 }
 
 #[cfg(feature = "half")]
-#[inline(always)]
+// #[inline(never)]
 pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
     // f16 is transformed to i16ord
     //   benchmarks  show:
@@ -33,6 +33,20 @@ pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
         }
     }
     (low_index, high_index)
+    // let minmax_tuple: (usize, i16, usize, i16) = arr.iter().enumerate().fold(
+    //     (0, f16_to_i16ord(arr[0]), 0, f16_to_i16ord(arr[0])),
+    //     |(low_index, low, high_index, high), (i, item)| {
+    //         let item = f16_to_i16ord(*item);
+    //         if item < low {
+    //             (i, item, high_index, high)
+    //         } else if item > high {
+    //             (low_index, low, i, item)
+    //         } else {
+    //             (low_index, low, high_index, high)
+    //         }
+    //     },
+    // );
+    // (minmax_tuple.0, minmax_tuple.2)
 }
 
 #[cfg(feature = "half")]
