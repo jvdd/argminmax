@@ -1,6 +1,6 @@
 // Helper mod
 mod task;
-// Generic mod
+// Generic mods
 mod config;
 pub use config::*;
 mod generic;

@@ -1,9 +1,11 @@
 # ArgMinMax
-> Efficient argmin &amp; argmax (in 1 function) with SIMD (SSE, AVX(2), AVX512, NEON) for `f16`, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64` on `ndarray::ArrayView1`
+> Efficient argmin &amp; argmax (in 1 function) with SIMD (SSE, AVX(2), AVX512, NEON) for `f16`, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
 
 <!-- This project uses [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) to compute argmin and argmax in a single function.   -->
 
 🚀 The function is generic over the type of the array, so it can be used on an `ndarray::ArrayView1<T>` where `T` can be `f16`*, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
+
+🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), and 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)**.
 
 ⚡ **Runtime CPU feature detection** is used to select the most efficient implementation for the current CPU. This means that the same binary can be used on different CPUs without recompilation. 
 
@@ -11,7 +13,10 @@
 
 🪄 **Efficient support for f16 and uints**: through (bijective aka symmetric) bitwise operations, f16 (optional) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 
-<small>*for `f16` you should enable the 'half' feature.</small>
+<small>
+*for `f16` you should enable the 'half' feature.<br>
+**for `ndarray::ArrayBase` you should enable the `ndarray` feature
+</small>
 
 ## Installing
 
@@ -19,19 +24,17 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-argminmax = "0.3"
+argminmax = "0.4"
 ```
 
 ## Example usage
 
 ```rust
-use argminmax::ArgMinMax;  // extension trait for ndarray::ArrayView1
-use ndarray::Array1;
+use argminmax::ArgMinMax;  // import trait
 
-let arr: Vec<i32> = (0..200_000).collect();
-let arr: Array1<i32> = Array1::from(arr);
+let arr: Vec<i32> = (0..200_000).collect();  // create a vector
 
-let (min, max) = arr.view().argminmax();  // apply extension
+let (min, max) = arr.argminmax();  // apply extension
 
 println!("min: {}, max: {}", min, max);
 println!("arr[min]: {}, arr[max]: {}", arr[min], arr[max]);
@@ -54,7 +57,7 @@ cargo bench --quiet --message-format=short --features half | grep "time:"
 
 To run the tests use the following command:
 ```bash
-cargo test --message-format=short --features half
+cargo test --message-format=short --all-features
 ```
 
 ## Limitations

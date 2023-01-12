@@ -22,7 +22,7 @@ pub trait ArgMinMax {
 
     // fn argmin(self) -> usize;
     // fn argmax(self) -> usize;
-    fn argminmax(self) -> (usize, usize);
+    fn argminmax(&self) -> (usize, usize);
 }
 
 // ---- Helper macros ----
@@ -112,7 +112,7 @@ macro_rules! impl_argminmax {
     ($($t:ty),*) => {
         $(
             impl ArgMinMax for &[$t] {
-                fn argminmax(self) -> (usize, usize) {
+                fn argminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
@@ -165,51 +165,44 @@ impl_argminmax!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
 #[cfg(feature = "half")]
 impl_argminmax!(f16);
 
+// ------------------------------ [T] ------------------------------
+
+// impl<T> ArgMinMax for [T]
+// where
+//     for<'a> &'a [T]: ArgMinMax,
+// {
+//     fn argminmax(&self) -> (usize, usize) {
+//         // TODO: use the slice implementation without having stack-overflow
+//     }
+// }
+
 // ------------------------------ Vec ------------------------------
 
-macro_rules! impl_argminmax_vec {
-    ($($t:ty),*) => {
-        $(
-            impl ArgMinMax for Vec<$t> {
-                fn argminmax(self) -> (usize, usize) {
-                    self.as_slice().argminmax()
-                }
-            }
-        )*
-    };
+impl<T> ArgMinMax for Vec<T>
+where
+    for<'a> &'a [T]: ArgMinMax,
+{
+    fn argminmax(&self) -> (usize, usize) {
+        self.as_slice().argminmax()
+    }
 }
-
-impl_argminmax_vec!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
-#[cfg(feature = "half")]
-impl_argminmax_vec!(f16);
 
 // ----------------------- (optional) ndarray ----------------------
 
 #[cfg(feature = "ndarray")]
 mod ndarray_impl {
     use super::*;
-    use ndarray::{Array1, ArrayView1};
+    use ndarray::{ArrayBase, Data, Ix1};
 
     // Use the slice implementation
-    // -> implement for T where slice implementation available
-    macro_rules! impl_argminmax_ndarray {
-        ($($t:ty),*) => {
-            $(
-                impl ArgMinMax for ArrayView1<'_, $t> {
-                    fn argminmax(self) -> (usize, usize) {
-                        self.as_slice().unwrap().argminmax()
-                    }
-                }
-                impl ArgMinMax for Array1<$t> {
-                    fn argminmax(self) -> (usize, usize) {
-                        self.as_slice().unwrap().argminmax()
-                    }
-                }
-            )*
-        };
+    // -> implement for S where slice implementation available for S::Elem
+    impl<S> ArgMinMax for ArrayBase<S, Ix1>
+    where
+        S: Data,
+        for<'a> &'a [S::Elem]: ArgMinMax,
+    {
+        fn argminmax(&self) -> (usize, usize) {
+            self.as_slice().unwrap().argminmax()
+        }
     }
-
-    impl_argminmax_ndarray!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
-    #[cfg(feature = "half")]
-    impl_argminmax_ndarray!(f16);
 }

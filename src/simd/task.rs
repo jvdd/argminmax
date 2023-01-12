@@ -36,7 +36,7 @@ where
     }
 }
 
-// #[inline(always)]
+#[inline(always)]
 fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[T]>) {
     let n = arr.len();
 
