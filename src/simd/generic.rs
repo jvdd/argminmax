@@ -109,7 +109,8 @@ pub trait SIMD<
         let dtype_max = Self::_find_largest_lower_multiple_of_lane_size(Self::MAX_INDEX);
 
         // 1. Determine the number of loops needed
-        let n_loops = (arr.len() + dtype_max - 1) / dtype_max; // ceil division
+        // let n_loops = (arr.len() + dtype_max - 1) / dtype_max; // ceil division
+        let n_loops = arr.len() / dtype_max; // floor division
 
         // 2. Perform overflow-safe _core_argminmax
         let mut min_index: usize = 0;
@@ -117,13 +118,10 @@ pub trait SIMD<
         let mut max_index: usize = 0;
         let mut max_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
         let mut start: usize = 0;
+        // 2.0 Perform the full loops
         for _ in 0..n_loops {
-            let mut end = start + dtype_max;
-            if end >= arr.len() {
-                end = arr.len()
-            };
             let (min_index_, min_value_, max_index_, max_value_) =
-                Self::_core_argminmax(&arr[start..end]);
+                Self::_core_argminmax(&arr[start..start + dtype_max]);
             if min_value_ < min_value {
                 min_index = start + min_index_;
                 min_value = min_value_;
@@ -133,6 +131,42 @@ pub trait SIMD<
                 max_value = max_value_;
             }
             start += dtype_max;
+        }
+        // let mut start_: usize = 0;
+        // let (mut min_index, mut min_value, mut max_index, mut max_value) =
+        //     (0..n_loops).fold(
+        //         (0, unsafe { *arr.get_unchecked(0) }, 0, unsafe { *arr.get_unchecked(0) }),
+        //         |(min_idx, min_val, max_idx, max_val), i| {
+        //             let start = start_;
+        //             let mut end = start + dtype_max;
+        //             if end >= arr.len() { end = arr.len(); };
+        //             let (min_idx_, min_val_, max_idx_, max_val_) =
+        //                 Self::_core_argminmax(&arr[start..end]);
+        //             let cmp1 = min_val_.lt(&min_val);
+        //             let cmp2 = max_val_.gt(&max_val);
+        //             start_ += dtype_max;
+        //             (
+        //                 if cmp1 { start + min_idx_ } else { min_idx },
+        //                 if cmp1 { min_val_ } else { min_val },
+        //                 if cmp2 { start + max_idx_ } else { max_idx },
+        //                 if cmp2 { max_val_ } else { max_val },
+        //             )
+        //         },
+        //     );
+        // 2.1 Handle the remainder
+        if start < arr.len() {
+            // if n_loops * dtype_max < arr.len() {
+            let start = n_loops * dtype_max;
+            let (min_index_, min_value_, max_index_, max_value_) =
+                Self::_core_argminmax(&arr[start..]);
+            if min_value_ < min_value {
+                min_index = start + min_index_;
+                min_value = min_value_;
+            }
+            if max_value_ > max_value {
+                max_index = start + max_index_;
+                max_value = max_value_;
+            }
         }
 
         // 3. Return the min/max index and corresponding value
@@ -255,6 +289,7 @@ pub trait SIMD<
             values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
             values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
 
+            // TODO: check impact of adding index increment here
             // Update the index if the new value is lower/higher
             index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
             index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
@@ -263,25 +298,6 @@ pub trait SIMD<
             //  => TODO: probably this should be in function of the data type
             // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
         }
-
-        // new_index = Self::_mm_add(new_index, increment);
-        // arr[LANE_SIZE..].chunks_exact(LANE_SIZE)
-        // .into_iter()
-        // // .skip(1)
-        // .for_each(|step| {
-        //     let new_values = Self::_mm_loadu(step.as_ptr());
-
-        //     let lt_mask = Self::_mm_cmplt(new_values, values_low);
-        //     let gt_mask = Self::_mm_cmpgt(new_values, values_high);
-
-        //     values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-        //     values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
-
-        //     index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-        //     index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
-
-        //     new_index = Self::_mm_add(new_index, increment);
-        // });
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)
     }
