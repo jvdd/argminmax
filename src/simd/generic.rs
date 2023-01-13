@@ -77,7 +77,7 @@ pub trait SIMD<
             #[cfg(target_arch = "x86_64")]
             use std::arch::x86_64::_mm_prefetch;
 
-            _mm_prefetch(data as *const i8, 1); // 0=NTA
+            _mm_prefetch(data as *const i8, 0); // 0=NTA
         }
         #[cfg(target_arch = "aarch64")]
         {
@@ -119,6 +119,7 @@ pub trait SIMD<
         let mut start: usize = 0;
         // 2.0 Perform the full loops
         for _ in 0..n_loops {
+            // Self::_mm_prefetch(arr.as_ptr().add(start + dtype_max));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..start + dtype_max]);
             if min_value_ < min_value {
@@ -138,7 +139,9 @@ pub trait SIMD<
         //         |(min_idx, min_val, max_idx, max_val), i| {
         //             let start = start_;
         //             let mut end = start + dtype_max;
-        //             if end >= arr.len() { end = arr.len(); };
+        //             if i == n_loops - 1 {
+        //                 end = arr.len();
+        //             }
         //             let (min_idx_, min_val_, max_idx_, max_val_) =
         //                 Self::_core_argminmax(&arr[start..end]);
         //             let cmp1 = min_val_.lt(&min_val);
@@ -154,8 +157,6 @@ pub trait SIMD<
         //     );
         // 2.1 Handle the remainder
         if start < arr.len() {
-            // if n_loops * dtype_max < arr.len() {
-            let start = n_loops * dtype_max;
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..]);
             if min_value_ < min_value {
@@ -217,61 +218,6 @@ pub trait SIMD<
         //         values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
         //         values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
         //     });
-
-        // // -v2
-        // new_index = Self::_mm_add(new_index, increment);
-        // for _ in 1..arr.len() / LANE_SIZE {
-        //     // Increment the index
-        //     // Load the next chunk of data
-        //     arr_ptr = arr_ptr.add(LANE_SIZE);
-        //     // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
-        //     let new_values = Self::_mm_loadu(arr_ptr);
-
-        //     let lt_mask = Self::_mm_cmplt(new_values, values_low);
-        //     let gt_mask = Self::_mm_cmpgt(new_values, values_high);
-
-        //     // Update the highest and lowest values
-        //     values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-        //     values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
-
-        //     // Update the index if the new value is lower/higher
-        //     index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-        //     index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
-
-        //     // 25 is a non-scientific number, but seems to work overall
-        //     //  => TODO: probably this should be in function of the data type
-        //     // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
-
-        //     new_index = Self::_mm_add(new_index, increment);
-        // }
-
-        // // -v3
-        // new_index = Self::_mm_add(new_index, increment);
-        // arr_ptr = arr_ptr.add(LANE_SIZE);
-        // for _ in 0..arr.len() / LANE_SIZE - 1 {
-        //     // Increment the index
-        //     // Load the next chunk of data
-        //     // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
-        //     let new_values = Self::_mm_loadu(arr_ptr);
-
-        //     let lt_mask = Self::_mm_cmplt(new_values, values_low);
-        //     let gt_mask = Self::_mm_cmpgt(new_values, values_high);
-
-        //     // Update the highest and lowest values
-        //     values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-        //     values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
-
-        //     // Update the index if the new value is lower/higher
-        //     index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-        //     index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
-
-        //     // 25 is a non-scientific number, but seems to work overall
-        //     //  => TODO: probably this should be in function of the data type
-        //     // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
-
-        //     arr_ptr = arr_ptr.add(LANE_SIZE);
-        //     new_index = Self::_mm_add(new_index, increment);
-        // }
 
         for _ in 0..arr.len() / LANE_SIZE - 1 {
             // Increment the index

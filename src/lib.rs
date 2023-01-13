@@ -196,6 +196,7 @@ mod ndarray_impl {
 
     // Use the slice implementation
     // -> implement for S where slice implementation available for S::Elem
+    // ArrayBase instead of Array1 or ArrayView1 -> https://github.com/rust-ndarray/ndarray/issues/1059
     impl<S> ArgMinMax for ArrayBase<S, Ix1>
     where
         S: Data,
