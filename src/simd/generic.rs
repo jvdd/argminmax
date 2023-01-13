@@ -119,7 +119,7 @@ pub trait SIMD<
         let mut start: usize = 0;
         // 2.0 Perform the full loops
         for _ in 0..n_loops {
-            // Self::_mm_prefetch(arr.as_ptr().add(start + dtype_max));
+            // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..start + dtype_max]);
             if min_value_ < min_value {
@@ -157,6 +157,7 @@ pub trait SIMD<
         //     );
         // 2.1 Handle the remainder
         if start < arr.len() {
+            // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..]);
             if min_value_ < min_value {
