@@ -33,6 +33,7 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     (low_index, high_index)
 }
 
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
 // #[inline(never)]
 pub fn scalar_argminmax_fold<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     let minmax_tuple: (usize, T, usize, T) = arr.iter().enumerate().fold(
@@ -63,19 +64,28 @@ macro_rules! impl_scalar {
     };
 }
 
-impl_scalar!(
-    scalar_argminmax,
-    // i8,
-    i16,
-    i32,
-    i64,
-    // u8,
-    // u16,
-    // u32,
-    // u64,
-    f32,
-    f64
-);
-impl_scalar!(scalar_argminmax_fold, i8, u8, u16, u32, u64);
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod scalar_x86 {
+    use super::*;
+    impl_scalar!(
+        scalar_argminmax,
+        i8,
+        i16,
+        i32,
+        i64,
+        u8,
+        u16,
+        u32,
+        u64,
+        f32,
+        f64
+    );
+}
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+mod scalar_generic {
+    use super::*;
+    impl_scalar!(scalar_argminmax_fold, i8, i16, i32, i64, u8, u16, u32, u64);
+    impl_scalar!(scalar_argminmax, f32, f64);
+}
 #[cfg(feature = "half")]
 impl_scalar!(scalar_argminmax_f16, f16);

@@ -192,51 +192,51 @@ impl_random_long_u64    time:   [56.848 µs 56.879 µs 56.927 µs]
 
 ### Server: Intel Xeon E5-2650 v2 (32) @ 3.400GHz
 
-scalar_random_long_f16  time:   [124.45 µs 124.54 µs 124.65 µs]
-sse_random_long_f16     time:   [20.950 µs 20.954 µs 20.959 µs]
-impl_random_long_f16    time:   [20.958 µs 20.964 µs 20.970 µs]
+scalar_random_long_f16  time:   [124.17 µs 124.22 µs 124.28 µs]
+sse_random_long_f16     time:   [20.974 µs 20.986 µs 20.999 µs]
+impl_random_long_f16    time:   [21.027 µs 21.049 µs 21.077 µs]
 
-scalar_random_long_f32  time:   [82.996 µs 83.030 µs 83.066 µs]
-sse_random_long_f32     time:   [48.223 µs 48.244 µs 48.270 µs]
-avx_random_long_f32     time:   [23.246 µs 23.255 µs 23.266 µs]
-impl_random_long_f32    time:   [23.212 µs 23.221 µs 23.232 µs]
+scalar_random_long_f32  time:   [82.751 µs 82.805 µs 82.880 µs]
+sse_random_long_f32     time:   [48.286 µs 48.314 µs 48.343 µs]
+avx_random_long_f32     time:   [23.145 µs 23.158 µs 23.171 µs]
+impl_random_long_f32    time:   [23.169 µs 23.187 µs 23.207 µs]
 
-scalar_random_long_f64  time:   [90.319 µs 90.345 µs 90.373 µs]
-sse_random_long_f64     time:   [96.425 µs 96.527 µs 96.645 µs]
-avx_random_long_f64     time:   [48.105 µs 48.125 µs 48.146 µs]
-impl_random_long_f64    time:   [48.084 µs 48.113 µs 48.150 µs]
+scalar_random_long_f64  time:   [90.056 µs 90.078 µs 90.104 µs]
+sse_random_long_f64     time:   [96.199 µs 96.230 µs 96.272 µs]
+avx_random_long_f64     time:   [48.040 µs 48.065 µs 48.102 µs]
+impl_random_long_f64    time:   [48.063 µs 48.086 µs 48.117 µs]
 
-scalar_random_long_i8   time:   [119.90 µs 119.93 µs 119.96 µs]
-sse_random_long_i8      time:   [13.792 µs 13.800 µs 13.810 µs]
-impl_random_long_i8     time:   [13.786 µs 13.793 µs 13.800 µs]
+scalar_random_long_i8   time:   [107.18 µs 107.27 µs 107.39 µs]
+sse_random_long_i8      time:   [13.800 µs 13.812 µs 13.825 µs]
+impl_random_long_i8     time:   [13.854 µs 13.888 µs 13.927 µs]
 
-scalar_random_long_i16  time:   [95.193 µs 95.231 µs 95.270 µs]
-sse_random_long_i16     time:   [17.975 µs 17.981 µs 17.989 µs]
-impl_random_long_i16    time:   [17.983 µs 17.991 µs 18.001 µs]
+scalar_random_long_i16  time:   [95.074 µs 95.113 µs 95.156 µs]
+sse_random_long_i16     time:   [17.976 µs 17.983 µs 17.991 µs]
+impl_random_long_i16    time:   [17.995 µs 18.006 µs 18.018 µs]
 
-scalar_random_long_i32  time:   [97.610 µs 97.648 µs 97.695 µs]
-sse_random_long_i32     time:   [33.711 µs 33.723 µs 33.738 µs]
-impl_random_long_i32    time:   [33.720 µs 33.732 µs 33.746 µs]
+scalar_random_long_i32  time:   [95.527 µs 95.566 µs 95.617 µs]
+sse_random_long_i32     time:   [33.860 µs 33.882 µs 33.904 µs]
+impl_random_long_i32    time:   [33.871 µs 33.892 µs 33.913 µs]
 
-scalar_random_long_i64  time:   [95.282 µs 95.342 µs 95.412 µs]
-sse_random_long_i64     time:   [161.35 µs 161.42 µs 161.51 µs]
-impl_random_long_i64    time:   [95.269 µs 95.316 µs 95.369 µs]
+scalar_random_long_i64  time:   [95.078 µs 95.141 µs 95.227 µs]
+sse_random_long_i64     time:   [161.51 µs 161.61 µs 161.72 µs]
+impl_random_long_i64    time:   [95.459 µs 95.547 µs 95.662 µs]
 
-scalar_random_long_u8   time:   [135.37 µs 135.46 µs 135.57 µs]
-sse_random_long_u8      time:   [14.313 µs 14.318 µs 14.323 µs]
-impl_random_long_u8     time:   [14.321 µs 14.327 µs 14.334 µs]
+scalar_random_long_u8   time:   [132.31 µs 132.34 µs 132.38 µs]
+sse_random_long_u8      time:   [14.292 µs 14.295 µs 14.299 µs]
+impl_random_long_u8     time:   [14.299 µs 14.304 µs 14.311 µs]
 
-scalar_random_long_u16  time:   [133.77 µs 133.84 µs 133.93 µs]
-sse_random_long_u16     time:   [18.043 µs 18.049 µs 18.056 µs]
-impl_random_long_u16    time:   [18.072 µs 18.086 µs 18.101 µs]
+scalar_random_long_u16  time:   [123.45 µs 123.49 µs 123.54 µs]
+sse_random_long_u16     time:   [18.089 µs 18.108 µs 18.129 µs]
+impl_random_long_u16    time:   [18.082 µs 18.092 µs 18.102 µs]
 
-scalar_random_long_u32  time:   [134.41 µs 134.46 µs 134.51 µs]
-sse_random_long_u32     time:   [34.365 µs 34.377 µs 34.389 µs]
-impl_random_long_u32    time:   [34.400 µs 34.410 µs 34.421 µs]
+scalar_random_long_u32  time:   [123.89 µs 123.95 µs 124.02 µs]
+sse_random_long_u32     time:   [34.476 µs 34.509 µs 34.545 µs]
+impl_random_long_u32    time:   [34.451 µs 34.476 µs 34.506 µs]
 
-scalar_random_long_u64  time:   [134.68 µs 134.93 µs 135.21 µs]
-sse_random_long_u64     time:   [175.37 µs 175.42 µs 175.49 µs]
-impl_random_long_u64    time:   [134.20 µs 134.23 µs 134.27 µs]
+scalar_random_long_u64  time:   [123.99 µs 124.06 µs 124.18 µs]
+sse_random_long_u64     time:   [175.90 µs 176.00 µs 176.10 µs]
+impl_random_long_u64    time:   [123.87 µs 123.97 µs 124.08 µs]
 
 
 
@@ -301,50 +301,49 @@ Remarks:
 
 ### Raspberry Pi 4B v1.1 (AArch64 Processor rev 4 (aarch64))
 
-scalar_random_long_f16  time:   [385.83 µs 385.87 µs 385.92 µs] -> 40 µs slower than in v0.3
-neon_random_long_f16    time:   [103.71 µs 103.72 µs 103.73 µs]
-impl_random_long_f16    time:   [103.44 µs 103.45 µs 103.46 µs]
+scalar_random_long_f16  time:   [344.57 µs 344.60 µs 344.63 µs]
+neon_random_long_f16    time:   [103.91 µs 103.93 µs 103.96 µs]
+impl_random_long_f16    time:   [104.07 µs 104.15 µs 104.24 µs]
 
-scalar_random_long_f32  time:   [209.76 µs 209.79 µs 209.82 µs]
-neon_random_long_f32    time:   [124.52 µs 124.59 µs 124.69 µs]
-impl_random_long_f32    time:   [124.26 µs 124.33 µs 124.41 µs]
+scalar_random_long_f32  time:   [209.78 µs 209.88 µs 209.98 µs]
+neon_random_long_f32    time:   [124.11 µs 124.18 µs 124.26 µs]
+impl_random_long_f32    time:   [123.88 µs 123.93 µs 123.97 µs]
 
-scalar_random_long_f64  time:   [239.36 µs 239.63 µs 239.91 µs]
-impl_random_long_f64    time:   [239.00 µs 239.23 µs 239.45 µs]
+scalar_random_long_f64  time:   [234.39 µs 235.10 µs 236.15 µs]
+impl_random_long_f64    time:   [233.66 µs 234.67 µs 236.08 µs]
 
-scalar_random_long_i8   time:   [274.35 µs 274.36 µs 274.37 µs]
-neon_random_long_i8     time:   [56.674 µs 56.677 µs 56.680 µs] -> 1 µs slower than in v0.3
-impl_random_long_i8     time:   [56.685 µs 56.688 µs 56.691 µs]
+scalar_random_long_i8   time:   [274.36 µs 274.38 µs 274.41 µs]
+neon_random_long_i8     time:   [56.760 µs 56.776 µs 56.793 µs]
+impl_random_long_i8     time:   [56.721 µs 56.727 µs 56.734 µs]
 
-scalar_random_long_i16  time:   [275.64 µs 275.66 µs 275.69 µs]
-neon_random_long_i16    time:   [56.074 µs 56.077 µs 56.083 µs]
-impl_random_long_i16    time:   [56.066 µs 56.068 µs 56.071 µs]
+scalar_random_long_i16  time:   [275.42 µs 275.48 µs 275.57 µs]
+neon_random_long_i16    time:   [56.210 µs 56.279 µs 56.369 µs]
+impl_random_long_i16    time:   [56.221 µs 56.349 µs 56.515 µs]
 
-scalar_random_long_i32  time:   [260.03 µs 260.04 µs 260.05 µs] -> 20 µs slower than in v0.3
-neon_random_long_i32    time:   [105.64 µs 105.65 µs 105.67 µs]
-impl_random_long_i32    time:   [105.72 µs 105.75 µs 105.79 µs]
+scalar_random_long_i32  time:   [243.54 µs 243.82 µs 244.26 µs]
+neon_random_long_i32    time:   [107.58 µs 107.67 µs 107.76 µs]
+impl_random_long_i32    time:   [107.90 µs 108.02 µs 108.14 µs]
 
-scalar_random_long_i64  time:   [288.74 µs 288.92 µs 289.13 µs] -> 20 µs slower than in v0.3
-impl_random_long_i64    time:   [290.65 µs 290.99 µs 291.31 µs]
+scalar_random_long_i64  time:   [272.00 µs 272.37 µs 272.76 µs]
+impl_random_long_i64    time:   [271.07 µs 271.35 µs 271.63 µs]
 
-scalar_random_long_u8   time:   [274.30 µs 274.32 µs 274.33 µs]
-neon_random_long_u8     time:   [39.022 µs 39.023 µs 39.024 µs]
-impl_random_long_u8     time:   [39.032 µs 39.033 µs 39.034 µs]
+scalar_random_long_u8   time:   [274.64 µs 274.74 µs 274.85 µs]
+neon_random_long_u8     time:   [39.025 µs 39.033 µs 39.049 µs]
+impl_random_long_u8     time:   [39.034 µs 39.036 µs 39.038 µs]
 
-scalar_random_long_u16  time:   [275.26 µs 275.27 µs 275.28 µs]
-neon_random_long_u16    time:   [54.338 µs 54.340 µs 54.343 µs]
-impl_random_long_u16    time:   [54.352 µs 54.356 µs 54.362 µs]
+scalar_random_long_u16  time:   [275.50 µs 275.58 µs 275.67 µs]
+neon_random_long_u16    time:   [54.350 µs 54.356 µs 54.363 µs]
+impl_random_long_u16    time:   [54.372 µs 54.383 µs 54.397 µs]
 
-scalar_random_long_u32  time:   [242.95 µs 242.98 µs 243.01 µs]
-neon_random_long_u32    time:   [107.23 µs 107.29 µs 107.36 µs]
-impl_random_long_u32    time:   [108.14 µs 109.32 µs 110.60 µs]
+scalar_random_long_u32  time:   [242.71 µs 242.78 µs 242.86 µs]
+neon_random_long_u32    time:   [105.75 µs 105.86 µs 106.06 µs]
+impl_random_long_u32    time:   [105.75 µs 105.81 µs 105.89 µs]
 
-scalar_random_long_u64  time:   [270.87 µs 271.13 µs 271.39 µs] -> 4 µs slower than in v0.3
-impl_random_long_u64    time:   [270.43 µs 270.66 µs 270.91 µs]
+scalar_random_long_u64  time:   [274.23 µs 274.47 µs 274.72 µs]
+impl_random_long_u64    time:   [275.55 µs 278.35 µs 281.76 µs]
 
 
 Remarks:
-- TODO: v0.4 makes it somewhat slower than v0.3.1...
 - f16 NEON is a lot slower than i16 en u16 NEON
 - f32 NEON is a lot slower than i32 en u32 NEON
   => f32 naar i32 casten en dan i32 NEON gebruiken??

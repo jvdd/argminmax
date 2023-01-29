@@ -8,6 +8,7 @@ fn f16_to_i16ord(x: f16) -> i16 {
     ((x >> 15) & 0x7FFF) ^ x
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[cfg(feature = "half")]
 // #[inline(never)]
 pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
@@ -33,20 +34,32 @@ pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
         }
     }
     (low_index, high_index)
-    // let minmax_tuple: (usize, i16, usize, i16) = arr.iter().enumerate().fold(
-    //     (0, f16_to_i16ord(arr[0]), 0, f16_to_i16ord(arr[0])),
-    //     |(low_index, low, high_index, high), (i, item)| {
-    //         let item = f16_to_i16ord(*item);
-    //         if item < low {
-    //             (i, item, high_index, high)
-    //         } else if item > high {
-    //             (low_index, low, i, item)
-    //         } else {
-    //             (low_index, low, high_index, high)
-    //         }
-    //     },
-    // );
-    // (minmax_tuple.0, minmax_tuple.2)
+}
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(feature = "half")]
+// #[inline(never)]
+pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
+    // f16 is transformed to i16ord
+    //   benchmarks  show:
+    //     1. this is 7-10x faster than using raw f16
+    //     2. this is 3x faster than transforming to f32 or f64
+    assert!(!arr.is_empty());
+    // This is 3% slower on x86_64, but 12% faster on aarch64.
+    let minmax_tuple: (usize, i16, usize, i16) = arr.iter().enumerate().fold(
+        (0, f16_to_i16ord(arr[0]), 0, f16_to_i16ord(arr[0])),
+        |(low_index, low, high_index, high), (i, item)| {
+            let item = f16_to_i16ord(*item);
+            if item < low {
+                (i, item, high_index, high)
+            } else if item > high {
+                (low_index, low, i, item)
+            } else {
+                (low_index, low, high_index, high)
+            }
+        },
+    );
+    (minmax_tuple.0, minmax_tuple.2)
 }
 
 #[cfg(feature = "half")]
