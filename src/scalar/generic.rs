@@ -81,11 +81,40 @@ mod scalar_x86 {
         f64
     );
 }
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-mod scalar_generic {
+#[cfg(target_arch = "aarch64")]
+mod scalar_aarch64 {
     use super::*;
     impl_scalar!(scalar_argminmax_fold, i8, i16, i32, i64, u8, u16, u32, u64);
     impl_scalar!(scalar_argminmax, f32, f64);
 }
+#[cfg(target_arch = "arm")]
+mod scalar_arm {
+    use super::*;
+    impl_scalar!(scalar_argminmax_fold, i16, i64, u8, u16, u64, f64);
+    impl_scalar!(scalar_argminmax, i8, u32, f32, i32);
+}
+#[cfg(not(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm"
+)))]
+mod scalar_generic {
+    use super::*;
+    impl_scalar!(
+        scalar_argminmax,
+        i8,
+        i16,
+        i32,
+        i64,
+        u8,
+        u16,
+        u32,
+        u64,
+        f32,
+        f64
+    );
+}
+
 #[cfg(feature = "half")]
 impl_scalar!(scalar_argminmax_f16, f16);
