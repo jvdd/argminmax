@@ -39,6 +39,7 @@ mod avx2 {
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
+    const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     // ------------------------------------ ARGMINMAX --------------------------------------
 
@@ -46,7 +47,7 @@ mod avx2 {
     unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
         let sign_bit_shifted = _mm256_srai_epi16(f16_as_m256i, 15);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, _mm256_set1_epi16(XOR_VALUE));
+        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, XOR_MASK);
         _mm256_xor_si256(sign_bit_masked, f16_as_m256i)
     }
 
@@ -268,12 +269,13 @@ mod sse {
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_16;
+    const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m128i_to_i16ord(f16_as_m128i: __m128i) -> __m128i {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
         let sign_bit_shifted = _mm_srai_epi16(f16_as_m128i, 15);
-        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, _mm_set1_epi16(XOR_VALUE));
+        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, XOR_MASK);
         _mm_xor_si128(sign_bit_masked, f16_as_m128i)
     }
 
@@ -471,12 +473,13 @@ mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_16;
+    const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m521i_to_i16ord(f16_as_m512i: __m512i) -> __m512i {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
         let sign_bit_shifted = _mm512_srai_epi16(f16_as_m512i, 15);
-        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, _mm512_set1_epi16(XOR_VALUE));
+        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, XOR_MASK);
         _mm512_xor_si512(f16_as_m512i, sign_bit_masked)
     }
 
@@ -703,12 +706,13 @@ mod neon {
     use super::*;
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_16;
+    const XOR_MASK: int16x8_t = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_int16x8_to_i16ord(f16_as_int16x8: int16x8_t) -> int16x8_t {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
         let sign_bit_shifted = vshrq_n_s16(f16_as_int16x8, 15);
-        let sign_bit_masked = vandq_s16(sign_bit_shifted, vdupq_n_s16(XOR_VALUE));
+        let sign_bit_masked = vandq_s16(sign_bit_shifted, XOR_MASK);
         veorq_s16(f16_as_int16x8, sign_bit_masked)
     }
 

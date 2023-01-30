@@ -338,10 +338,9 @@ mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
-
     const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
-    //  - comparison swappen => dan moeten we opt einde niet meer swappen?
+    // TODO - comparison swappen => dan moeten we opt einde niet meer swappen?
 
     #[inline(always)]
     unsafe fn _u64_to_i64decrord(u64: __m512i) -> __m512i {
