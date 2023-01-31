@@ -228,17 +228,17 @@ pub trait SIMD<
             // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
             let new_values = Self::_mm_loadu(arr_ptr);
 
-            let lt_mask = Self::_mm_cmplt(new_values, values_low);
-            let gt_mask = Self::_mm_cmpgt(new_values, values_high);
+            // Update the lowest values and index
+            let mask = Self::_mm_cmplt(new_values, values_low);
+            values_low = Self::_mm_blendv(values_low, new_values, mask);
+            index_low = Self::_mm_blendv(index_low, new_index, mask);
 
-            // Update the highest and lowest values
-            values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-            values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
+            // Update the highest values and index
+            let mask = Self::_mm_cmpgt(new_values, values_high);
+            values_high = Self::_mm_blendv(values_high, new_values, mask);
+            index_high = Self::_mm_blendv(index_high, new_index, mask);
 
             // TODO: check impact of adding index increment here
-            // Update the index if the new value is lower/higher
-            index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-            index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
 
             // 25 is a non-scientific number, but seems to work overall
             //  => TODO: probably this should be in function of the data type
