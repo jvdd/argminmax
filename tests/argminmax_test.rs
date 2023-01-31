@@ -3,6 +3,8 @@ use dev_utils::utils;
 
 #[cfg(feature = "ndarray")]
 use ndarray::Array1;
+#[cfg(feature = "arrow")]
+use arrow::array::Float32Array;
 
 const ARRAY_LENGTH: usize = 100_000;
 
@@ -66,6 +68,20 @@ fn test_argminmax_ndarray() {
     assert_eq!(max, ARRAY_LENGTH - 1);
 }
 
+#[cfg(feature = "arrow")]
+#[test]
+fn test_argminmax_arrow() {
+    let data: Float32Array = Float32Array::from((0..ARRAY_LENGTH).map(|x| x as f32).collect::<Vec<f32>>());
+    // Test owned Float32Array
+    let (min, max) = data.argminmax();
+    assert_eq!(min, 0);
+    assert_eq!(max, ARRAY_LENGTH - 1);
+    // Test borrowed Float32Array
+    let (min, max) = (&data).argminmax();
+    assert_eq!(min, 0);
+    assert_eq!(max, ARRAY_LENGTH - 1);
+}
+
 #[test]
 fn test_argminmax_many_random_runs() {
     for _ in 0..500 {
@@ -77,9 +93,14 @@ fn test_argminmax_many_random_runs() {
         let (min_vec, max_vec) = data.argminmax();
         // Array1
         #[cfg(feature = "ndarray")]
-        let array: Array1<f32> = Array1::from(data);
+        let array: Array1<f32> = Array1::from_vec(slice.to_vec());
         #[cfg(feature = "ndarray")]
         let (min_array, max_array) = array.argminmax();
+        // Arrow
+        #[cfg(feature = "arrow")]
+        let arrow: Float32Array = Float32Array::from(slice.to_vec());
+        #[cfg(feature = "arrow")]
+        let (min_arrow, max_arrow) = arrow.argminmax();
         // Assert
         assert_eq!(min_slice, min_vec);
         assert_eq!(max_slice, max_vec);
@@ -87,5 +108,9 @@ fn test_argminmax_many_random_runs() {
         assert_eq!(min_slice, min_array);
         #[cfg(feature = "ndarray")]
         assert_eq!(max_slice, max_array);
+        #[cfg(feature = "arrow")]
+        assert_eq!(min_slice, min_arrow);
+        #[cfg(feature = "arrow")]
+        assert_eq!(max_slice, max_arrow);
     }
 }

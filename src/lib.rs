@@ -207,3 +207,23 @@ mod ndarray_impl {
         }
     }
 }
+
+// ----------------------- (optional) arrow ----------------------
+
+#[cfg(feature = "arrow")]
+mod arrow_impl {
+    use super::*;
+    use arrow::array::PrimitiveArray;
+
+    // Use the slice implementation
+    // -> implement for S where slice implementation available for S::Elem
+    impl<T> ArgMinMax for PrimitiveArray<T>
+    where
+        T: arrow::datatypes::ArrowNumericType,
+        for<'a> &'a [T::Native]: ArgMinMax,
+    {
+        fn argminmax(&self) -> (usize, usize) {
+            self.values().argminmax()
+        }
+    }
+}
