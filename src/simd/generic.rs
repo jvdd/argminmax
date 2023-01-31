@@ -132,29 +132,6 @@ pub trait SIMD<
             }
             start += dtype_max;
         }
-        // let mut start_: usize = 0;
-        // let (mut min_index, mut min_value, mut max_index, mut max_value) =
-        //     (0..n_loops).fold(
-        //         (0, unsafe { *arr.get_unchecked(0) }, 0, unsafe { *arr.get_unchecked(0) }),
-        //         |(min_idx, min_val, max_idx, max_val), i| {
-        //             let start = start_;
-        //             let mut end = start + dtype_max;
-        //             if i == n_loops - 1 {
-        //                 end = arr.len();
-        //             }
-        //             let (min_idx_, min_val_, max_idx_, max_val_) =
-        //                 Self::_core_argminmax(&arr[start..end]);
-        //             let cmp1 = min_val_.lt(&min_val);
-        //             let cmp2 = max_val_.gt(&max_val);
-        //             start_ += dtype_max;
-        //             (
-        //                 if cmp1 { start + min_idx_ } else { min_idx },
-        //                 if cmp1 { min_val_ } else { min_val },
-        //                 if cmp2 { start + max_idx_ } else { max_idx },
-        //                 if cmp2 { max_val_ } else { max_val },
-        //             )
-        //         },
-        //     );
         // 2.1 Handle the remainder
         if start < arr.len() {
             // Self::_mm_prefetch(arr.as_ptr().add(start));
@@ -237,8 +214,6 @@ pub trait SIMD<
             let mask = Self::_mm_cmpgt(new_values, values_high);
             values_high = Self::_mm_blendv(values_high, new_values, mask);
             index_high = Self::_mm_blendv(index_high, new_index, mask);
-
-            // TODO: check impact of adding index increment here
 
             // 25 is a non-scientific number, but seems to work overall
             //  => TODO: probably this should be in function of the data type
