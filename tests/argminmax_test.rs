@@ -1,10 +1,10 @@
 use argminmax::ArgMinMax;
 use dev_utils::utils;
 
-#[cfg(feature = "ndarray")]
-use ndarray::Array1;
 #[cfg(feature = "arrow")]
 use arrow::array::Float32Array;
+#[cfg(feature = "ndarray")]
+use ndarray::Array1;
 
 const ARRAY_LENGTH: usize = 100_000;
 
@@ -71,7 +71,8 @@ fn test_argminmax_ndarray() {
 #[cfg(feature = "arrow")]
 #[test]
 fn test_argminmax_arrow() {
-    let data: Float32Array = Float32Array::from((0..ARRAY_LENGTH).map(|x| x as f32).collect::<Vec<f32>>());
+    let data: Float32Array =
+        Float32Array::from((0..ARRAY_LENGTH).map(|x| x as f32).collect::<Vec<f32>>());
     // Test owned Float32Array
     let (min, max) = data.argminmax();
     assert_eq!(min, 0);
