@@ -1,12 +1,10 @@
 #![feature(stdsimd)]
 
-#[macro_use]
-extern crate criterion;
 extern crate dev_utils;
 
 #[cfg(feature = "half")]
 use argminmax::ArgMinMax;
-use criterion::{black_box, Criterion};
+use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
 use argminmax::{ScalarArgMinMax, SCALAR};
