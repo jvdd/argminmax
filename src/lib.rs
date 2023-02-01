@@ -216,7 +216,7 @@ mod arrow_impl {
     use arrow::array::PrimitiveArray;
 
     // Use the slice implementation
-    // -> implement for S where slice implementation available for S::Elem
+    // -> implement for T where slice implementation available for T::Native
     impl<T> ArgMinMax for PrimitiveArray<T>
     where
         T: arrow::datatypes::ArrowNumericType,
