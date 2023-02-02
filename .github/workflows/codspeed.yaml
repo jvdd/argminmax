@@ -40,11 +40,8 @@ jobs:
         with:
           crate: cargo-codspeed
 
-      - name: Build benchmarks
-        uses: actions-rs/cargo@v1
-        with:
-          command: codspeed
-          args: build
+      - name: Build the benchmark target(s)
+        run: cargo codspeed build # --features half
 
       - uses: CodSpeedHQ/action@v1
         name: Run benchmarks
