@@ -3,7 +3,7 @@
 
 <!-- This project uses [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) to compute argmin and argmax in a single function.   -->
 
-🚀 The function is generic over the type of the array, so it can be used on an `ndarray::ArrayView1<T>` where `T` can be `f16`<sup>1</sup>, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
+🚀 The function is generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>1</sup>, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
 
 🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>2</sup>, and apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>3</sup>.
 
