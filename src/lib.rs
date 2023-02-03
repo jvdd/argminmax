@@ -1,24 +1,18 @@
 #![feature(stdsimd)]
 #![feature(avx512_target_feature)]
 #![feature(arm_target_feature)]
-#![feature(int_roundings)]
 
 // #[macro_use]
 // extern crate lazy_static;
 
 mod scalar;
 mod simd;
-mod task;
-mod utils;
 
-use ndarray::ArrayView1;
 pub use scalar::{ScalarArgMinMax, SCALAR};
 pub use simd::{AVX2, AVX512, NEON, SIMD, SSE};
 
-trait DTypeInfo {
-    const NB_BITS: usize;
-    const IS_FLOAT: bool;
-}
+#[cfg(feature = "half")]
+use half::f16;
 
 pub trait ArgMinMax {
     // TODO: future work implement these other functions?
@@ -28,7 +22,14 @@ pub trait ArgMinMax {
 
     // fn argmin(self) -> usize;
     // fn argmax(self) -> usize;
-    fn argminmax(self) -> (usize, usize);
+    fn argminmax(&self) -> (usize, usize);
+}
+
+// ---- Helper macros ----
+
+trait DTypeInfo {
+    const NB_BITS: usize;
+    const IS_FLOAT: bool;
 }
 
 macro_rules! impl_nb_bits {
@@ -39,6 +40,11 @@ macro_rules! impl_nb_bits {
         }
     )*)
 }
+
+impl_nb_bits!(false, i8 i16 i32 i64 u8 u16 u32 u64);
+impl_nb_bits!(true, f32 f64);
+#[cfg(feature = "half")]
+impl_nb_bits!(true, f16);
 
 // use once_cell::sync::Lazy;
 
@@ -100,11 +106,13 @@ macro_rules! impl_nb_bits {
 //     };
 // }
 
+// ------------------------------ &[T] ------------------------------
+
 macro_rules! impl_argminmax {
     ($($t:ty),*) => {
         $(
-            impl ArgMinMax for ArrayView1<'_, $t> {
-                fn argminmax(self) -> (usize, usize) {
+            impl ArgMinMax for &[$t] {
+                fn argminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
@@ -152,16 +160,70 @@ macro_rules! impl_argminmax {
 }
 
 // Implement ArgMinMax for the rust primitive types
-impl_nb_bits!(false, i8 i16 i32 i64 u8 u16 u32 u64);
-impl_nb_bits!(true, f32 f64);
 impl_argminmax!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
-
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
-mod half_impl {
-    use super::*;
-    use half::f16;
+impl_argminmax!(f16);
 
-    impl_nb_bits!(true, f16);
-    impl_argminmax!(f16);
+// ------------------------------ [T] ------------------------------
+
+// impl<T> ArgMinMax for [T]
+// where
+//     for<'a> &'a [T]: ArgMinMax,
+// {
+//     fn argminmax(&self) -> (usize, usize) {
+//         // TODO: use the slice implementation without having stack-overflow
+//     }
+// }
+
+// ------------------------------ Vec ------------------------------
+
+impl<T> ArgMinMax for Vec<T>
+where
+    for<'a> &'a [T]: ArgMinMax,
+{
+    fn argminmax(&self) -> (usize, usize) {
+        self.as_slice().argminmax()
+    }
+}
+
+// ----------------------- (optional) ndarray ----------------------
+
+#[cfg(feature = "ndarray")]
+mod ndarray_impl {
+    use super::*;
+    use ndarray::{ArrayBase, Data, Ix1};
+
+    // Use the slice implementation
+    // -> implement for S where slice implementation available for S::Elem
+    // ArrayBase instead of Array1 or ArrayView1 -> https://github.com/rust-ndarray/ndarray/issues/1059
+    impl<S> ArgMinMax for ArrayBase<S, Ix1>
+    where
+        S: Data,
+        for<'a> &'a [S::Elem]: ArgMinMax,
+    {
+        fn argminmax(&self) -> (usize, usize) {
+            self.as_slice().unwrap().argminmax()
+        }
+    }
+}
+
+// ----------------------- (optional) arrow ----------------------
+
+#[cfg(feature = "arrow")]
+mod arrow_impl {
+    use super::*;
+    use arrow::array::PrimitiveArray;
+
+    // Use the slice implementation
+    // -> implement for T where slice implementation available for T::Native
+    impl<T> ArgMinMax for PrimitiveArray<T>
+    where
+        T: arrow::datatypes::ArrowNumericType,
+        for<'a> &'a [T::Native]: ArgMinMax,
+    {
+        fn argminmax(&self) -> (usize, usize) {
+            self.values().argminmax()
+        }
+    }
 }

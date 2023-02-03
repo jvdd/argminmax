@@ -1,6 +1,5 @@
 use super::config::SIMDInstructionSet;
 use super::generic::SIMD;
-use ndarray::ArrayView1;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -86,7 +85,7 @@ mod avx2 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
             Self::_argminmax(data)
         }
 
@@ -116,12 +115,10 @@ mod avx2 {
         use super::{AVX2, SIMD};
         use crate::scalar::generic::scalar_argminmax;
 
-        use ndarray::Array1;
-
         extern crate dev_utils;
         use dev_utils::utils;
 
-        fn get_array_u32(n: usize) -> Array1<u32> {
+        fn get_array_u32(n: usize) -> Vec<u32> {
             utils::get_random_array(n, u32::MIN, u32::MAX)
         }
 
@@ -131,11 +128,11 @@ mod avx2 {
                 return;
             }
 
-            let data = get_array_u32(513);
+            let data: &[u32] = &get_array_u32(513);
             assert_eq!(data.len() % 16, 1);
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-            let (simd_argmin_index, simd_argmax_index) = unsafe { AVX2::argminmax(data.view()) };
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
+            let (simd_argmin_index, simd_argmax_index) = unsafe { AVX2::argminmax(data) };
             assert_eq!(argmin_index, simd_argmin_index);
             assert_eq!(argmax_index, simd_argmax_index);
         }
@@ -158,13 +155,13 @@ mod avx2 {
                 std::u32::MAX,
             ];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
-            let data = Array1::from(data);
+            let data: &[u32] = &data;
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
             assert_eq!(argmin_index, 1);
             assert_eq!(argmax_index, 6);
 
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data.view()) };
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
             assert_eq!(argmin_simd_index, 1);
             assert_eq!(argmax_simd_index, 6);
         }
@@ -176,10 +173,9 @@ mod avx2 {
             }
 
             for _ in 0..10_000 {
-                let data = get_array_u32(32 * 8 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-                let (argmin_simd_index, argmax_simd_index) =
-                    unsafe { AVX2::argminmax(data.view()) };
+                let data: &[u32] = &get_array_u32(32 * 8 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data);
+                let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }
@@ -252,7 +248,7 @@ mod sse {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
             Self::_argminmax(data)
         }
 
@@ -282,22 +278,20 @@ mod sse {
         use super::{SIMD, SSE};
         use crate::scalar::generic::scalar_argminmax;
 
-        use ndarray::Array1;
-
         extern crate dev_utils;
         use dev_utils::utils;
 
-        fn get_array_u32(n: usize) -> Array1<u32> {
+        fn get_array_u32(n: usize) -> Vec<u32> {
             utils::get_random_array(n, u32::MIN, u32::MAX)
         }
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            let data = get_array_u32(513);
+            let data: &[u32] = &get_array_u32(513);
             assert_eq!(data.len() % 16, 1);
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-            let (simd_argmin_index, simd_argmax_index) = unsafe { SSE::argminmax(data.view()) };
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
+            let (simd_argmin_index, simd_argmax_index) = unsafe { SSE::argminmax(data) };
             assert_eq!(argmin_index, simd_argmin_index);
             assert_eq!(argmax_index, simd_argmax_index);
         }
@@ -316,13 +310,13 @@ mod sse {
                 std::u32::MAX,
             ];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
-            let data = Array1::from(data);
+            let data: &[u32] = &data;
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
             assert_eq!(argmin_index, 1);
             assert_eq!(argmax_index, 6);
 
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
             assert_eq!(argmin_simd_index, 1);
             assert_eq!(argmax_simd_index, 6);
         }
@@ -330,9 +324,9 @@ mod sse {
         #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
-                let data = get_array_u32(32 * 8 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-                let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data.view()) };
+                let data: &[u32] = &get_array_u32(32 * 8 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data);
+                let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }
@@ -348,10 +342,9 @@ mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
-
     const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
-    //  - comparison swappen => dan moeten we opt einde niet meer swappen?
+    // TODO - comparison swappen => dan moeten we opt einde niet meer swappen?
 
     #[inline(always)]
     unsafe fn _u32_to_i32decrord(u32: __m512i) -> __m512i {
@@ -412,7 +405,7 @@ mod avx512 {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
             Self::_argminmax(data)
         }
 
@@ -442,12 +435,10 @@ mod avx512 {
         use super::{AVX512, SIMD};
         use crate::scalar::generic::scalar_argminmax;
 
-        use ndarray::Array1;
-
         extern crate dev_utils;
         use dev_utils::utils;
 
-        fn get_array_u32(n: usize) -> Array1<u32> {
+        fn get_array_u32(n: usize) -> Vec<u32> {
             utils::get_random_array(n, u32::MIN, u32::MAX)
         }
 
@@ -457,11 +448,11 @@ mod avx512 {
                 return;
             }
 
-            let data = get_array_u32(513);
+            let data: &[u32] = &get_array_u32(513);
             assert_eq!(data.len() % 16, 1);
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-            let (simd_argmin_index, simd_argmax_index) = unsafe { AVX512::argminmax(data.view()) };
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
+            let (simd_argmin_index, simd_argmax_index) = unsafe { AVX512::argminmax(data) };
             assert_eq!(argmin_index, simd_argmin_index);
             assert_eq!(argmax_index, simd_argmax_index);
         }
@@ -484,13 +475,13 @@ mod avx512 {
                 std::u32::MAX,
             ];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
-            let data = Array1::from(data);
+            let data: &[u32] = &data;
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
             assert_eq!(argmin_index, 1);
             assert_eq!(argmax_index, 6);
 
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data.view()) };
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
             assert_eq!(argmin_simd_index, 1);
             assert_eq!(argmax_simd_index, 6);
         }
@@ -502,10 +493,9 @@ mod avx512 {
             }
 
             for _ in 0..10_000 {
-                let data = get_array_u32(32 * 8 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-                let (argmin_simd_index, argmax_simd_index) =
-                    unsafe { AVX512::argminmax(data.view()) };
+                let data: &[u32] = &get_array_u32(32 * 8 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data);
+                let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }
@@ -564,7 +554,7 @@ mod neon {
         // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: ArrayView1<u32>) -> (usize, usize) {
+        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
             Self::_argminmax(data)
         }
     }
@@ -576,22 +566,20 @@ mod neon {
         use super::{NEON, SIMD};
         use crate::scalar::generic::scalar_argminmax;
 
-        use ndarray::Array1;
-
         extern crate dev_utils;
         use dev_utils::utils;
 
-        fn get_array_u32(n: usize) -> Array1<u32> {
+        fn get_array_u32(n: usize) -> Vec<u32> {
             utils::get_random_array(n, u32::MIN, u32::MAX)
         }
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            let data = get_array_u32(513);
+            let data: &[u32] = &get_array_u32(513);
             assert_eq!(data.len() % 16, 1);
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-            let (simd_argmin_index, simd_argmax_index) = unsafe { NEON::argminmax(data.view()) };
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
+            let (simd_argmin_index, simd_argmax_index) = unsafe { NEON::argminmax(data) };
             assert_eq!(argmin_index, simd_argmin_index);
             assert_eq!(argmax_index, simd_argmax_index);
         }
@@ -610,13 +598,13 @@ mod neon {
                 std::u32::MAX,
             ];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
-            let data = Array1::from(data);
+            let data: &[u32] = &data;
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data.view());
+            let (argmin_index, argmax_index) = scalar_argminmax(data);
             assert_eq!(argmin_index, 1);
             assert_eq!(argmax_index, 6);
 
-            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data.view()) };
+            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
             assert_eq!(argmin_simd_index, 1);
             assert_eq!(argmax_simd_index, 6);
         }
@@ -624,10 +612,9 @@ mod neon {
         #[test]
         fn test_many_random_runs() {
             for _ in 0..10_000 {
-                let data = get_array_u32(32 * 8 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data.view());
-                let (argmin_simd_index, argmax_simd_index) =
-                    unsafe { NEON::argminmax(data.view()) };
+                let data: &[u32] = &get_array_u32(32 * 8 + 1);
+                let (argmin_index, argmax_index) = scalar_argminmax(data);
+                let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
                 assert_eq!(argmin_index, argmin_simd_index);
                 assert_eq!(argmax_index, argmax_simd_index);
             }
