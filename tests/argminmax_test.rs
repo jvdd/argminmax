@@ -44,6 +44,40 @@ fn test_argminmax_vec() {
     assert_eq!(max, ARRAY_LENGTH - 1);
 }
 
+
+#[test]
+fn test_argminmax_vec_with_nans() {
+    let mut data: Vec<f32> = (0..ARRAY_LENGTH).map(|x| x as f32).collect();
+    utils::insert_nans(&mut data, 0.05);
+    // Test owned vec
+    let (min, max) = data.argminmax();
+    assert_eq!(min, 0);
+    assert_eq!(max, ARRAY_LENGTH - 1);
+    // Test borrowed vec
+    let (min, max) = (&data).argminmax();
+    assert_eq!(min, 0);
+    assert_eq!(max, ARRAY_LENGTH - 1);
+}
+
+
+#[test]
+fn test_argminmax_vec_with_start_end_nans() {
+
+    let mut data: Vec<f32> = (0..100).map(|x| x as f32).collect();
+    data[0] = f32::NAN;
+    data[100-1] = f32::NAN;
+    // Test owned vec
+    let (min, max) = data.argminmax();
+    assert_eq!(min, 1);
+    assert_eq!(max, 100 - 2);
+    // Test borrowed vec
+    let (min, max) = (&data).argminmax();
+    assert_eq!(min, 1);
+    assert_eq!(max, 100 - 2);
+}
+
+
+
 #[cfg(feature = "ndarray")]
 #[test]
 fn test_argminmax_ndarray() {
@@ -94,14 +128,14 @@ fn test_argminmax_many_random_runs() {
         let (min_vec, max_vec) = data.argminmax();
         // Array1
         #[cfg(feature = "ndarray")]
-        let array: Array1<f32> = Array1::from_vec(slice.to_vec());
+            let array: Array1<f32> = Array1::from_vec(slice.to_vec());
         #[cfg(feature = "ndarray")]
-        let (min_array, max_array) = array.argminmax();
+            let (min_array, max_array) = array.argminmax();
         // Arrow
         #[cfg(feature = "arrow")]
-        let arrow: Float32Array = Float32Array::from(slice.to_vec());
+            let arrow: Float32Array = Float32Array::from(slice.to_vec());
         #[cfg(feature = "arrow")]
-        let (min_arrow, max_arrow) = arrow.argminmax();
+            let (min_arrow, max_arrow) = arrow.argminmax();
         // Assert
         assert_eq!(min_slice, min_vec);
         assert_eq!(max_slice, max_vec);
@@ -115,3 +149,4 @@ fn test_argminmax_many_random_runs() {
         assert_eq!(max_slice, max_arrow);
     }
 }
+
