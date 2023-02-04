@@ -14,6 +14,9 @@ where
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
         (Some(sim), Some(rem)) => {
+            // Perform SIMD operation on the first part of the array
+            let sim_result = unsafe { core_argminmax(sim) };
+            // Perform scalar operation on the remainder of the array
             let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             let rem_result = (
                 rem_min_index + sim.len(),
@@ -21,8 +24,8 @@ where
                 rem_max_index + sim.len(),
                 rem[rem_max_index],
             );
-            let sim_result = unsafe { core_argminmax(sim) };
-            find_final_index_minmax(rem_result, sim_result)
+            // Select the final result
+            find_final_index_minmax(sim_result, rem_result)
         }
         (None, Some(rem)) => {
             let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
@@ -55,21 +58,45 @@ fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[
     }
 }
 
+// TODO: if we support argmin & argmax (as both seperate funcs), this func should be
+// broken up into two seperate functions.
 #[inline(always)]
 fn find_final_index_minmax<T: Copy + PartialOrd>(
     remainder_result: (usize, T, usize, T),
     simd_result: (usize, T, usize, T),
 ) -> (usize, usize) {
-    let min_result = match remainder_result.1.partial_cmp(&simd_result.1).unwrap() {
-        Ordering::Less => remainder_result.0,
-        Ordering::Equal => std::cmp::min(remainder_result.0, simd_result.0),
-        Ordering::Greater => simd_result.0,
+    let min_result = match simd_result.1.partial_cmp(&remainder_result.1) {
+        Some(Ordering::Less) => simd_result.0,
+        Some(Ordering::Equal) => std::cmp::min(simd_result.0, remainder_result.0),
+        Some(Ordering::Greater) => remainder_result.0,
+        // Handle NaNs: if value is NaN, than return index of that value
+        // This should prefer the simd result over the remainder result if both are NaN
+        None => {
+            // Instead of checking for NaN, we check if the value is not equal to itself
+            // This is because NaN != NaN
+            if simd_result.1 != simd_result.1 {
+                simd_result.0
+            } else {
+                remainder_result.0
+            }
+        }
     };
 
-    let max_result = match simd_result.3.partial_cmp(&remainder_result.3).unwrap() {
-        Ordering::Less => remainder_result.2,
-        Ordering::Equal => std::cmp::min(remainder_result.2, simd_result.2),
-        Ordering::Greater => simd_result.2,
+    let max_result = match simd_result.3.partial_cmp(&remainder_result.3) {
+        Some(Ordering::Less) => remainder_result.2,
+        Some(Ordering::Equal) => std::cmp::min(remainder_result.2, simd_result.2),
+        Some(Ordering::Greater) => simd_result.2,
+        // Handle NaNs: if value is NaN, than return index of that value
+        // This should prefer the simd result over the remainder result if both are NaN
+        None => {
+            // Instead of checking for NaN, we check if the value is not equal to itself
+            // This is because NaN != NaN
+            if simd_result.3 != simd_result.3 {
+                simd_result.2
+            } else {
+                remainder_result.2
+            }
+        }
     };
 
     (min_result, max_result)

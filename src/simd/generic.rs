@@ -122,11 +122,11 @@ pub trait SIMD<
             // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..start + dtype_max]);
-            if min_value_ < min_value {
+            if min_value_ < min_value || min_value_ != min_value_ {
                 min_index = start + min_index_;
                 min_value = min_value_;
             }
-            if max_value_ > max_value {
+            if max_value_ > max_value || max_value_ != max_value_ {
                 max_index = start + max_index_;
                 max_value = max_value_;
             }
@@ -137,11 +137,11 @@ pub trait SIMD<
             // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..]);
-            if min_value_ < min_value {
+            if min_value_ < min_value || min_value_ != min_value_ {
                 min_index = start + min_index_;
                 min_value = min_value_;
             }
-            if max_value_ > max_value {
+            if max_value_ > max_value || max_value_ != max_value_ {
                 max_index = start + max_index_;
                 max_value = max_value_;
             }

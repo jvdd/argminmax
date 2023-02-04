@@ -9,6 +9,17 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+use super::task::{min_index_value, max_index_value};
+
+const XOR_VALUE: i32 = 0x7FFFFFFF;
+
+
+fn _ord_i32_to_f32(ord_i32: i32) -> f32 {
+    // TODO: more efficient transformation -> can be decreasing order as well
+    let v = ((ord_i32 >> 31) & XOR_VALUE) ^ ord_i32;
+    unsafe { std::mem::transmute::<i32, f32>(v) }
+}
+
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -166,46 +177,61 @@ mod sse {
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_32;
+    const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
-    impl SIMD<f32, __m128, __m128, LANE_SIZE> for SSE {
-        const INITIAL_INDEX: __m128 =
-            unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
+    #[inline(always)]
+    unsafe fn _f32_as_m128i_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
+        // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
+        let sign_bit_shifted = _mm_srai_epi32(f32_as_m128i, 31);
+        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, XOR_MASK);
+        _mm_xor_si128(sign_bit_masked, f32_as_m128i)
+    }
+
+    #[inline(always)]
+    unsafe fn _reg_to_i32_arr(reg: __m128i) -> [i32; LANE_SIZE] {
+        std::mem::transmute::<__m128i, [i32; LANE_SIZE]>(reg)
+    }
+
+    impl SIMD<f32, __m128i, __m128i, LANE_SIZE> for SSE {
+        const INITIAL_INDEX: __m128i =
+            // unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
+            unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
         // https://stackoverflow.com/a/3793950
         const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m128) -> [f32; LANE_SIZE] {
-            std::mem::transmute::<__m128, [f32; LANE_SIZE]>(reg)
+        unsafe fn _reg_to_arr(reg: __m128i) -> [f32; LANE_SIZE] {
+            std::mem::transmute::<__m128i, [f32; LANE_SIZE]>(reg)
         }
 
         #[inline(always)]
-        unsafe fn _mm_loadu(data: *const f32) -> __m128 {
-            _mm_loadu_ps(data as *const f32)
+        unsafe fn _mm_loadu(data: *const f32) -> __m128i {
+            _f32_as_m128i_to_i32ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128 {
-            _mm_set1_ps(a as f32)
+        unsafe fn _mm_set1(a: usize) -> __m128i {
+            _mm_set1_epi32(a as i32)
         }
 
         #[inline(always)]
-        unsafe fn _mm_add(a: __m128, b: __m128) -> __m128 {
-            _mm_add_ps(a, b)
+        unsafe fn _mm_add(a: __m128i, b: __m128i) -> __m128i {
+            _mm_add_epi32(a, b)
         }
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: __m128, b: __m128) -> __m128 {
-            _mm_cmpgt_ps(a, b)
+        unsafe fn _mm_cmpgt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmpgt_epi32(a, b)
         }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: __m128, b: __m128) -> __m128 {
-            _mm_cmplt_ps(a, b)
+        unsafe fn _mm_cmplt(a: __m128i, b: __m128i) -> __m128i {
+            _mm_cmplt_epi32(a, b)
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: __m128, b: __m128, mask: __m128) -> __m128 {
-            _mm_blendv_ps(a, b, mask)
+        unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
+            _mm_blendv_epi8(a, b, mask)
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
@@ -213,6 +239,27 @@ mod sse {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
+        }
+
+        #[inline(always)]
+        unsafe fn _get_min_max_index_value(
+            index_low: __m128i,
+            values_low: __m128i,
+            index_high: __m128i,
+            values_high: __m128i,
+        ) -> (usize, f32, usize, f32) {
+            let index_low_arr = _reg_to_i32_arr(index_low);
+            let values_low_arr = _reg_to_i32_arr(values_low);
+            let index_high_arr = _reg_to_i32_arr(index_high);
+            let values_high_arr = _reg_to_i32_arr(values_high);
+            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
+            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            (
+                min_index as usize,
+                _ord_i32_to_f32(min_value),
+                max_index as usize,
+                _ord_i32_to_f32(max_value),
+            )
         }
     }
 
@@ -262,6 +309,45 @@ mod sse {
             let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
             assert_eq!(argmin_simd_index, 3);
             assert_eq!(argmax_simd_index, 1);
+        }
+
+        #[test]
+        fn test_return_nan_index() {
+            // Case 1: NaN is the first element
+            let mut data: Vec<f32> = get_array_f32(1027);
+            data[0] = std::f32::NAN;
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 0);
+            assert_eq!(argmax_index, 0);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 0);
+            assert_eq!(argmax_simd_index, 0);
+
+            // Case 2: NaN is the last element
+            let mut data: Vec<f32> = get_array_f32(1027);
+            data[1026] = std::f32::NAN;
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 1026);
+            assert_eq!(argmax_index, 1026);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 1026);
+            assert_eq!(argmax_simd_index, 1026);
+
+            // Case 3: NaN is somewhere in the middle element
+            let mut data: Vec<f32> = get_array_f32(1027);
+            data[123] = std::f32::NAN;
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 123);
+            assert_eq!(argmax_index, 123);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
+            // assert_eq!(argmin_simd_index, 123); // TODO: should return NaN index as well
+            assert_eq!(argmax_simd_index, 123);
         }
 
         #[test]

@@ -22,7 +22,15 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     let mut high: T = unsafe { *arr.get_unchecked(high_index) };
     for i in 0..arr.len() {
         let v: T = unsafe { *arr.get_unchecked(i) };
-        if v < low {
+        if v != v {
+            // TODO: optimize this
+            // Handle NaNs: if value is NaN, than return index of that value
+            // return (i, i);
+            low = v;
+            low_index = i;
+            high = v;
+            high_index = i;
+        } else if v < low {
             low = v;
             low_index = i;
         } else if v > high {
