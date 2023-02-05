@@ -9,10 +9,9 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-use super::task::{min_index_value, max_index_value};
+use super::task::{max_index_value, min_index_value};
 
 const XOR_VALUE: i32 = 0x7FFFFFFF;
-
 
 fn _ord_i32_to_f32(ord_i32: i32) -> f32 {
     // TODO: more efficient transformation -> can be decreasing order as well
@@ -201,7 +200,7 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128i) -> [f32; LANE_SIZE] {
-           unimplemented!()
+            unimplemented!()
         }
 
         #[inline(always)]
@@ -266,12 +265,7 @@ mod sse {
                 // max_value is the only NaN
                 return (max_index as usize, max_value, max_index as usize, max_value);
             }
-            (
-                min_index as usize,
-                min_value,
-                max_index as usize,
-                max_value,
-            )
+            (min_index as usize, min_value, max_index as usize, max_value)
         }
     }
 
