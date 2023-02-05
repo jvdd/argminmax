@@ -25,11 +25,11 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
         if v != v {
             // TODO: optimize this
             // Handle NaNs: if value is NaN, than return index of that value
-            // return (i, i);
-            low = v;
-            low_index = i;
-            high = v;
-            high_index = i;
+            return (i, i);
+            // low = v;
+            // low_index = i;
+            // high = v;
+            // high_index = i;
         } else if v < low {
             low = v;
             low_index = i;

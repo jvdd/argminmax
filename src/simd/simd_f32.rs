@@ -197,11 +197,11 @@ mod sse {
             // unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
             unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
         // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+        const MAX_INDEX: usize = i32::MAX as usize;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128i) -> [f32; LANE_SIZE] {
-            std::mem::transmute::<__m128i, [f32; LANE_SIZE]>(reg)
+           unimplemented!()
         }
 
         #[inline(always)]
@@ -248,17 +248,29 @@ mod sse {
             index_high: __m128i,
             values_high: __m128i,
         ) -> (usize, f32, usize, f32) {
+            // Get the results as arrays
             let index_low_arr = _reg_to_i32_arr(index_low);
             let values_low_arr = _reg_to_i32_arr(values_low);
             let index_high_arr = _reg_to_i32_arr(index_high);
             let values_high_arr = _reg_to_i32_arr(values_high);
+            // Find the min and max values and their indices
             let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
             let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+            // Return the results - convert the ordinal ints back to floats
+            let min_value = _ord_i32_to_f32(min_value);
+            let max_value = _ord_i32_to_f32(max_value);
+            if min_value != min_value && max_value == max_value {
+                // min_value is the only NaN
+                return (min_index as usize, min_value, min_index as usize, min_value);
+            } else if min_value == min_value && max_value != max_value {
+                // max_value is the only NaN
+                return (max_index as usize, max_value, max_index as usize, max_value);
+            }
             (
                 min_index as usize,
-                _ord_i32_to_f32(min_value),
+                min_value,
                 max_index as usize,
-                _ord_i32_to_f32(max_value),
+                max_value,
             )
         }
     }
@@ -346,7 +358,7 @@ mod sse {
             assert_eq!(argmax_index, 123);
 
             let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            // assert_eq!(argmin_simd_index, 123); // TODO: should return NaN index as well
+            assert_eq!(argmin_simd_index, 123);
             assert_eq!(argmax_simd_index, 123);
         }
 
