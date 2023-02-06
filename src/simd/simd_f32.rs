@@ -177,11 +177,12 @@ mod sse {
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_32;
     const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const BIT_SHIFT: i32 = 31;
 
     #[inline(always)]
     unsafe fn _f32_as_m128i_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
-        let sign_bit_shifted = _mm_srai_epi32(f32_as_m128i, 31);
+        let sign_bit_shifted = _mm_srai_epi32(f32_as_m128i, BIT_SHIFT);
         let sign_bit_masked = _mm_and_si128(sign_bit_shifted, XOR_MASK);
         _mm_xor_si128(sign_bit_masked, f32_as_m128i)
     }

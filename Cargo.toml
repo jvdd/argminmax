@@ -26,6 +26,9 @@ codspeed-criterion-compat = "1.0.1"
 criterion = "0.3.1"
 dev_utils = { path = "dev_utils" }
 
+[profile.release]
+lto = true
+
 
 [[bench]]
 name = "bench_f16"
