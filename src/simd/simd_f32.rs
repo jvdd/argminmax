@@ -135,7 +135,7 @@ mod avx2 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -150,7 +150,7 @@ mod avx2 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -177,6 +177,10 @@ mod avx2 {
 
         #[test]
         fn test_return_nan_index() {
+            if !is_x86_feature_detected!("avx2") {
+                return;
+            }
+
             // Case 1: NaN is the first element
             let mut data: Vec<f32> = get_array_f32(1027);
             data[0] = std::f32::NAN;
@@ -216,7 +220,7 @@ mod avx2 {
 
         #[test]
         fn test_no_overflow() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -231,7 +235,7 @@ mod avx2 {
 
         #[test]
         fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
