@@ -55,7 +55,7 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m256i {
-            _f32_as_m256i_to_i32ord(_mm256_load_epi32(data as *const i32))
+            _f32_as_m256i_to_i32ord(_mm256_loadu_epi32(data as *const i32))
         }
 
         #[inline(always)]
