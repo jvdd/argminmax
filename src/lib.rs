@@ -9,6 +9,7 @@ mod scalar;
 mod simd;
 
 pub use scalar::{ScalarArgMinMax, SCALAR};
+pub use simd::{AVX2FloatIgnoreNaN, AVX512FloatIgnoreNaN, SSEFloatIgnoreNaN};
 pub use simd::{AVX2, AVX512, NEON, SIMD, SSE};
 
 #[cfg(feature = "half")]
@@ -22,29 +23,35 @@ pub trait ArgMinMax {
 
     // fn argmin(self) -> usize;
     // fn argmax(self) -> usize;
+
+    /// Get the index of the minimum and maximum values in the array.
+    /// If the array contains NaNs, the index of the first NaN is returned.
     fn argminmax(&self) -> (usize, usize);
+
+    /// Get the index of the minimum and maximum values in the array, ignoring NaNs.
+    /// This will only result in unexpected behavior if the array contains *only* NaNs
+    /// and infinities (in which case index 0 is returned for both).
+    fn nanargminmax(&self) -> (usize, usize);
 }
 
 // ---- Helper macros ----
 
 trait DTypeInfo {
     const NB_BITS: usize;
-    const IS_FLOAT: bool;
 }
 
 macro_rules! impl_nb_bits {
-    ($is_float:expr, $($t:ty)*) => ($(
+    ($($t:ty)*) => ($(
         impl DTypeInfo for $t {
             const NB_BITS: usize = std::mem::size_of::<$t>() * 8;
-            const IS_FLOAT: bool = $is_float;
         }
     )*)
 }
 
-impl_nb_bits!(false, i8 i16 i32 i64 u8 u16 u32 u64);
-impl_nb_bits!(true, f32 f64);
+impl_nb_bits!(i8 i16 i32 i64 u8 u16 u32 u64);
+impl_nb_bits!(f32 f64);
 #[cfg(feature = "half")]
-impl_nb_bits!(true, f16);
+impl_nb_bits!(f16);
 
 // use once_cell::sync::Lazy;
 
@@ -108,7 +115,7 @@ impl_nb_bits!(true, f16);
 
 // ------------------------------ &[T] ------------------------------
 
-macro_rules! impl_argminmax {
+macro_rules! impl_argminmax_non_float {
     ($($t:ty),*) => {
         $(
             impl ArgMinMax for &[$t] {
@@ -124,9 +131,6 @@ macro_rules! impl_argminmax {
                         } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
                             return unsafe { AVX512::argminmax(self) }
                         } else if is_x86_feature_detected!("avx2") {
-                            return unsafe { AVX2::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx")  & (<$t>::NB_BITS >= 32) & (<$t>::IS_FLOAT == true) {
-                            // f32 and f64 do not require avx2
                             return unsafe { AVX2::argminmax(self) }
                         // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
                         // // } else if is_x86_feature_detected!("sse4.2") & (<$t>::NB_BITS == 64) & (<$t>::IS_FLOAT == false) {
@@ -154,16 +158,77 @@ macro_rules! impl_argminmax {
                     }
                     SCALAR::argminmax(self)
                 }
+
+                // As there are no NaNs, we can use the same implementation as argminmax
+                fn nanargminmax(&self) -> (usize, usize) {
+                    self.argminmax()
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! impl_argminmax_float {
+    ($($t:ty),*) => {
+        $(
+            impl ArgMinMax for &[$t] {
+                fn argminmax(&self) -> (usize, usize) {
+                    // TODO: add implementation that returns nans when there are nans
+                    self.nanargminmax()
+                }
+                fn nanargminmax(&self) -> (usize, usize) {
+                    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+                    {
+                        if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
+                            // 8-bit numbers are best handled by SSE4.1
+                            return unsafe { SSEFloatIgnoreNaN::argminmax(self) }
+                        // } else if is_x86_feature_detected!("avx512bw") & (<$t>::NB_BITS <= 16) {
+                        //     // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
+                        //     return unsafe { AVX512::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
+                            return unsafe { AVX512FloatIgnoreNaN::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx2") {
+                            return unsafe { AVX2FloatIgnoreNaN::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx")  & (<$t>::NB_BITS >= 32) {
+                            // f32 and f64 do not require avx2
+                            return unsafe { AVX2FloatIgnoreNaN::argminmax(self) }
+                        // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
+                        // // } else if is_x86_feature_detected!("sse4.2") & (<$t>::NB_BITS == 64) & (<$t>::IS_FLOAT == false) {
+                        //     // SSE4.2 is needed for comparing 64-bit integers
+                        //     return unsafe { SSE::argminmax(self) }
+                        } else if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS < 64) {
+                            // Scalar is faster for 64-bit numbers
+                            return unsafe { SSEFloatIgnoreNaN::argminmax(self) }
+                        }
+                    }
+                    #[cfg(target_arch = "aarch64")]
+                    {
+                        if std::arch::is_aarch64_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
+                            // We miss some NEON instructions for 64-bit numbers
+                            return unsafe { NEON::argminmax(self) }
+                        }
+                    }
+                    #[cfg(target_arch = "arm")]
+                    {
+                        if std::arch::is_arm_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
+                            // TODO: requires v7?
+                            // We miss some NEON instructions for 64-bit numbers
+                            return unsafe { NEON::argminmax(self) }
+                        }
+                    }
+                    SCALAR::argminmax(self)
+                }
             }
         )*
     };
 }
 
 // Implement ArgMinMax for the rust primitive types
-impl_argminmax!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);
+impl_argminmax_non_float!(i8, i16, i32, i64, u8, u16, u32, u64);
+impl_argminmax_float!(f32, f64);
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
-impl_argminmax!(f16);
+impl_argminmax_float!(f16); // TODO: implement f16 correctly (currently it is swapped)
 
 // ------------------------------ [T] ------------------------------
 
@@ -185,6 +250,9 @@ where
     fn argminmax(&self) -> (usize, usize) {
         self.as_slice().argminmax()
     }
+    fn nanargminmax(&self) -> (usize, usize) {
+        self.as_slice().nanargminmax()
+    }
 }
 
 // ----------------------- (optional) ndarray ----------------------
@@ -205,6 +273,9 @@ mod ndarray_impl {
         fn argminmax(&self) -> (usize, usize) {
             self.as_slice().unwrap().argminmax()
         }
+        fn nanargminmax(&self) -> (usize, usize) {
+            self.as_slice().unwrap().nanargminmax()
+        }
     }
 }
 
@@ -224,6 +295,9 @@ mod arrow_impl {
     {
         fn argminmax(&self) -> (usize, usize) {
             self.values().argminmax()
+        }
+        fn nanargminmax(&self) -> (usize, usize) {
+            self.values().nanargminmax()
         }
     }
 }

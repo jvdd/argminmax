@@ -19,12 +19,12 @@ const MAX_VALUE: f64 = f64::INFINITY;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
-    use super::super::config::AVX2;
+    use super::super::config::{AVX2FloatIgnoreNaN, AVX2};
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
 
-    impl SIMD<f64, __m256d, __m256d, LANE_SIZE> for AVX2 {
+    impl SIMD<f64, __m256d, __m256d, LANE_SIZE> for AVX2FloatIgnoreNaN {
         const INITIAL_INDEX: __m256d =
             unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64]) };
         const INDEX_INCREMENT: __m256d =
@@ -81,7 +81,8 @@ mod avx2 {
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX2, SIMD};
+        use super::AVX2FloatIgnoreNaN as AVX2;
+        use super::SIMD;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -154,12 +155,12 @@ mod avx2 {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
-    use super::super::config::SSE;
+    use super::super::config::{SSEFloatIgnoreNaN, SSE};
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_64;
 
-    impl SIMD<f64, __m128d, __m128d, LANE_SIZE> for SSE {
+    impl SIMD<f64, __m128d, __m128d, LANE_SIZE> for SSEFloatIgnoreNaN {
         const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
         const INDEX_INCREMENT: __m128d =
             unsafe { std::mem::transmute([LANE_SIZE as f64; LANE_SIZE]) };
@@ -215,7 +216,8 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
-        use super::{SIMD, SSE};
+        use super::SSEFloatIgnoreNaN as SSE;
+        use super::SIMD;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -276,12 +278,12 @@ mod sse {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
-    use super::super::config::AVX512;
+    use super::super::config::{AVX512FloatIgnoreNaN, AVX512};
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
 
-    impl SIMD<f64, __m512d, u8, LANE_SIZE> for AVX512 {
+    impl SIMD<f64, __m512d, u8, LANE_SIZE> for AVX512FloatIgnoreNaN {
         const INITIAL_INDEX: __m512d = unsafe {
             std::mem::transmute([
                 0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64, 5.0f64, 6.0f64, 7.0f64,
@@ -341,7 +343,8 @@ mod avx512 {
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX512, SIMD};
+        use super::AVX512FloatIgnoreNaN as AVX512;
+        use super::SIMD;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

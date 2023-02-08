@@ -7,8 +7,8 @@ mod generic;
 pub use generic::*;
 // FLOAT
 mod simd_f16;
-mod simd_f32;
-mod simd_f64;
+mod simd_f32_ignore_nans;
+mod simd_f64_ignore_nans;
 // SIGNED INT
 mod simd_i16;
 mod simd_i32;
