@@ -1,4 +1,4 @@
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Zero};
 
 use super::task::*;
 use crate::scalar::{ScalarArgMinMax, SCALAR};
@@ -6,14 +6,24 @@ use crate::scalar::{ScalarArgMinMax, SCALAR};
 // TODO: other potential generic SIMDIndexDtype: Copy
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMD<
-    ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
+    ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + Zero,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
     const LANE_SIZE: usize,
 >
 {
+    /// Initial index value for the SIMD vector
     const INITIAL_INDEX: SIMDVecDtype;
-    const MAX_INDEX: usize; // Integers > this value **cannot** be accurately represented in SIMDVecDtype
+    /// Increment value for the SIMD vector
+    const INDEX_INCREMENT: SIMDVecDtype;
+
+    /// Integers > this value **cannot** be accurately represented in SIMDVecDtype
+    const MAX_INDEX: usize;
+
+    /// Smallest value that can be represented in ScalarDType
+    const MIN_VALUE: ScalarDType;
+    /// Largest value that can be represented in ScalarDType
+    const MAX_VALUE: ScalarDType;
 
     #[inline(always)]
     fn _find_largest_lower_multiple_of_lane_size(n: usize) -> usize {
@@ -26,7 +36,7 @@ pub trait SIMD<
 
     unsafe fn _mm_loadu(data: *const ScalarDType) -> SIMDVecDtype;
 
-    unsafe fn _mm_set1(a: usize) -> SIMDVecDtype;
+    unsafe fn _mm_set1(a: ScalarDType) -> SIMDVecDtype;
 
     unsafe fn _mm_add(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype;
 
@@ -68,25 +78,6 @@ pub trait SIMD<
         (max_index.as_(), max_value)
     }
 
-    #[inline(always)]
-    unsafe fn _mm_prefetch(data: *const ScalarDType) {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            #[cfg(target_arch = "x86")]
-            use std::arch::x86::_mm_prefetch;
-            #[cfg(target_arch = "x86_64")]
-            use std::arch::x86_64::_mm_prefetch;
-
-            _mm_prefetch(data as *const i8, 0); // 0=NTA
-        }
-        #[cfg(target_arch = "aarch64")]
-        {
-            use std::arch::aarch64::_prefetch;
-
-            _prefetch(data as *const i8, 0, 0); // 0=READ, 0=NTA
-        }
-    }
-
     // ------------------------------------ ARGMINMAX --------------------------------------
 
     unsafe fn argminmax(data: &[ScalarDType]) -> (usize, usize);
@@ -113,9 +104,9 @@ pub trait SIMD<
 
         // 2. Perform overflow-safe _core_argminmax
         let mut min_index: usize = 0;
-        let mut min_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+        let mut min_value: ScalarDType = Self::MAX_VALUE;
         let mut max_index: usize = 0;
-        let mut max_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+        let mut max_value: ScalarDType = Self::MIN_VALUE;
         let mut start: usize = 0;
         // 2.0 Perform the full loops
         for _ in 0..n_loops {
@@ -169,40 +160,25 @@ pub trait SIMD<
         assert_eq!(arr.len() % LANE_SIZE, 0);
         // Efficient calculation of argmin and argmax together
         let mut new_index = Self::INITIAL_INDEX;
-        let mut index_low = Self::INITIAL_INDEX;
-        let mut index_high = Self::INITIAL_INDEX;
-
-        let increment = Self::_mm_set1(LANE_SIZE);
 
         let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
-        let mut values_low = Self::_mm_loadu(arr_ptr);
-        let mut values_high = Self::_mm_loadu(arr_ptr);
+        let new_values = Self::_mm_loadu(arr_ptr);
 
-        // This is (40%-5%) slower than the loop below (depending on the data type)
-        // arr.chunks_exact(LANE_SIZE)
-        //     .into_iter()
-        //     .skip(1)
-        //     .for_each(|step| {
-        //         new_index = Self::_mm_add(new_index, increment);
+        // Update the lowest values and index
+        let mask = Self::_mm_cmplt(new_values, Self::_mm_set1(Self::MAX_VALUE));
+        let mut values_low = Self::_mm_blendv(Self::_mm_set1(Self::MAX_VALUE), new_values, mask);
+        let mut index_low = Self::_mm_blendv(Self::_mm_set1(ScalarDType::zero()), new_index, mask);
 
-        //         let new_values = Self::_mm_loadu(step.as_ptr());
-
-        //         let lt_mask = Self::_mm_cmplt(new_values, values_low);
-        //         let gt_mask = Self::_mm_cmpgt(new_values, values_high);
-
-        //         index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-        //         index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
-
-        //         values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-        //         values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
-        //     });
+        // Update the highest values and index
+        let mask = Self::_mm_cmpgt(new_values, Self::_mm_set1(Self::MIN_VALUE));
+        let mut values_high = Self::_mm_blendv(Self::_mm_set1(Self::MIN_VALUE), new_values, mask);
+        let mut index_high = Self::_mm_blendv(Self::_mm_set1(ScalarDType::zero()), new_index, mask);
 
         for _ in 0..arr.len() / LANE_SIZE - 1 {
             // Increment the index
-            new_index = Self::_mm_add(new_index, increment);
+            new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
             // Load the next chunk of data
             arr_ptr = arr_ptr.add(LANE_SIZE);
-            // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
             let new_values = Self::_mm_loadu(arr_ptr);
 
             // Update the lowest values and index
@@ -214,10 +190,6 @@ pub trait SIMD<
             let mask = Self::_mm_cmpgt(new_values, values_high);
             values_high = Self::_mm_blendv(values_high, new_values, mask);
             index_high = Self::_mm_blendv(index_high, new_index, mask);
-
-            // 25 is a non-scientific number, but seems to work overall
-            //  => TODO: probably this should be in function of the data type
-            // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
         }
 
         Self::_get_min_max_index_value(index_low, values_low, index_high, values_high)

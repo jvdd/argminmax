@@ -19,6 +19,11 @@ fn _i32decrord_to_u32(ord_i32: i32) -> u32 {
     unsafe { std::mem::transmute::<i32, u32>(ord_i32 ^ XOR_VALUE) }
 }
 
+const MAX_INDEX: usize = i32::MAX as usize;
+
+const MIN_VALUE: u32 = i32::MIN as u32; // 0x80000000 -> as i32 = -2147483648
+const MAX_VALUE: u32 = i32::MAX as u32;
+
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -44,7 +49,12 @@ mod avx2 {
     impl SIMD<u32, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i =
             unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32]) };
-        const MAX_INDEX: usize = i32::MAX as usize;
+        const INDEX_INCREMENT: __m256i =
+            unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u32 = MIN_VALUE;
+        const MAX_VALUE: u32 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [u32; LANE_SIZE] {
@@ -58,7 +68,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256i {
+        unsafe fn _mm_set1(a: u32) -> __m256i {
             _mm256_set1_epi32(a as i32)
         }
 
@@ -207,7 +217,12 @@ mod sse {
 
     impl SIMD<u32, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
-        const MAX_INDEX: usize = i32::MAX as usize;
+        const INDEX_INCREMENT: __m128i =
+            unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u32 = MIN_VALUE;
+        const MAX_VALUE: u32 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [u32; LANE_SIZE] {
@@ -221,7 +236,7 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i {
+        unsafe fn _mm_set1(a: u32) -> __m128i {
             _mm_set1_epi32(a as i32)
         }
 
@@ -365,7 +380,12 @@ mod avx512 {
                 13i32, 14i32, 15i32,
             ])
         };
-        const MAX_INDEX: usize = i32::MAX as usize;
+        const INDEX_INCREMENT: __m512i =
+            unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u32 = MIN_VALUE;
+        const MAX_VALUE: u32 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [u32; LANE_SIZE] {
@@ -378,7 +398,7 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i {
+        unsafe fn _mm_set1(a: u32) -> __m512i {
             _mm512_set1_epi32(a as i32)
         }
 

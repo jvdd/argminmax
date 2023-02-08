@@ -16,6 +16,11 @@ fn _i64decrord_to_u64(ord_i64: i64) -> u64 {
     unsafe { std::mem::transmute::<i64, u64>(ord_i64 ^ XOR_VALUE) }
 }
 
+const MAX_INDEX: usize = i64::MAX as usize;
+
+const MIN_VALUE: u64 = i64::MIN as u64; // 0x8000000000000000 -> as i64 = -9223372036854775808
+const MAX_VALUE: u64 = i64::MAX as u64;
+
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -40,7 +45,12 @@ mod avx2 {
 
     impl SIMD<u64, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64]) };
-        const MAX_INDEX: usize = i64::MAX as usize;
+        const INDEX_INCREMENT: __m256i =
+            unsafe { std::mem::transmute([LANE_SIZE as i64; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u64 = MIN_VALUE;
+        const MAX_VALUE: u64 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [u64; LANE_SIZE] {
@@ -54,7 +64,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256i {
+        unsafe fn _mm_set1(a: u64) -> __m256i {
             _mm256_set1_epi64x(a as i64)
         }
 
@@ -203,7 +213,12 @@ mod sse {
 
     impl SIMD<u64, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i64, 1i64]) };
-        const MAX_INDEX: usize = i64::MAX as usize;
+        const INDEX_INCREMENT: __m128i =
+            unsafe { std::mem::transmute([LANE_SIZE as i64; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u64 = MIN_VALUE;
+        const MAX_VALUE: u64 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [u64; LANE_SIZE] {
@@ -217,7 +232,7 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i {
+        unsafe fn _mm_set1(a: u64) -> __m128i {
             _mm_set1_epi64x(a as i64)
         }
 
@@ -357,7 +372,12 @@ mod avx512 {
     impl SIMD<u64, __m512i, u8, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i =
             unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64]) };
-        const MAX_INDEX: usize = i64::MAX as usize;
+        const INDEX_INCREMENT: __m512i =
+            unsafe { std::mem::transmute([LANE_SIZE as i64; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u64 = MIN_VALUE;
+        const MAX_VALUE: u64 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [u64; LANE_SIZE] {
@@ -370,7 +390,7 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i {
+        unsafe fn _mm_set1(a: u64) -> __m512i {
             _mm512_set1_epi64(a as i64)
         }
 

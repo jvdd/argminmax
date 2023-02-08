@@ -19,6 +19,11 @@ fn _i16decrord_to_u16(decrord_i16: i16) -> u16 {
     unsafe { std::mem::transmute::<i16, u16>(decrord_i16 ^ XOR_VALUE) }
 }
 
+const MAX_INDEX: usize = i16::MAX as usize;
+
+const MIN_VALUE: u16 = i16::MIN as u16; // 0x8000 -> as i16 = -32768
+const MAX_VALUE: u16 = i16::MAX as u16;
+
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -48,7 +53,12 @@ mod avx2 {
                 13i16, 14i16, 15i16,
             ])
         };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: __m256i =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u16 = MIN_VALUE;
+        const MAX_VALUE: u16 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [u16; LANE_SIZE] {
@@ -62,7 +72,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256i {
+        unsafe fn _mm_set1(a: u16) -> __m256i {
             _mm256_set1_epi16(a as i16)
         }
 
@@ -282,7 +292,12 @@ mod sse {
     impl SIMD<u16, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: __m128i =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u16 = MIN_VALUE;
+        const MAX_VALUE: u16 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [u16; LANE_SIZE] {
@@ -296,7 +311,7 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i {
+        unsafe fn _mm_set1(a: u16) -> __m128i {
             _mm_set1_epi16(a as i16)
         }
 
@@ -503,7 +518,12 @@ mod avx512 {
                 25i16, 26i16, 27i16, 28i16, 29i16, 30i16, 31i16,
             ])
         };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: __m512i =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u16 = MIN_VALUE;
+        const MAX_VALUE: u16 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [u16; LANE_SIZE] {
@@ -516,7 +536,7 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i {
+        unsafe fn _mm_set1(a: u16) -> __m512i {
             _mm512_set1_epi16(a as i16)
         }
 

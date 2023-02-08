@@ -9,6 +9,12 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+// https://stackoverflow.com/a/3793950
+const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+
+const MIN_VALUE: f32 = f32::NEG_INFINITY;
+const MAX_VALUE: f32 = f32::INFINITY;
+
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -24,8 +30,12 @@ mod avx2 {
                 0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32,
             ])
         };
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+        const INDEX_INCREMENT: __m256 =
+            unsafe { std::mem::transmute([LANE_SIZE as f32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: f32 = MIN_VALUE;
+        const MAX_VALUE: f32 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256) -> [f32; LANE_SIZE] {
@@ -38,8 +48,8 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256 {
-            _mm256_set1_ps(a as f32)
+        unsafe fn _mm_set1(a: f32) -> __m256 {
+            _mm256_set1_ps(a)
         }
 
         #[inline(always)]
@@ -170,8 +180,12 @@ mod sse {
     impl SIMD<f32, __m128, __m128, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128 =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+        const INDEX_INCREMENT: __m128 =
+            unsafe { std::mem::transmute([LANE_SIZE as f32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: f32 = MIN_VALUE;
+        const MAX_VALUE: f32 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128) -> [f32; LANE_SIZE] {
@@ -184,8 +198,8 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128 {
-            _mm_set1_ps(a as f32)
+        unsafe fn _mm_set1(a: f32) -> __m128 {
+            _mm_set1_ps(a)
         }
 
         #[inline(always)]
@@ -304,8 +318,12 @@ mod avx512 {
                 10.0f32, 11.0f32, 12.0f32, 13.0f32, 14.0f32, 15.0f32,
             ])
         };
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+        const INDEX_INCREMENT: __m512 =
+            unsafe { std::mem::transmute([LANE_SIZE as f32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: f32 = MIN_VALUE;
+        const MAX_VALUE: f32 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512) -> [f32; LANE_SIZE] {
@@ -318,8 +336,8 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512 {
-            _mm512_set1_ps(a as f32)
+        unsafe fn _mm_set1(a: f32) -> __m512 {
+            _mm512_set1_ps(a)
         }
 
         #[inline(always)]
