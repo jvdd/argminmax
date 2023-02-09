@@ -655,7 +655,15 @@ mod neon {
     impl SIMD<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
-        const MAX_INDEX: usize = i16::MAX as usize;
+
+        const INDEX_INCREMENT: int16x8_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: i16 = MIN_VALUE;
+        const MAX_VALUE: i16 = MAX_VALUE;
+        
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: int16x8_t) -> [i16; LANE_SIZE] {
@@ -668,8 +676,8 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> int16x8_t {
-            vdupq_n_s16(a as i16)
+        unsafe fn _mm_set1(a: i16) -> int16x8_t {
+            vdupq_n_s16(a)
         }
 
         #[inline(always)]
@@ -693,11 +701,6 @@ mod neon {
         }
 
         // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
 
         #[inline(always)]
         unsafe fn _horiz_min(index: int16x8_t, value: int16x8_t) -> (usize, i16) {
@@ -753,6 +756,11 @@ mod neon {
             let max_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
             (max_index, max_value)
+        }
+
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 

@@ -198,10 +198,15 @@ pub trait SIMD<
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 macro_rules! unimplement_simd {
-    ($scalar_type:ty, $reg:ty, $simd_type:ident) => {
+    ($scalar_type:ty, $reg:ty, $simd_type:ident, $zero:literal) => {
         impl SIMD<$scalar_type, $reg, $reg, 0> for $simd_type {
             const INITIAL_INDEX: $reg = 0;
             const MAX_INDEX: usize = 0;
+            
+            const INDEX_INCREMENT: $reg = 0;
+            const MIN_VALUE: $scalar_type = $zero;
+            const MAX_VALUE: $scalar_type = $zero;
+
 
             unsafe fn _reg_to_arr(_reg: $reg) -> [$scalar_type; 0] {
                 unimplemented!()
@@ -211,7 +216,7 @@ macro_rules! unimplement_simd {
                 unimplemented!()
             }
 
-            unsafe fn _mm_set1(_a: usize) -> $reg {
+            unsafe fn _mm_set1(_a: $scalar_type) -> $reg {
                 unimplemented!()
             }
 
