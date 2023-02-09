@@ -7,9 +7,13 @@ use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
-use argminmax::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use argminmax::{AVX2, AVX512, SIMD, SSE};
+// TODO: we should test ignore & return NaN
+use argminmax::{
+    AVX2FloatIgnoreNaN as AVX2, AVX512FloatIgnoreNaN as AVX512, SIMDArgMinMaxFloatIgnoreNaN,
+    SSEFloatIgnoreNaN as SSE,
+};
+use argminmax::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 use argminmax::{NEON, SIMD};
 
