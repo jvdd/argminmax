@@ -1,5 +1,5 @@
 use super::config::SIMDInstructionSet;
-use super::generic::SIMD;
+use super::generic::{SIMDArgMinMax, SIMDOps};
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -11,27 +11,22 @@ use std::arch::x86_64::*;
 
 use super::task::{max_index_value, min_index_value};
 
-const XOR_VALUE: i32 = 0x7FFFFFFF;
+const XOR_VALUE: i32 = 0x7FFFFFFF; // i32::MAX
 const BIT_SHIFT: i32 = 31;
 
 #[inline(always)]
-fn _ord_i32_to_f32(ord_i32: i32) -> f32 {
+fn _i32ord_to_f32(ord_i32: i32) -> f32 {
     // TODO: more efficient transformation -> can be decreasing order as well
     let v = ((ord_i32 >> BIT_SHIFT) & XOR_VALUE) ^ ord_i32;
     unsafe { std::mem::transmute::<i32, f32>(v) }
 }
 
-// https://stackoverflow.com/a/3793950
-const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
-
-// TODO: is not needed..
-const MIN_VALUE: f32 = i32::NEG_INFINITY;
-const MAX_VALUE: f32 = i32::INFINITY;
+const MAX_INDEX: usize = i32::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx2 {
+mod avx2_float_return_nan {
     use super::super::config::{AVX2FloatReturnNaN, AVX2};
     use super::*;
 
@@ -39,7 +34,7 @@ mod avx2 {
     const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f32_as_m256i_to_i32ord(f32_as_m256i: __m256i) -> __m256i {
+    unsafe fn _f32_to_i32ord(f32_as_m256i: __m256i) -> __m256i {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
         let sign_bit_shifted = _mm256_srai_epi32(f32_as_m256i, BIT_SHIFT);
         let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, XOR_MASK);
@@ -51,30 +46,24 @@ mod avx2 {
         std::mem::transmute::<__m256i, [i32; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f32, __m256i, __m256i, LANE_SIZE> for AVX2FloatReturnNaN {
+    impl SIMDOps<f32, __m256i, __m256i, LANE_SIZE> for AVX2FloatReturnNaN {
         const INITIAL_INDEX: __m256i =
             unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32]) };
         const INDEX_INCREMENT: __m256i =
             unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: f32 = MIN_VALUE;
-        const MAX_VALUE: f32 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [f32; LANE_SIZE] {
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m256i {
-            _f32_as_m256i_to_i32ord(_mm256_loadu_si256(data as *const __m256i))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f32) -> __m256i {
-            // TODO: is this correct?
-            _mm256_set1_epi32(std::mem::transmute::<f32, i32>(a))
+            _f32_to_i32ord(_mm256_loadu_si256(data as *const __m256i))
         }
 
         #[inline(always)]
@@ -97,39 +86,56 @@ mod avx2 {
             _mm256_blendv_epi8(a, b, mask)
         }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
-            Self::_argminmax(data)
+        #[inline(always)]
+        unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
+            (min_index as usize, _i32ord_to_f32(min_value))
         }
 
         #[inline(always)]
-        unsafe fn _get_min_max_index_value(
-            index_low: __m256i,
-            values_low: __m256i,
-            index_high: __m256i,
-            values_high: __m256i,
-        ) -> (usize, f32, usize, f32) {
-            // Get the results as arrays
-            let index_low_arr = _reg_to_i32_arr(index_low);
-            let values_low_arr = _reg_to_i32_arr(values_low);
-            let index_high_arr = _reg_to_i32_arr(index_high);
-            let values_high_arr = _reg_to_i32_arr(values_high);
-            // Find the min and max values and their indices
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-            // Return the results - convert the ordinal ints back to floats
-            let min_value = _ord_i32_to_f32(min_value);
-            let max_value = _ord_i32_to_f32(max_value);
-            if min_value != min_value && max_value == max_value {
-                // min_value is the only NaN
-                return (min_index as usize, min_value, min_index as usize, min_value);
-            } else if min_value == min_value && max_value != max_value {
-                // max_value is the only NaN
-                return (max_index as usize, max_value, max_index as usize, max_value);
-            }
-            (min_index as usize, min_value, max_index as usize, max_value)
+        unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
+            (max_index as usize, _i32ord_to_f32(max_value))
+        }
+
+        // TODO: this functionality should be propagated to the task
+        // #[inline(always)]
+        // unsafe fn _get_min_max_index_value(
+        //     index_low: __m256i,
+        //     values_low: __m256i,
+        //     index_high: __m256i,
+        //     values_high: __m256i,
+        // ) -> (usize, f32, usize, f32) {
+        //     // Get the results as arrays
+        //     let index_low_arr = _reg_to_i32_arr(index_low);
+        //     let values_low_arr = _reg_to_i32_arr(values_low);
+        //     let index_high_arr = _reg_to_i32_arr(index_high);
+        //     let values_high_arr = _reg_to_i32_arr(values_high);
+        //     // Find the min and max values and their indices
+        //     let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
+        //     let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
+        //     // Return the results - convert the ordinal ints back to floats
+        //     let min_value = _i32ord_to_f32(min_value);
+        //     let max_value = _i32ord_to_f32(max_value);
+        //     if min_value != min_value && max_value == max_value {
+        //         // min_value is the only NaN
+        //         return (min_index as usize, min_value, min_index as usize, min_value);
+        //     } else if min_value == min_value && max_value != max_value {
+        //         // max_value is the only NaN
+        //         return (max_index as usize, max_value, max_index as usize, max_value);
+        //     }
+        //     (min_index as usize, min_value, max_index as usize, max_value)
+        // }
+    }
+
+    impl SIMDArgMinMax<f32, __m256i, __m256i, LANE_SIZE> for AVX2FloatReturnNaN {
+        #[target_feature(enable = "avx2")]
+        unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -138,7 +144,7 @@ mod avx2 {
     #[cfg(test)]
     mod tests {
         use super::AVX2FloatReturnNaN as AVX2;
-        use super::SIMD;
+        use super::SIMDArgMinMax;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -190,6 +196,8 @@ mod avx2 {
             assert_eq!(argmax_simd_index, 1);
         }
 
+        // TODO add tests for NaNs
+
         #[test]
         fn test_no_overflow() {
             if !is_x86_feature_detected!("avx") {
@@ -225,7 +233,7 @@ mod avx2 {
 // ----------------------------------------- SSE -----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod sse {
+mod sse_float_return_nan {
     use super::super::config::{SSEFloatReturnNaN, SSE};
     use super::*;
 
@@ -233,7 +241,7 @@ mod sse {
     const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f32_as_m128i_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
+    unsafe fn _f32_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
         let sign_bit_shifted = _mm_srai_epi32(f32_as_m128i, BIT_SHIFT);
         let sign_bit_masked = _mm_and_si128(sign_bit_shifted, XOR_MASK);
@@ -245,30 +253,23 @@ mod sse {
         std::mem::transmute::<__m128i, [i32; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f32, __m128i, __m128i, LANE_SIZE> for SSEFloatReturnNaN {
-        const INITIAL_INDEX: __m128i =
-            unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
+    impl SIMDOps<f32, __m128i, __m128i, LANE_SIZE> for SSEFloatReturnNaN {
+        const INITIAL_INDEX: __m128i = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
         const INDEX_INCREMENT: __m128i =
             unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: f32 = MIN_VALUE;
-        const MAX_VALUE: f32 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [f32; LANE_SIZE] {
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m128i {
-            _f32_as_m128i_to_i32ord(_mm_loadu_si128(data as *const __m128i))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f32) -> __m128i {
-            // TODO: is this correct? I am totally unsure about this
-            _mm_set1_epi32(a as i32)
+            _f32_to_i32ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
@@ -291,39 +292,27 @@ mod sse {
             _mm_blendv_epi8(a, b, mask)
         }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
-            Self::_argminmax(data)
+        #[inline(always)]
+        unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
+            (min_index as usize, _i32ord_to_f32(min_value))
         }
 
         #[inline(always)]
-        unsafe fn _get_min_max_index_value(
-            index_low: __m128i,
-            values_low: __m128i,
-            index_high: __m128i,
-            values_high: __m128i,
-        ) -> (usize, f32, usize, f32) {
-            // Get the results as arrays
-            let index_low_arr = _reg_to_i32_arr(index_low);
-            let values_low_arr = _reg_to_i32_arr(values_low);
-            let index_high_arr = _reg_to_i32_arr(index_high);
-            let values_high_arr = _reg_to_i32_arr(values_high);
-            // Find the min and max values and their indices
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-            // Return the results - convert the ordinal ints back to floats
-            let min_value = _ord_i32_to_f32(min_value);
-            let max_value = _ord_i32_to_f32(max_value);
-            if min_value != min_value && max_value == max_value {
-                // min_value is the only NaN
-                return (min_index as usize, min_value, min_index as usize, min_value);
-            } else if min_value == min_value && max_value != max_value {
-                // max_value is the only NaN
-                return (max_index as usize, max_value, max_index as usize, max_value);
-            }
-            (min_index as usize, min_value, max_index as usize, max_value)
+        unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
+            (max_index as usize, _i32ord_to_f32(max_value))
+        }
+    }
+
+    impl SIMDArgMinMax<f32, __m128i, __m128i, LANE_SIZE> for SSEFloatReturnNaN {
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -331,8 +320,8 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
+        use super::SIMDArgMinMax;
         use super::SSEFloatReturnNaN as SSE;
-        use super::SIMD;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -403,19 +392,19 @@ mod sse {
 // --------------------------------------- AVX512 ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx512 {
-    use super::super::config::{AVX512FloatIgnoreNaN, AVX512};
+mod avx512_float_return_nan {
+    use super::super::config::{AVX512FloatReturnNaN, AVX512};
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
     const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f32_as_m256i_to_i32ord(f32_as_m512i: __m512i) -> __m512i {
+    unsafe fn _f32_to_i32ord(f32_as_m512i: __m512i) -> __m512i {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
-        let sign_bit_shifted = _mm256_srai_epi32(f32_as_m512i, BIT_SHIFT);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, XOR_MASK);
-        _mm256_xor_si256(sign_bit_masked, f32_as_m512i)
+        let sign_bit_shifted = _mm512_srai_epi32(f32_as_m512i, BIT_SHIFT as u32);
+        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, XOR_MASK);
+        _mm512_xor_si512(sign_bit_masked, f32_as_m512i)
     }
 
     #[inline(always)]
@@ -423,7 +412,7 @@ mod avx512 {
         std::mem::transmute::<__m512i, [i32; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f32, __m512i, u16, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDOps<f32, __m512i, u16, LANE_SIZE> for AVX512FloatReturnNaN {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i32, 1i32, 2i32, 3i32, 4i32, 5i32, 6i32, 7i32, 8i32, 9i32, 10i32, 11i32, 12i32,
@@ -434,96 +423,60 @@ mod avx512 {
             unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        // TODO: should not be used -> get rid of this
-        const MIN_VALUE: f32 = MIN_VALUE;
-        const MAX_VALUE: f32 = MAX_VALUE;
-
         #[inline(always)]
-        unsafe fn _reg_to_arr(reg: __m512i) -> [f32; LANE_SIZE] {
+        unsafe fn _reg_to_arr(_: __m512i) -> [f32; LANE_SIZE] {
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m512i {
-            _f32_as_m512i_to_i32ord(_mm512_loadu_si512(data as *const __m256i))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f32) -> __m512i {
-            // TODO: check if this is correct
-            _mm512_set1_epi32(a as i32)
+            _f32_to_i32ord(_mm512_loadu_si512(data as *const i32))
         }
 
         #[inline(always)]
         unsafe fn _mm_add(a: __m512i, b: __m512i) -> __m512i {
-            _mm512_abs_epi32(a, b)
+            _mm512_add_epi32(a, b)
         }
 
         #[inline(always)]
         unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u16 {
             _mm512_cmpgt_epi32_mask(a, b)
         }
-        // unimplemented!("AVX512 comparison instructions for ps output a u16 mask.")
-        // let u16_mask = _mm512_cmp_ps_mask(a, b, _CMP_GT_OQ);
-        // _mm512_mask_mov_ps(_mm512_setzero_ps(), u16_mask, _mm512_set1_ps(1.0))
-        // }
-        // { _mm512_cmp_ps_mask(a, b, _CMP_GT_OQ) }
 
         #[inline(always)]
         unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u16 {
             _mm512_cmplt_epi32_mask(a, b)
         }
-        // unimplemented!("AVX512 comparison instructions for ps output a u16 mask.")
-        // let u16_mask = _mm512_cmp_ps_mask(a, b, _CMP_LT_OQ);
-        // _mm512_mask_mov_ps(_mm512_setzero_ps(), u16_mask, _mm512_set1_ps(1.0))
-        // }
-        // { _mm512_cmp_ps_mask(a, b, _CMP_LT_OQ) }
 
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u16) -> __m512i {
-            _mm512_mask_blend_ps(mask, a, b)
-        }
-        // unimplemented!("AVX512 blendv instructions for ps require a u16 mask.")
-        // convert the mask to u16 by extracting the sign bit of each lane
-        // let u16_mask = _mm512_castps_si512(mask);
-        // _mm512_mask_mov_ps(a, u16_mask, b)
-        // _mm512_mask_blend_ps(u16_mask, a, b)
-        // _mm512_mask_mov_ps(a, _mm512_castps_si512(mask), b)
-        // }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
-            Self::_argminmax(data)
+            _mm512_mask_blend_epi32(mask, a, b)
         }
 
         #[inline(always)]
-        unsafe fn _get_min_max_index_value(
-            index_low: __m128i,
-            values_low: __m128i,
-            index_high: __m128i,
-            values_high: __m128i,
-        ) -> (usize, f32, usize, f32) {
-            // Get the results as arrays
-            let index_low_arr = _reg_to_i32_arr(index_low);
-            let values_low_arr = _reg_to_i32_arr(values_low);
-            let index_high_arr = _reg_to_i32_arr(index_high);
-            let values_high_arr = _reg_to_i32_arr(values_high);
-            // Find the min and max values and their indices
-            let (min_index, min_value) = min_index_value(&index_low_arr, &values_low_arr);
-            let (max_index, max_value) = max_index_value(&index_high_arr, &values_high_arr);
-            // Return the results - convert the ordinal ints back to floats
-            let min_value = _ord_i32_to_f32(min_value);
-            let max_value = _ord_i32_to_f32(max_value);
-            if min_value != min_value && max_value == max_value {
-                // min_value is the only NaN
-                return (min_index as usize, min_value, min_index as usize, min_value);
-            } else if min_value == min_value && max_value != max_value {
-                // max_value is the only NaN
-                return (max_index as usize, max_value, max_index as usize, max_value);
-            }
-            (min_index as usize, min_value, max_index as usize, max_value)
+        unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
+            (min_index as usize, _i32ord_to_f32(min_value))
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
+            (max_index as usize, _i32ord_to_f32(max_value))
+        }
+    }
+
+    impl SIMDArgMinMax<f32, __m512i, u16, LANE_SIZE> for AVX512FloatReturnNaN {
+        #[target_feature(enable = "avx512f")]
+        unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -532,7 +485,7 @@ mod avx512 {
     #[cfg(test)]
     mod tests {
         use super::AVX512FloatReturnNaN as AVX512;
-        use super::SIMD;
+        use super::SIMDArgMinMax;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

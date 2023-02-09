@@ -1,7 +1,7 @@
 #[cfg(feature = "half")]
 use super::config::SIMDInstructionSet;
 #[cfg(feature = "half")]
-use super::generic::SIMD;
+use super::generic::{SIMDArgMinMaxFloatIgnoreNaN, SIMDOps, SIMDSetOps};
 
 #[cfg(feature = "half")]
 #[cfg(target_arch = "aarch64")]
@@ -20,11 +20,11 @@ use std::arch::x86_64::*;
 use half::f16;
 
 #[cfg(feature = "half")]
-const XOR_VALUE: i16 = 0x7FFF;
+const XOR_VALUE: i16 = 0x7FFF; // i16::MAX
 
 #[cfg(feature = "half")]
 #[inline(always)]
-fn _ord_i16_to_f16(ord_i16: i16) -> f16 {
+fn _i16ord_to_f16(ord_i16: i16) -> f16 {
     // TODO: more efficient transformation -> can be decreasing order as well
     let v = ((ord_i16 >> 15) & XOR_VALUE) ^ ord_i16;
     unsafe { std::mem::transmute::<i16, f16>(v) }
@@ -32,11 +32,6 @@ fn _ord_i16_to_f16(ord_i16: i16) -> f16 {
 
 #[cfg(feature = "half")]
 const MAX_INDEX: usize = i16::MAX as usize;
-
-#[cfg(feature = "half")]
-const MIN_VALUE: f16 = f16::NEG_INFINITY;
-#[cfg(feature = "half")]
-const MAX_VALUE: f16 = f16::INFINITY;
 
 // ------------------------------------------ AVX2 ------------------------------------------
 
@@ -51,6 +46,7 @@ mod avx2 {
 
     // ------------------------------------ ARGMINMAX --------------------------------------
 
+    // TODO: rename other projection funcs in this format
     #[inline(always)]
     unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
@@ -64,7 +60,7 @@ mod avx2 {
         std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f16, __m256i, __m256i, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDOps<f16, __m256i, __m256i, LANE_SIZE> for AVX2FloatIgnoreNaN {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -75,23 +71,17 @@ mod avx2 {
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: f16 = MIN_VALUE;
-        const MAX_VALUE: f16 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [f16; LANE_SIZE] {
-            // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f16) -> __m256i {
             _f16_as_m256i_to_i16ord(_mm256_loadu_si256(data as *const __m256i))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f16) -> __m256i {
-            _mm256_set1_epi16(a.to_bits() as i16)
         }
 
         #[inline(always)]
@@ -112,13 +102,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
             _mm256_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -148,7 +131,7 @@ mod avx2 {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (min_index, _ord_i16_to_f16(min_value))
+            (min_index, _i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -178,7 +161,21 @@ mod avx2 {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (max_index, _ord_i16_to_f16(max_value))
+            (max_index, _i16ord_to_f16(max_value))
+        }
+    }
+
+    impl SIMDSetOps<f16, __m256i> for AVX2FloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f16) -> __m256i {
+            _mm256_set1_epi16(a.to_bits() as i16)
+        }
+    }
+
+    impl SIMDArgMinMaxFloatIgnoreNaN<f16, __m256i, __m256i, LANE_SIZE> for AVX2FloatIgnoreNaN {
+        #[target_feature(enable = "avx2")]
+        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -187,7 +184,7 @@ mod avx2 {
     #[cfg(test)]
     mod tests {
         use super::AVX2FloatIgnoreNaN as AVX2;
-        use super::SIMD;
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;
@@ -298,30 +295,24 @@ mod sse {
         std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f16, __m128i, __m128i, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDOps<f16, __m128i, __m128i, LANE_SIZE> for SSEFloatIgnoreNaN {
         const INITIAL_INDEX: __m128i =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: __m128i =
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: f16 = MIN_VALUE;
-        const MAX_VALUE: f16 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [f16; LANE_SIZE] {
-            // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f16) -> __m128i {
             _f16_as_m128i_to_i16ord(_mm_loadu_si128(data as *const __m128i))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f16) -> __m128i {
-            _mm_set1_epi16(a.to_bits() as i16)
         }
 
         #[inline(always)]
@@ -342,13 +333,6 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
             _mm_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -376,7 +360,7 @@ mod sse {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (min_index, _ord_i16_to_f16(min_value))
+            (min_index, _i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -404,7 +388,21 @@ mod sse {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (max_index, _ord_i16_to_f16(max_value))
+            (max_index, _i16ord_to_f16(max_value))
+        }
+    }
+
+    impl SIMDSetOps<f16, __m128i> for SSEFloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f16) -> __m128i {
+            _mm_set1_epi16(a.to_bits() as i16)
+        }
+    }
+
+    impl SIMDArgMinMaxFloatIgnoreNaN<f16, __m128i, __m128i, LANE_SIZE> for SSEFloatIgnoreNaN {
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -412,8 +410,8 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use super::SSEFloatIgnoreNaN as SSE;
-        use super::SIMD;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;
@@ -508,7 +506,7 @@ mod avx512 {
         std::mem::transmute::<__m512i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f16, __m512i, u32, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDOps<f16, __m512i, u32, LANE_SIZE> for AVX512FloatIgnoreNaN {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -520,23 +518,17 @@ mod avx512 {
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: f16 = MIN_VALUE;
-        const MAX_VALUE: f16 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [f16; LANE_SIZE] {
-            // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f16) -> __m512i {
             _f16_as_m521i_to_i16ord(_mm512_loadu_epi16(data as *const i16))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f16) -> __m512i {
-            _mm512_set1_epi16(a.to_bits() as i16)
         }
 
         #[inline(always)]
@@ -557,13 +549,6 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u32) -> __m512i {
             _mm512_mask_blend_epi16(mask, a, b)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx512bw")]
-        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -595,7 +580,7 @@ mod avx512 {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (min_index, _ord_i16_to_f16(min_value))
+            (min_index, _i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -627,7 +612,21 @@ mod avx512 {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (max_index, _ord_i16_to_f16(max_value))
+            (max_index, _i16ord_to_f16(max_value))
+        }
+    }
+
+    impl SIMDSetOps<f16, __m512i> for AVX512FloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f16) -> __m512i {
+            _mm512_set1_epi16(a.to_bits() as i16)
+        }
+    }
+
+    impl SIMDArgMinMaxFloatIgnoreNaN<f16, __m512i, u32, LANE_SIZE> for AVX512FloatIgnoreNaN {
+        #[target_feature(enable = "avx512bw")]
+        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -636,7 +635,7 @@ mod avx512 {
     #[cfg(test)]
     mod tests {
         use super::AVX512FloatIgnoreNaN as AVX512;
-        use super::SIMD;
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;
@@ -822,7 +821,7 @@ mod neon {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let min_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (min_index, _ord_i16_to_f16(min_value))
+            (min_index, _i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -850,7 +849,7 @@ mod neon {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let max_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (max_index, _ord_i16_to_f16(max_value))
+            (max_index, _i16ord_to_f16(max_value))
         }
     }
 

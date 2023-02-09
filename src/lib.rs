@@ -9,9 +9,10 @@ mod scalar;
 mod simd;
 
 pub use scalar::{ScalarArgMinMax, SCALAR};
-pub use simd::SIMDArgMinMax;
-pub use simd::{AVX2FloatIgnoreNaN, AVX512FloatIgnoreNaN, SSEFloatIgnoreNaN};
-pub use simd::{AVX2, AVX512, NEON, SIMD, SSE};
+pub use simd::{
+    AVX2FloatIgnoreNaN, AVX512FloatIgnoreNaN, SIMDArgMinMaxFloatIgnoreNaN, SSEFloatIgnoreNaN,
+};
+pub use simd::{SIMDArgMinMax, AVX2, AVX512, NEON, SSE};
 
 #[cfg(feature = "half")]
 use half::f16;
@@ -228,8 +229,8 @@ macro_rules! impl_argminmax_float {
 impl_argminmax_non_float!(i8, i16, i32, i64, u8, u16, u32, u64);
 impl_argminmax_float!(f32, f64);
 // Implement ArgMinMax for other data types
-// #[cfg(feature = "half")]
-// impl_argminmax_float!(f16); // TODO: implement f16 correctly (currently it is swapped)
+#[cfg(feature = "half")]
+impl_argminmax_float!(f16); // TODO: implement f16 correctly
 
 // ------------------------------ [T] ------------------------------
 
