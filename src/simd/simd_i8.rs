@@ -1,5 +1,5 @@
 use super::config::SIMDInstructionSet;
-use super::generic::SIMD;
+use super::generic::{SIMDArgMinMax, SIMDOps};
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -11,9 +11,6 @@ use std::arch::x86_64::*;
 
 const MAX_INDEX: usize = i8::MAX as usize;
 
-const MIN_VALUE: i8 = i8::MIN;
-const MAX_VALUE: i8 = i8::MAX;
-
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -23,7 +20,7 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_8;
 
-    impl SIMD<i8, __m256i, __m256i, LANE_SIZE> for AVX2 {
+    impl SIMDOps<i8, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -35,9 +32,6 @@ mod avx2 {
             unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: i8 = MIN_VALUE;
-        const MAX_VALUE: i8 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256i) -> [i8; LANE_SIZE] {
             std::mem::transmute::<__m256i, [i8; LANE_SIZE]>(reg)
@@ -46,11 +40,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i8) -> __m256i {
             _mm256_loadu_si256(data as *const __m256i)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: i8) -> __m256i {
-            _mm256_set1_epi8(a)
         }
 
         #[inline(always)]
@@ -71,13 +60,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
             _mm256_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -145,11 +127,18 @@ mod avx2 {
         }
     }
 
+    impl SIMDArgMinMax<i8, __m256i, __m256i, LANE_SIZE> for AVX2 {
+        #[target_feature(enable = "avx2")]
+        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX2, SIMD};
+        use super::{SIMDArgMinMax, AVX2};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -234,7 +223,7 @@ mod sse {
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_8;
 
-    impl SIMD<i8, __m128i, __m128i, LANE_SIZE> for SSE {
+    impl SIMDOps<i8, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -245,9 +234,6 @@ mod sse {
             unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: i8 = MIN_VALUE;
-        const MAX_VALUE: i8 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128i) -> [i8; LANE_SIZE] {
             std::mem::transmute::<__m128i, [i8; LANE_SIZE]>(reg)
@@ -256,11 +242,6 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i8) -> __m128i {
             _mm_loadu_si128(data as *const __m128i)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: i8) -> __m128i {
-            _mm_set1_epi8(a)
         }
 
         #[inline(always)]
@@ -281,13 +262,6 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
             _mm_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -351,11 +325,18 @@ mod sse {
         }
     }
 
+    impl SIMDArgMinMax<i8, __m128i, __m128i, LANE_SIZE> for SSE {
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{SIMD, SSE};
+        use super::{SIMDArgMinMax, SSE};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -424,7 +405,7 @@ mod avx512 {
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_8;
 
-    impl SIMD<i8, __m512i, u64, LANE_SIZE> for AVX512 {
+    impl SIMDOps<i8, __m512i, u64, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -438,9 +419,6 @@ mod avx512 {
             unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: i8 = MIN_VALUE;
-        const MAX_VALUE: i8 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512i) -> [i8; LANE_SIZE] {
             std::mem::transmute::<__m512i, [i8; LANE_SIZE]>(reg)
@@ -449,11 +427,6 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i8) -> __m512i {
             _mm512_loadu_epi8(data as *const i8)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: i8) -> __m512i {
-            _mm512_set1_epi8(a)
         }
 
         #[inline(always)]
@@ -474,13 +447,6 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u64) -> __m512i {
             _mm512_mask_blend_epi8(mask, a, b)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx512bw")]
-        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -552,11 +518,18 @@ mod avx512 {
         }
     }
 
+    impl SIMDArgMinMax<i8, __m512i, u64, LANE_SIZE> for AVX512 {
+        #[target_feature(enable = "avx512bw")]
+        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX512, SIMD};
+        use super::{SIMDArgMinMax, AVX512};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

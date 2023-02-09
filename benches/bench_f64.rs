@@ -7,9 +7,12 @@ use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
-use argminmax::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use argminmax::{AVX2, AVX512, SIMD, SSE};
+use argminmax::{
+    AVX2FloatIgnoreNaN as AVX2, AVX512FloatIgnoreNaN as AVX512, SIMDArgMinMaxFloatIgnoreNaN,
+    SSEFloatIgnoreNaN as SSE,
+};
+use argminmax::{ScalarArgMinMax, SCALAR};
 
 fn minmax_f64_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;

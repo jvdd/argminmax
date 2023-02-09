@@ -1,6 +1,6 @@
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
-use super::generic::SIMD;
+use super::generic::{SIMDArgMinMaxFloatIgnoreNaN, SIMDOps, SIMDSetOps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -12,9 +12,6 @@ const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
 #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
 const MAX_INDEX: usize = u32::MAX as usize;
 
-const MIN_VALUE: f64 = f64::NEG_INFINITY;
-const MAX_VALUE: f64 = f64::INFINITY;
-
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -24,15 +21,12 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
 
-    impl SIMD<f64, __m256d, __m256d, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDOps<f64, __m256d, __m256d, LANE_SIZE> for AVX2FloatIgnoreNaN {
         const INITIAL_INDEX: __m256d =
             unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64]) };
         const INDEX_INCREMENT: __m256d =
             unsafe { std::mem::transmute([LANE_SIZE as f64; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
-
-        const MIN_VALUE: f64 = MIN_VALUE;
-        const MAX_VALUE: f64 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256d) -> [f64; LANE_SIZE] {
@@ -42,11 +36,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m256d {
             _mm256_loadu_pd(data as *const f64)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f64) -> __m256d {
-            _mm256_set1_pd(a)
         }
 
         #[inline(always)]
@@ -68,9 +57,16 @@ mod avx2 {
         unsafe fn _mm_blendv(a: __m256d, b: __m256d, mask: __m256d) -> __m256d {
             _mm256_blendv_pd(a, b, mask)
         }
+    }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
+    impl SIMDSetOps<f64, __m256d> for AVX2FloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f64) -> __m256d {
+            _mm256_set1_pd(a)
+        }
+    }
 
+    impl SIMDArgMinMaxFloatIgnoreNaN<f64, __m256d, __m256d, LANE_SIZE> for AVX2FloatIgnoreNaN {
         #[target_feature(enable = "avx")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -82,7 +78,7 @@ mod avx2 {
     #[cfg(test)]
     mod tests {
         use super::AVX2FloatIgnoreNaN as AVX2;
-        use super::SIMD;
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -160,14 +156,11 @@ mod sse {
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_64;
 
-    impl SIMD<f64, __m128d, __m128d, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDOps<f64, __m128d, __m128d, LANE_SIZE> for SSEFloatIgnoreNaN {
         const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
         const INDEX_INCREMENT: __m128d =
             unsafe { std::mem::transmute([LANE_SIZE as f64; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
-
-        const MIN_VALUE: f64 = MIN_VALUE;
-        const MAX_VALUE: f64 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128d) -> [f64; LANE_SIZE] {
@@ -177,11 +170,6 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m128d {
             _mm_loadu_pd(data as *const f64)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f64) -> __m128d {
-            _mm_set1_pd(a)
         }
 
         #[inline(always)]
@@ -203,9 +191,16 @@ mod sse {
         unsafe fn _mm_blendv(a: __m128d, b: __m128d, mask: __m128d) -> __m128d {
             _mm_blendv_pd(a, b, mask)
         }
+    }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
+    impl SIMDSetOps<f64, __m128d> for SSEFloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f64) -> __m128d {
+            _mm_set1_pd(a)
+        }
+    }
 
+    impl SIMDArgMinMaxFloatIgnoreNaN<f64, __m128d, __m128d, LANE_SIZE> for SSEFloatIgnoreNaN {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -216,8 +211,8 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use super::SSEFloatIgnoreNaN as SSE;
-        use super::SIMD;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -283,7 +278,7 @@ mod avx512 {
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
 
-    impl SIMD<f64, __m512d, u8, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDOps<f64, __m512d, u8, LANE_SIZE> for AVX512FloatIgnoreNaN {
         const INITIAL_INDEX: __m512d = unsafe {
             std::mem::transmute([
                 0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64, 5.0f64, 6.0f64, 7.0f64,
@@ -293,9 +288,6 @@ mod avx512 {
             unsafe { std::mem::transmute([LANE_SIZE as f64; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
 
-        const MIN_VALUE: f64 = MIN_VALUE;
-        const MAX_VALUE: f64 = MAX_VALUE;
-
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512d) -> [f64; LANE_SIZE] {
             std::mem::transmute::<__m512d, [f64; LANE_SIZE]>(reg)
@@ -304,11 +296,6 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m512d {
             _mm512_loadu_pd(data as *const f64)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f64) -> __m512d {
-            _mm512_set1_pd(a)
         }
 
         #[inline(always)]
@@ -330,9 +317,16 @@ mod avx512 {
         unsafe fn _mm_blendv(a: __m512d, b: __m512d, mask: u8) -> __m512d {
             _mm512_mask_blend_pd(mask, a, b)
         }
+    }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
+    impl SIMDSetOps<f64, __m512d> for AVX512FloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f64) -> __m512d {
+            _mm512_set1_pd(a)
+        }
+    }
 
+    impl SIMDArgMinMaxFloatIgnoreNaN<f64, __m512d, u8, LANE_SIZE> for AVX512FloatIgnoreNaN {
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -344,7 +338,7 @@ mod avx512 {
     #[cfg(test)]
     mod tests {
         use super::AVX512FloatIgnoreNaN as AVX512;
-        use super::SIMD;
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
