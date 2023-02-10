@@ -104,10 +104,8 @@ mod avx2 {
     }
 
     impl SIMDArgMinMax<u32, __m256i, __m256i, LANE_SIZE> for AVX2 {
-        #[target_feature(enable = "sse4.1")]
+        #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
-            // let (max_index, min_index) = Self::_argminmax(data);
-            // (min_index, max_index)
             Self::_argminmax(data)
         }
     }
