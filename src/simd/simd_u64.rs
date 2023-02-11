@@ -19,6 +19,7 @@ fn _i64ord_to_u64(ord_i64: i64) -> u64 {
     unsafe { std::mem::transmute::<i64, u64>(ord_i64 ^ XOR_VALUE) }
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------

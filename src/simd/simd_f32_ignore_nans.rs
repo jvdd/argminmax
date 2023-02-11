@@ -503,7 +503,7 @@ mod neon {
     impl SIMDSetOps<f32, float32x4_t> for NEONFloatIgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> float32x4_t {
-            vdupq_n_f32(a as f32)
+            vdupq_n_f32(a)
         }
     }
 

@@ -1,19 +1,20 @@
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
 use super::generic::{SIMDArgMinMax, SIMDOps};
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
-#[cfg(target_arch = "arm")]
-use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::task::{max_index_value, min_index_value};
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const XOR_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const BIT_SHIFT: i32 = 63;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn _i64ord_to_f64(ord_i64: i64) -> f64 {
     // TODO: more efficient transformation -> can be decreasing order as well
@@ -21,6 +22,7 @@ fn _i64ord_to_f64(ord_i64: i64) -> f64 {
     unsafe { std::mem::transmute::<i64, f64>(v) }
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------
