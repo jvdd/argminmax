@@ -673,14 +673,16 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_8;
 
-    impl SIMD<u8, uint8x16_t, uint8x16_t, LANE_SIZE> for NEON {
+    impl SIMDOps<u8, uint8x16_t, uint8x16_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: uint8x16_t = unsafe {
             std::mem::transmute([
                 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8,
                 15u8,
             ])
         };
-        const MAX_INDEX: usize = u8::MAX as usize;
+        const INDEX_INCREMENT: uint8x16_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: uint8x16_t) -> [u8; LANE_SIZE] {
@@ -690,11 +692,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u8) -> uint8x16_t {
             vld1q_u8(data as *const u8)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> uint8x16_t {
-            vdupq_n_u8(a as u8)
         }
 
         #[inline(always)]
@@ -715,13 +712,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_blendv(a: uint8x16_t, b: uint8x16_t, mask: uint8x16_t) -> uint8x16_t {
             vbslq_u8(mask, b, a)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -785,11 +775,18 @@ mod neon {
         }
     }
 
+    impl SIMDArgMinMax<u8, uint8x16_t, uint8x16_t, LANE_SIZE> for NEON {
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ----------------------------------------- TESTS -----------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::{SIMDArgMinMax, NEON};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

@@ -395,9 +395,11 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
 
-    impl SIMD<i32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON {
+    impl SIMDOps<i32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: int32x4_t = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
-        const MAX_INDEX: usize = i32::MAX as usize;
+        const INDEX_INCREMENT: int32x4_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: int32x4_t) -> [i32; LANE_SIZE] {
@@ -407,11 +409,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i32) -> int32x4_t {
             vld1q_s32(data)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> int32x4_t {
-            vdupq_n_s32(a as i32)
         }
 
         #[inline(always)]
@@ -433,9 +430,9 @@ mod neon {
         unsafe fn _mm_blendv(a: int32x4_t, b: int32x4_t, mask: uint32x4_t) -> int32x4_t {
             vbslq_s32(mask, b, a)
         }
+    }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
+    impl SIMDArgMinMax<i32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[i32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -446,7 +443,7 @@ mod neon {
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::{SIMDArgMinMax, NEON};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

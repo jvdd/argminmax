@@ -19,6 +19,7 @@ fn _i64ord_to_u64(ord_i64: i64) -> u64 {
     unsafe { std::mem::transmute::<i64, u64>(ord_i64 ^ XOR_VALUE) }
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------
@@ -500,12 +501,13 @@ mod avx512 {
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
-    use super::super::generic::unimplement_simd;
+    use super::super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDOps};
     use super::*;
 
     // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
     // compiler will complain that the trait is not implemented for the struct -
     // even though we are not using the trait for the NEON struct when dealing with
     // > 64 bit data types.
-    unimplement_simd!(u64, usize, NEON);
+    unimpl_SIMDOps!(u64, usize, NEON);
+    unimpl_SIMDArgMinMax!(u64, usize, NEON);
 }

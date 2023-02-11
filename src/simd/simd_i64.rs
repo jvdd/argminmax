@@ -6,6 +6,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------
@@ -388,12 +389,13 @@ mod avx512 {
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
-    use super::super::generic::unimplement_simd;
+    use super::super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDOps};
     use super::*;
 
     // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
     // compiler will complain that the trait is not implemented for the struct -
     // even though we are not using the trait for the NEON struct when dealing with
     // > 64 bit data types.
-    unimplement_simd!(i64, usize, NEON);
+    unimpl_SIMDOps!(i64, usize, NEON);
+    unimpl_SIMDArgMinMax!(i64, usize, NEON);
 }

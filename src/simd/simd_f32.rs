@@ -155,7 +155,7 @@ mod avx2_float_return_nan {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -170,7 +170,7 @@ mod avx2_float_return_nan {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -199,7 +199,7 @@ mod avx2_float_return_nan {
 
         #[test]
         fn test_no_overflow() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -214,7 +214,7 @@ mod avx2_float_return_nan {
 
         #[test]
         fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -569,55 +569,83 @@ mod avx512_float_return_nan {
 // ---------------------------------------- NEON -----------------------------------------
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-mod neon {
+mod neon_float_return_nan {
     use super::super::config::NEON;
     use super::*;
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
+    const XOR_MASK: int32x4_t = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
-    impl SIMD<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEON {
-        const INITIAL_INDEX: float32x4_t =
-            unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
+    #[inline(always)]
+    unsafe fn _f32_to_i32ord(f32_as_int32x4: int32x4_t) -> int32x4_t {
+        // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
+        let sign_bit_shifted = vshrq_n_s32(f32_as_int32x4, BIT_SHIFT);
+        let sign_bit_masked = vandq_s32(sign_bit_shifted, XOR_MASK);
+        veorq_s32(sign_bit_masked, f32_as_int32x4)
+    }
 
-        #[inline(always)]
-        unsafe fn _reg_to_arr(reg: float32x4_t) -> [f32; LANE_SIZE] {
-            std::mem::transmute::<float32x4_t, [f32; LANE_SIZE]>(reg)
-        }
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
+    #[inline(always)]
+    unsafe fn _reg_to_i32_arr(reg: int32x4_t) -> [i32; LANE_SIZE] {
+        std::mem::transmute::<int32x4_t, [i32; LANE_SIZE]>(reg)
+    }
 
-        #[inline(always)]
-        unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
-            vld1q_f32(data as *const f32)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> float32x4_t {
-            vdupq_n_f32(a as f32)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_add(a: float32x4_t, b: float32x4_t) -> float32x4_t {
-            vaddq_f32(a, b)
-        }
+    impl SIMDOps<f32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON {
+        const INITIAL_INDEX: int32x4_t = unsafe { std::mem::transmute([0i32, 1i32, 2i32, 3i32]) };
+        const INDEX_INCREMENT: int32x4_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
-        unsafe fn _mm_cmpgt(a: float32x4_t, b: float32x4_t) -> uint32x4_t {
-            vcgtq_f32(a, b)
+        unsafe fn _reg_to_arr(_: int32x4_t) -> [f32; LANE_SIZE] {
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
+            unimplemented!()
         }
 
         #[inline(always)]
-        unsafe fn _mm_cmplt(a: float32x4_t, b: float32x4_t) -> uint32x4_t {
-            vcltq_f32(a, b)
+        unsafe fn _mm_loadu(data: *const f32) -> int32x4_t {
+            _f32_to_i32ord(vld1q_s32(data as *const i32))
         }
 
         #[inline(always)]
-        unsafe fn _mm_blendv(a: float32x4_t, b: float32x4_t, mask: uint32x4_t) -> float32x4_t {
-            vbslq_f32(mask, b, a)
+        unsafe fn _mm_add(a: int32x4_t, b: int32x4_t) -> int32x4_t {
+            vaddq_s32(a, b)
         }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: int32x4_t, b: int32x4_t) -> uint32x4_t {
+            vcgtq_s32(a, b)
+        }
 
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: int32x4_t, b: int32x4_t) -> uint32x4_t {
+            vcltq_s32(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: int32x4_t, b: int32x4_t, mask: uint32x4_t) -> int32x4_t {
+            vbslq_s32(mask, b, a)
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_min(index: int32x4_t, value: int32x4_t) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
+            (min_index as usize, _i32ord_to_f32(min_value))
+        }
+
+        #[inline(always)]
+        unsafe fn _horiz_max(index: int32x4_t, value: int32x4_t) -> (usize, f32) {
+            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
+            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
+            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
+            (max_index as usize, _i32ord_to_f32(max_value))
+        }
+    }
+
+    impl SIMDArgMinMax<f32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -628,7 +656,7 @@ mod neon {
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::{SIMDArgMinMax, NEON};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

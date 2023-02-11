@@ -10,7 +10,8 @@ mod simd;
 
 pub use scalar::{ScalarArgMinMax, SCALAR};
 pub use simd::{
-    AVX2FloatIgnoreNaN, AVX512FloatIgnoreNaN, SIMDArgMinMaxFloatIgnoreNaN, SSEFloatIgnoreNaN,
+    AVX2FloatIgnoreNaN, AVX512FloatIgnoreNaN, NEONFloatIgnoreNaN, SIMDArgMinMaxFloatIgnoreNaN,
+    SSEFloatIgnoreNaN,
 };
 pub use simd::{SIMDArgMinMax, AVX2, AVX512, NEON, SSE};
 
@@ -207,7 +208,7 @@ macro_rules! impl_argminmax_float {
                     {
                         if std::arch::is_aarch64_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
                             // We miss some NEON instructions for 64-bit numbers
-                            return unsafe { NEON::argminmax(self) }
+                            return unsafe { NEONFloatIgnoreNaN::argminmax(self) }
                         }
                     }
                     #[cfg(target_arch = "arm")]
@@ -215,7 +216,7 @@ macro_rules! impl_argminmax_float {
                         if std::arch::is_arm_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
                             // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
-                            return unsafe { NEON::argminmax(self) }
+                            return unsafe { NEONFloatIgnoreNaN::argminmax(self) }
                         }
                     }
                     SCALAR::argminmax(self)

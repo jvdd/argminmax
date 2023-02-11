@@ -625,10 +625,12 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_16;
 
-    impl SIMD<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
+    impl SIMDOps<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: int16x8_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: int16x8_t) -> [i16; LANE_SIZE] {
@@ -638,11 +640,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> int16x8_t {
             vld1q_s16(data as *const i16)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> int16x8_t {
-            vdupq_n_s16(a as i16)
         }
 
         #[inline(always)]
@@ -663,13 +660,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_blendv(a: int16x8_t, b: int16x8_t, mask: uint16x8_t) -> int16x8_t {
             vbslq_s16(mask, b, a)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -729,11 +719,18 @@ mod neon {
         }
     }
 
+    impl SIMDArgMinMax<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::{SIMDArgMinMax, NEON};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
