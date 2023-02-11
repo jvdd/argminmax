@@ -1,3 +1,6 @@
+// TODO: this file should be renamed to simd_f16.rs and implement the SIMDInstructionSet
+// instead of the FloatIgnoreNans struct
+//  => this code returns the nans and thus not ignores them
 #[cfg(feature = "half")]
 use super::config::SIMDInstructionSet;
 #[cfg(feature = "half")]
@@ -43,8 +46,6 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
     const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
-
-    // ------------------------------------ ARGMINMAX --------------------------------------
 
     // TODO: rename other projection funcs in this format
     #[inline(always)]
@@ -755,7 +756,9 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: int16x8_t) -> [f16; LANE_SIZE] {
-            // Not used because we work with i16ord and override _get_min_index_value and _get_max_index_value
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to floats.
             unimplemented!()
         }
 

@@ -148,7 +148,6 @@ mod avx2 {
         }
     }
 
-    // ------------------------------------ ARGMINMAX --------------------------------------
     impl SIMDArgMinMax<u16, __m256i, __m256i, LANE_SIZE> for AVX2 {
         #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: &[u16]) -> (usize, usize) {
