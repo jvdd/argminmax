@@ -614,20 +614,16 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_8;
 
-    impl SIMD<i8, int8x16_t, uint8x16_t, LANE_SIZE> for NEON {
+    impl SIMDOps<i8, int8x16_t, uint8x16_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: int8x16_t = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
                 15i8,
             ])
         };
-        
         const INDEX_INCREMENT: int8x16_t =
             unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
-
-        const MIN_VALUE: i8 = MIN_VALUE;
-        const MAX_VALUE: i8 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: int8x16_t) -> [i8; LANE_SIZE] {
@@ -638,11 +634,6 @@ mod neon {
         unsafe fn _mm_loadu(data: *const i8) -> int8x16_t {
             // TODO: requires v7
             vld1q_s8(data as *const i8)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: i8) -> int8x16_t {
-            vdupq_n_s8(a)
         }
 
         #[inline(always)]
@@ -663,13 +654,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_blendv(a: int8x16_t, b: int8x16_t, mask: uint8x16_t) -> int8x16_t {
             vbslq_s8(mask, b, a)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -730,6 +714,13 @@ mod neon {
             let max_index: usize = vgetq_lane_s8(imin, 0) as usize;
 
             (max_index, max_value)
+        }
+    }
+
+    impl SIMDArgMinMax<i8, int8x16_t, uint8x16_t, LANE_SIZE> for NEON {
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax(data: &[i8]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 

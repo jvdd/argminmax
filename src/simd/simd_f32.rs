@@ -568,6 +568,8 @@ mod avx512_float_return_nan {
 
 // ---------------------------------------- NEON -----------------------------------------
 
+// TODO: use ordtransform here
+
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
@@ -575,9 +577,12 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
 
-    impl SIMD<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEON {
+    impl SIMDOps<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: float32x4_t =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
+        const INDEX_INCREMENT: float32x4_t =
+            unsafe { std::mem::transmute([LANE_SIZE as f32; LANE_SIZE]) };
+        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: float32x4_t) -> [f32; LANE_SIZE] {

@@ -457,24 +457,18 @@ mod avx512 {
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
-    use super::super::config::NEON;
+    use super::super::config::{NEONFloatIgnoreNaN, NEON};
     use super::*;
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
 
-    impl SIMD<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEON {
+    impl SIMDOps<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONFloatIgnoreNaN {
         const INITIAL_INDEX: float32x4_t =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
-
         const INDEX_INCREMENT: float32x4_t =
             unsafe { std::mem::transmute([LANE_SIZE as f32; LANE_SIZE]) };
-
-        // https://stackoverflow.com/a/3793950
         const MAX_INDEX: usize = MAX_INDEX;
-        const MIN_VALUE: f32 = MIN_VALUE;
 
-
-        const MAX_VALUE: f32 = MAX_VALUE;
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: float32x4_t) -> [f32; LANE_SIZE] {
             std::mem::transmute::<float32x4_t, [f32; LANE_SIZE]>(reg)
@@ -483,11 +477,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
             vld1q_f32(data as *const f32)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f32) -> float32x4_t {
-            vdupq_n_f32(a as f32)
         }
 
         #[inline(always)]
@@ -509,9 +498,16 @@ mod neon {
         unsafe fn _mm_blendv(a: float32x4_t, b: float32x4_t, mask: uint32x4_t) -> float32x4_t {
             vbslq_f32(mask, b, a)
         }
+    }
 
-        // ------------------------------------ ARGMINMAX --------------------------------------
+    impl SIMDSetOps<f32, float32x4_t> for NEONFloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f32) -> float32x4_t {
+            vdupq_n_f32(a as f32)
+        }
+    }
 
+    impl SIMDArgMinMaxFloatIgnoreNaN<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONFloatIgnoreNaN {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -522,7 +518,8 @@ mod neon {
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::NEONFloatIgnoreNaN as NEON;
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

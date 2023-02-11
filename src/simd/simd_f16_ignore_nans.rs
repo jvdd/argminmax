@@ -727,7 +727,7 @@ mod avx512 {
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
-    use super::super::config::NEON;
+    use super::super::config::{NEONFloatIgnoreNaN, NEON};
     use super::*;
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_16;
@@ -746,18 +746,12 @@ mod neon {
         std::mem::transmute::<int16x8_t, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
+    impl SIMDOps<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEONFloatIgnoreNaN {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
-        
         const INDEX_INCREMENT: int16x8_t =
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
-
         const MAX_INDEX: usize = MAX_INDEX;
-
-        const MIN_VALUE: f16 = MIN_VALUE;
-        const MAX_VALUE: f16 = MAX_VALUE;
-        
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: int16x8_t) -> [f16; LANE_SIZE] {
@@ -770,11 +764,6 @@ mod neon {
             _f16_as_int16x8_to_i16ord(vld1q_s16(unsafe {
                 std::mem::transmute::<*const f16, *const i16>(data)
             }))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: f16) -> int16x8_t {
-            vdupq_n_s16(std::mem::transmute::<f16, i16>(a))
         }
 
         #[inline(always)]
@@ -796,8 +785,6 @@ mod neon {
         unsafe fn _mm_blendv(a: int16x8_t, b: int16x8_t, mask: uint16x8_t) -> int16x8_t {
             vbslq_s16(mask, b, a)
         }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
 
         #[inline(always)]
         unsafe fn _horiz_min(index: int16x8_t, value: int16x8_t) -> (usize, f16) {
@@ -854,7 +841,16 @@ mod neon {
 
             (max_index, _i16ord_to_f16(max_value))
         }
+    }
 
+    impl SIMDSetOps<f16, int16x8_t> for NEONFloatIgnoreNaN {
+        #[inline(always)]
+        unsafe fn _mm_set1(a: f16) -> int16x8_t {
+            vdupq_n_s16(std::mem::transmute::<f16, i16>(a))
+        }
+    }
+
+    impl SIMDArgMinMaxFloatIgnoreNaN<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEONFloatIgnoreNaN {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -865,7 +861,8 @@ mod neon {
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::NEONFloatIgnoreNaN as NEON;
+        use super::SIMDArgMinMaxFloatIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;

@@ -444,25 +444,17 @@ pub trait SIMDArgMinMaxFloatIgnoreNaN<
 // TODO: update this to use the new SIMD trait
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 macro_rules! unimplement_simd {
-    ($scalar_type:ty, $reg:ty, $simd_type:ident, $zero:literal) => {
-        impl SIMD<$scalar_type, $reg, $reg, 0> for $simd_type {
+    ($scalar_type:ty, $reg:ty, $simd_instructionset:ident) => {
+        impl SIMDOps<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
             const INITIAL_INDEX: $reg = 0;
-            const MAX_INDEX: usize = 0;
-            
             const INDEX_INCREMENT: $reg = 0;
-            const MIN_VALUE: $scalar_type = $zero;
-            const MAX_VALUE: $scalar_type = $zero;
-
+            const MAX_INDEX: usize = 0;
 
             unsafe fn _reg_to_arr(_reg: $reg) -> [$scalar_type; 0] {
                 unimplemented!()
             }
 
             unsafe fn _mm_loadu(_data: *const $scalar_type) -> $reg {
-                unimplemented!()
-            }
-
-            unsafe fn _mm_set1(_a: $scalar_type) -> $reg {
                 unimplemented!()
             }
 
@@ -481,7 +473,8 @@ macro_rules! unimplement_simd {
             unsafe fn _mm_blendv(_a: $reg, _b: $reg, _mask: $reg) -> $reg {
                 unimplemented!()
             }
-
+        }
+        impl SIMDArgMinMax<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
             unsafe fn argminmax(_data: &[$scalar_type]) -> (usize, usize) {
                 unimplemented!()
             }
