@@ -503,4 +503,21 @@ mod avx512_float_return_nan {
 
 // ---------------------------------------- NEON -----------------------------------------
 
-// TODO: usure if we need to implement here something
+// There are no NEON intrinsics for f64, so we need to use the scalar version.
+//   although NEON intrinsics exist for i64 and u64, we cannot use them as
+//   they there is no 64-bit variant (of any data type) for the following three
+//   intrinsics: vadd_, vcgt_, vclt_
+
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+mod neon {
+    use super::super::config::NEON;
+    use super::super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDOps};
+    use super::*;
+
+    // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
+    // compiler will complain that the trait is not implemented for the struct -
+    // even though we are not using the trait for the NEON struct when dealing with
+    // > 64 bit data types.
+    unimpl_SIMDOps!(f64, usize, NEON);
+    unimpl_SIMDArgMinMax!(f64, usize, NEON);
+}

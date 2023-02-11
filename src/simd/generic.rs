@@ -91,7 +91,7 @@ where
     }
 }
 
-// ---------------------------------- SIMD algorithm ----------------------------------
+// ---------------------------------- SIMD algorithm -----------------------------------
 
 // --------------- Default
 
@@ -388,7 +388,7 @@ where
 //     }
 // }
 
-// ------------------------------- ArgMinMax SIMD TRAIT ------------------------------
+// -------------------------------- ArgMinMax SIMD TRAIT -------------------------------
 
 // --------------- Default
 
@@ -441,9 +441,10 @@ pub trait SIMDArgMinMaxFloatIgnoreNaN<
     }
 }
 
-// TODO: update this to use the new SIMD trait
+// --------------------------------- Unimplement Macros --------------------------------
+
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-macro_rules! unimplement_simd {
+macro_rules! unimpl_SIMDOps {
     ($scalar_type:ty, $reg:ty, $simd_instructionset:ident) => {
         impl SIMDOps<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
             const INITIAL_INDEX: $reg = 0;
@@ -474,6 +475,12 @@ macro_rules! unimplement_simd {
                 unimplemented!()
             }
         }
+    };
+}
+
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+macro_rules! unimpl_SIMDArgMinMax {
+    ($scalar_type:ty, $reg:ty, $simd_instructionset:ident) => {
         impl SIMDArgMinMax<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
             unsafe fn argminmax(_data: &[$scalar_type]) -> (usize, usize) {
                 unimplemented!()
@@ -481,5 +488,26 @@ macro_rules! unimplement_simd {
         }
     };
 }
+
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-pub(crate) use unimplement_simd; // Now classic paths Just Work™
+macro_rules! unimpl_SIMDArgMinMaxFloatIgnoreNaN {
+    ($scalar_type:ty, $reg:ty, $simd_instructionset:ident) => {
+        impl SIMDSetOps<$scalar_type, $reg> for $simd_instructionset {
+            unsafe fn _mm_set1(_a: $scalar_type) -> $reg {
+                unimplemented!()
+            }
+        }
+        impl SIMDArgMinMaxFloatIgnoreNaN<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
+            unsafe fn argminmax(_data: &[$scalar_type]) -> (usize, usize) {
+                unimplemented!()
+            }
+        }
+    };
+}
+
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+pub(crate) use unimpl_SIMDArgMinMax; // Now classic paths Just Work™
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+pub(crate) use unimpl_SIMDArgMinMaxFloatIgnoreNaN;
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+pub(crate) use unimpl_SIMDOps; // Now classic paths Just Work™ // Now classic paths Just Work™

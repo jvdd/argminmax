@@ -500,12 +500,13 @@ mod avx512 {
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
-    use super::super::generic::unimplement_simd;
+    use super::super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDOps};
     use super::*;
 
     // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
     // compiler will complain that the trait is not implemented for the struct -
     // even though we are not using the trait for the NEON struct when dealing with
     // > 64 bit data types.
-    unimplement_simd!(u64, usize, NEON);
+    unimpl_SIMDOps!(u64, usize, NEON);
+    unimpl_SIMDArgMinMax!(u64, usize, NEON);
 }
