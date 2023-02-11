@@ -201,7 +201,7 @@ mod sse {
     }
 
     impl SIMDArgMinMaxFloatIgnoreNaN<f64, __m128d, __m128d, LANE_SIZE> for SSEFloatIgnoreNaN {
-        #[target_feature(enable = "sse4.1")]
+        #[target_feature(enable = "sse4.1")] // TODO: check if this is correct
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
         }

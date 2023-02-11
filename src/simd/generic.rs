@@ -224,15 +224,15 @@ where
     SIMDMaskDtype: Copy,
     T: SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>,
 {
-    // Use the default implementation
+    // Use the implementation
 }
 
 // --------------- Float Ignore NaNs
 
-/// SIMD operations for setting a SIMD vector to a scalar value.
+/// SIMD operations for setting a SIMD vector to a scalar value (only required for floats)
 pub trait SIMDSetOps<ScalarDType, SIMDVecDtype>
 where
-    ScalarDType: Copy,
+    ScalarDType: Float,
 {
     unsafe fn _mm_set1(a: ScalarDType) -> SIMDVecDtype;
 }
@@ -241,7 +241,7 @@ where
 pub trait SIMDCoreFloatIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> + SIMDSetOps<ScalarDType, SIMDVecDtype>
 where
-    ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + Float,
+    ScalarDType: Float + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
 {
@@ -346,22 +346,22 @@ where
     }
 }
 
-// Implement SIMDCoreFloatIgnoreNaNs where SIMDOps + SIMDSetOps is implemented
-impl<T, SCALARDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
-    SIMDCoreFloatIgnoreNaN<SCALARDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> for T
+// Implement SIMDCoreFloatIgnoreNaNs where SIMDOps + SIMDSetOps is implemented for floats
+impl<T, ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
+    SIMDCoreFloatIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> for T
 where
-    SCALARDType: Copy + PartialOrd + AsPrimitive<usize> + Float,
+    ScalarDType: Float + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
-    T: SIMDOps<SCALARDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
-        + SIMDSetOps<SCALARDType, SIMDVecDtype>,
+    T: SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
+        + SIMDSetOps<ScalarDType, SIMDVecDtype>,
 {
-    // Use the default implementation
+    // Use the implementation
 }
 
 // --------------- Float Return NaNs
 
-// IDEA: make SIMDOps extend this trait & provide empty default implementations
+// IDEA: make SIMDOps extend this trait & provide empty implementations
 
 // pub trait SIMDOrdTransformOps<FloatDType, IntDType, SIMDVecDTtype, const LANE_SIZE: usize>
 // where
@@ -385,6 +385,8 @@ where
 
 // ------------------------------- ArgMinMax SIMD TRAIT ------------------------------
 
+// --------------- Default
+
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -406,6 +408,8 @@ where
         argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax)
     }
 }
+
+// --------------- Float Ignore NaNs
 
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMDArgMinMaxFloatIgnoreNaN<
