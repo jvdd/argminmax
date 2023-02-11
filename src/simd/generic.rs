@@ -1,5 +1,6 @@
 use num_traits::{AsPrimitive, Float};
 
+use super::config::SIMDInstructionSet;
 use super::task::*;
 use crate::scalar::{ScalarArgMinMax, SCALAR};
 
@@ -183,13 +184,17 @@ where
         // 2.0 Perform the full loops
         for _ in 0..n_loops {
             // Self::_mm_prefetch(arr.as_ptr().add(start));
+            if min_value != min_value || max_value != max_value{
+                // If min_value or max_value is NaN, we can return immediately
+                return (min_index, min_value, max_index, max_value);
+            }
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..start + dtype_max]);
-            if min_value_ < min_value {
+            if min_value_ < min_value || min_value_ != min_value_ {
                 min_index = start + min_index_;
                 min_value = min_value_;
             }
-            if max_value_ > max_value {
+            if max_value_ > max_value || max_value_ != max_value_ {
                 max_index = start + max_index_;
                 max_value = max_value_;
             }
@@ -200,11 +205,11 @@ where
             // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..]);
-            if min_value_ < min_value {
+            if min_value_ < min_value || min_value_ != min_value_{
                 min_index = start + min_index_;
                 min_value = min_value_;
             }
-            if max_value_ > max_value {
+            if max_value_ > max_value || max_value_ != max_value_ {
                 max_index = start + max_index_;
                 max_value = max_value_;
             }
@@ -215,14 +220,14 @@ where
     }
 }
 
-// Implement SIMDCore where SIMDOps is implemented
+// Implement SIMDCore where SIMDOps is implemented (for the SIMDIstructionSet structs)
 impl<T, ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> for T
 where
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
-    T: SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>,
+    T: SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> + SIMDInstructionSet,
 {
     // Use the implementation
 }
