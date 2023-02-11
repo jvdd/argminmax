@@ -424,5 +424,5 @@ mod neon {
     // compiler will complain that the trait is not implemented for the struct -
     // even though we are not using the trait for the NEON struct when dealing with
     // > 64 bit data types.
-    unimplement_simd!(f64, usize, NEON);
+    unimplement_simd!(f64, usize, NEON, 0.0);
 }

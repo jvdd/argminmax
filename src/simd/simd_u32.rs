@@ -509,7 +509,13 @@ mod neon {
 
     impl SIMD<u32, uint32x4_t, uint32x4_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: uint32x4_t = unsafe { std::mem::transmute([0u32, 1u32, 2u32, 3u32]) };
-        const MAX_INDEX: usize = u32::MAX as usize;
+        
+        const INDEX_INCREMENT: uint32x4_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i32; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u32 = MIN_VALUE;
+        const MAX_VALUE: u32 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: uint32x4_t) -> [u32; LANE_SIZE] {
@@ -522,7 +528,7 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> uint32x4_t {
+        unsafe fn _mm_set1(a: u32) -> uint32x4_t {
             vdupq_n_u32(a as u32)
         }
 

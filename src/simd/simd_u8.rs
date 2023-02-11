@@ -680,7 +680,13 @@ mod neon {
                 15u8,
             ])
         };
-        const MAX_INDEX: usize = u8::MAX as usize;
+        
+        const INDEX_INCREMENT: uint8x16_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        const MIN_VALUE: u8 = MIN_VALUE;
+        const MAX_VALUE: u8 = MAX_VALUE;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: uint8x16_t) -> [u8; LANE_SIZE] {
@@ -693,8 +699,8 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> uint8x16_t {
-            vdupq_n_u8(a as u8)
+        unsafe fn _mm_set1(a: u8) -> uint8x16_t {
+            vdupq_n_u8(a)
         }
 
         #[inline(always)]

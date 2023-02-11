@@ -466,12 +466,19 @@ mod neon {
         const INITIAL_INDEX: float32x4_t =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
 
+        const INDEX_INCREMENT: float32x4_t =
+            unsafe { std::mem::transmute([LANE_SIZE as f32; LANE_SIZE]) };
+
+        // https://stackoverflow.com/a/3793950
+        const MAX_INDEX: usize = MAX_INDEX;
+        const MIN_VALUE: f32 = MIN_VALUE;
+
+
+        const MAX_VALUE: f32 = MAX_VALUE;
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: float32x4_t) -> [f32; LANE_SIZE] {
             std::mem::transmute::<float32x4_t, [f32; LANE_SIZE]>(reg)
         }
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
@@ -479,7 +486,7 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> float32x4_t {
+        unsafe fn _mm_set1(a: f32) -> float32x4_t {
             vdupq_n_f32(a as f32)
         }
 
