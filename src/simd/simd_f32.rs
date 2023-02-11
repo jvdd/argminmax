@@ -143,7 +143,7 @@ mod avx2_float_return_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX2, SIMDArgMinMax};
+        use super::{SIMDArgMinMax, AVX2};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -482,7 +482,7 @@ mod avx512_float_return_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX512, SIMDArgMinMax};
+        use super::{SIMDArgMinMax, AVX512};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

@@ -51,7 +51,7 @@ mod avx2_float_return_nan {
         std::mem::transmute::<__m256i, [i64; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f64, __m256i, __m256i, LANE_SIZE> for AVX2{
+    impl SIMDOps<f64, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64]) };
         const INDEX_INCREMENT: __m256i =
             unsafe { std::mem::transmute([LANE_SIZE as i64; LANE_SIZE]) };
@@ -118,7 +118,7 @@ mod avx2_float_return_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX2, SIMDArgMinMax};
+        use super::{SIMDArgMinMax, AVX2};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -284,7 +284,7 @@ mod sse_float_return_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::{SSE, SIMDArgMinMax};
+        use super::{SIMDArgMinMax, SSE};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -364,7 +364,7 @@ mod avx512_float_return_nan {
         std::mem::transmute::<__m512i, [i64; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f64, __m512i, u8, LANE_SIZE> for AVX512{
+    impl SIMDOps<f64, __m512i, u8, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i =
             unsafe { std::mem::transmute([0i64, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64]) };
         const INDEX_INCREMENT: __m512i =
@@ -432,7 +432,7 @@ mod avx512_float_return_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX512, SIMDArgMinMax};
+        use super::{SIMDArgMinMax, AVX512};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

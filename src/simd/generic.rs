@@ -184,7 +184,7 @@ where
         // 2.0 Perform the full loops
         for _ in 0..n_loops {
             // Self::_mm_prefetch(arr.as_ptr().add(start));
-            if min_value != min_value || max_value != max_value{
+            if min_value != min_value || max_value != max_value {
                 // If min_value or max_value is NaN, we can return immediately
                 return (min_index, min_value, max_index, max_value);
             }
@@ -205,7 +205,7 @@ where
             // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..]);
-            if min_value_ < min_value || min_value_ != min_value_{
+            if min_value_ < min_value || min_value_ != min_value_ {
                 min_index = start + min_index_;
                 min_value = min_value_;
             }
