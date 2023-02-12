@@ -324,6 +324,18 @@ mod avx2 {
             let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
             assert_eq!(argmin_simd_index, 0);
             assert_eq!(argmax_simd_index, 0);
+
+            // Case 7: array exact multiple of LANE_SIZE and only 1 element is NaN
+            let mut data: Vec<f64> = get_array_f64(128);
+            data[17] = f64::NAN;
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 17);
+            assert_eq!(argmax_index, 17);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 17);
+            assert_eq!(argmax_simd_index, 17);
         }
 
         #[test]
@@ -605,6 +617,18 @@ mod sse {
             let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
             assert_eq!(argmin_simd_index, 0);
             assert_eq!(argmax_simd_index, 0);
+
+            // Case 7: array exact multiple of LANE_SIZE and only 1 element is NaN
+            let mut data: Vec<f64> = get_array_f64(128);
+            data[17] = f64::NAN;
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 17);
+            assert_eq!(argmax_index, 17);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 17);
+            assert_eq!(argmax_simd_index, 17);
         }
 
         #[test]
@@ -894,6 +918,18 @@ mod avx512 {
             let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
             assert_eq!(argmin_simd_index, 0);
             assert_eq!(argmax_simd_index, 0);
+
+            // Case 7: array exact multiple of LANE_SIZE and only 1 element is NaN
+            let mut data: Vec<f64> = get_array_f64(128);
+            data[17] = f64::NAN;
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 17);
+            assert_eq!(argmax_index, 17);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 17);
+            assert_eq!(argmax_simd_index, 17);
         }
 
         #[test]

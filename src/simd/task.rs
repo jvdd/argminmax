@@ -18,6 +18,7 @@ where
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argminmax(simd_arr) };
             // Perform scalar operation on the remainder of the array
+            // TODO: use if-let here with SCALARIgnoreNaN and SCALAR
             let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             let rem_result = (
                 rem_min_index + simd_arr.len(),
@@ -36,6 +37,8 @@ where
                 ignore_nan,
             );
             if !ignore_nan && (min_value != min_value || max_value != max_value) {
+                // --- Return NaNs
+                // -> at least one of the values is NaN
                 if min_value != min_value && max_value != max_value {
                     // If both are NaN, return lowest index
                     let lowest_index = std::cmp::min(min_index, max_index);
@@ -51,13 +54,30 @@ where
                 (min_index, max_index)
             }
         }
+        (Some(simd_arr), None) => {
+            let simd_result = unsafe { core_argminmax(simd_arr) };
+            if !ignore_nan && (simd_result.1 != simd_result.1 || simd_result.3 != simd_result.3) {
+                // --- Return NaNs
+                // -> at least one of the values is NaN
+                if simd_result.1 != simd_result.1 && simd_result.3 != simd_result.3 {
+                    // If both are NaN, return lowest index
+                    let lowest_index = std::cmp::min(simd_result.0, simd_result.2);
+                    (lowest_index, lowest_index)
+                } else if simd_result.1 != simd_result.1 {
+                    // If min is the only NaN, return min index
+                    (simd_result.0, simd_result.0)
+                } else {
+                    // If max is the only NaN, return max index
+                    (simd_result.2, simd_result.2)
+                }
+            } else {
+                (simd_result.0, simd_result.2)
+            }
+        }
         (None, Some(rem)) => {
+            // TODO: use if-let here with SCALARIgnoreNaN and SCALAR
             let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             (rem_min_index, rem_max_index)
-        }
-        (Some(simd_arr), None) => {
-            let sim_result = unsafe { core_argminmax(simd_arr) };
-            (sim_result.0, sim_result.2)
         }
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
     }
