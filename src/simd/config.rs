@@ -17,21 +17,21 @@ pub trait SIMDInstructionSet {
 // ----------------------------- x86_64 / x86 -----------------------------
 
 pub struct SSE;
-pub struct SSEFloatIgnoreNaN;
+pub struct SSEIgnoreNaN;
 
 impl SIMDInstructionSet for SSE {
     const REGISTER_SIZE: usize = 128;
 }
 
 pub struct AVX2; // for f32 and f64 AVX is enough
-pub struct AVX2FloatIgnoreNaN;
+pub struct AVX2IgnoreNaN;
 
 impl SIMDInstructionSet for AVX2 {
     const REGISTER_SIZE: usize = 256;
 }
 
 pub struct AVX512;
-pub struct AVX512FloatIgnoreNaN;
+pub struct AVX512IgnoreNaN;
 
 impl SIMDInstructionSet for AVX512 {
     const REGISTER_SIZE: usize = 512;
@@ -40,7 +40,7 @@ impl SIMDInstructionSet for AVX512 {
 // ----------------------------- aarch64 / arm -----------------------------
 
 pub struct NEON;
-pub struct NEONFloatIgnoreNaN;
+pub struct NEONIgnoreNaN;
 
 impl SIMDInstructionSet for NEON {
     const REGISTER_SIZE: usize = 128;

@@ -9,8 +9,7 @@ use dev_utils::{config, utils};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use argminmax::{
-    AVX2FloatIgnoreNaN as AVX2, AVX512FloatIgnoreNaN as AVX512, SIMDArgMinMaxFloatIgnoreNaN,
-    SSEFloatIgnoreNaN as SSE,
+    AVX2IgnoreNaN as AVX2, AVX512IgnoreNaN as AVX512, SIMDArgMinMaxIgnoreNaN, SSEIgnoreNaN as SSE,
 };
 use argminmax::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]

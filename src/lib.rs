@@ -10,8 +10,7 @@ mod simd;
 
 pub use scalar::{ScalarArgMinMax, SCALAR};
 pub use simd::{
-    AVX2FloatIgnoreNaN, AVX512FloatIgnoreNaN, NEONFloatIgnoreNaN, SIMDArgMinMaxFloatIgnoreNaN,
-    SSEFloatIgnoreNaN,
+    AVX2IgnoreNaN, AVX512IgnoreNaN, NEONIgnoreNaN, SIMDArgMinMaxIgnoreNaN, SSEIgnoreNaN,
 };
 pub use simd::{SIMDArgMinMax, AVX2, AVX512, NEON, SSE};
 
@@ -184,31 +183,31 @@ macro_rules! impl_argminmax_float {
                     {
                         if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
                             // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSEFloatIgnoreNaN::argminmax(self) }
+                            return unsafe { SSEIgnoreNaN::argminmax(self) }
                         // } else if is_x86_feature_detected!("avx512bw") & (<$t>::NB_BITS <= 16) {
                         //     // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                         //     return unsafe { AVX512::argminmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
-                            return unsafe { AVX512FloatIgnoreNaN::argminmax(self) }
+                            return unsafe { AVX512IgnoreNaN::argminmax(self) }
                         } else if is_x86_feature_detected!("avx2") {
-                            return unsafe { AVX2FloatIgnoreNaN::argminmax(self) }
+                            return unsafe { AVX2IgnoreNaN::argminmax(self) }
                         } else if is_x86_feature_detected!("avx")  & (<$t>::NB_BITS >= 32) {
                             // f32 and f64 do not require avx2
-                            return unsafe { AVX2FloatIgnoreNaN::argminmax(self) }
+                            return unsafe { AVX2IgnoreNaN::argminmax(self) }
                         // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
                         // // } else if is_x86_feature_detected!("sse4.2") & (<$t>::NB_BITS == 64) & (<$t>::IS_FLOAT == false) {
                         //     // SSE4.2 is needed for comparing 64-bit integers
                         //     return unsafe { SSE::argminmax(self) }
                         } else if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS < 64) {
                             // Scalar is faster for 64-bit numbers
-                            return unsafe { SSEFloatIgnoreNaN::argminmax(self) }
+                            return unsafe { SSEIgnoreNaN::argminmax(self) }
                         }
                     }
                     #[cfg(target_arch = "aarch64")]
                     {
                         if std::arch::is_aarch64_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
                             // We miss some NEON instructions for 64-bit numbers
-                            return unsafe { NEONFloatIgnoreNaN::argminmax(self) }
+                            return unsafe { NEONIgnoreNaN::argminmax(self) }
                         }
                     }
                     #[cfg(target_arch = "arm")]
@@ -216,7 +215,7 @@ macro_rules! impl_argminmax_float {
                         if std::arch::is_arm_feature_detected!("neon") & (<$t>::NB_BITS < 64) {
                             // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
-                            return unsafe { NEONFloatIgnoreNaN::argminmax(self) }
+                            return unsafe { NEONIgnoreNaN::argminmax(self) }
                         }
                     }
                     SCALAR::argminmax(self)

@@ -12,7 +12,7 @@
 /// are added to the accumulating SIMD register.
 ///
 use super::config::SIMDInstructionSet;
-use super::generic::{SIMDArgMinMaxFloatIgnoreNaN, SIMDOps, SIMDSetOps};
+use super::generic::{SIMDArgMinMaxIgnoreNaN, SIMDOps, SIMDSetOps};
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -29,12 +29,12 @@ const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2_ignore_nan {
-    use super::super::config::{AVX2FloatIgnoreNaN, AVX2};
+    use super::super::config::{AVX2IgnoreNaN, AVX2};
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_32;
 
-    impl SIMDOps<f32, __m256, __m256, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDOps<f32, __m256, __m256, LANE_SIZE> for AVX2IgnoreNaN {
         const INITIAL_INDEX: __m256 = unsafe {
             std::mem::transmute([
                 0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32,
@@ -75,14 +75,14 @@ mod avx2_ignore_nan {
         }
     }
 
-    impl SIMDSetOps<f32, __m256> for AVX2FloatIgnoreNaN {
+    impl SIMDSetOps<f32, __m256> for AVX2IgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> __m256 {
             _mm256_set1_ps(a)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f32, __m256, __m256, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f32, __m256, __m256, LANE_SIZE> for AVX2IgnoreNaN {
         #[target_feature(enable = "avx")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -93,8 +93,8 @@ mod avx2_ignore_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::AVX2FloatIgnoreNaN as AVX2;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::AVX2IgnoreNaN as AVX2;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -182,12 +182,12 @@ mod avx2_ignore_nan {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse_ignore_nan {
-    use super::super::config::{SSEFloatIgnoreNaN, SSE};
+    use super::super::config::{SSEIgnoreNaN, SSE};
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_32;
 
-    impl SIMDOps<f32, __m128, __m128, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDOps<f32, __m128, __m128, LANE_SIZE> for SSEIgnoreNaN {
         const INITIAL_INDEX: __m128 =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
         const INDEX_INCREMENT: __m128 =
@@ -225,14 +225,14 @@ mod sse_ignore_nan {
         }
     }
 
-    impl SIMDSetOps<f32, __m128> for SSEFloatIgnoreNaN {
+    impl SIMDSetOps<f32, __m128> for SSEIgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> __m128 {
             _mm_set1_ps(a)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f32, __m128, __m128, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f32, __m128, __m128, LANE_SIZE> for SSEIgnoreNaN {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -243,8 +243,8 @@ mod sse_ignore_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
-        use super::SSEFloatIgnoreNaN as SSE;
+        use super::SIMDArgMinMaxIgnoreNaN;
+        use super::SSEIgnoreNaN as SSE;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -316,12 +316,12 @@ mod sse_ignore_nan {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512_ignore_nan {
-    use super::super::config::{AVX512FloatIgnoreNaN, AVX512};
+    use super::super::config::{AVX512IgnoreNaN, AVX512};
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
 
-    impl SIMDOps<f32, __m512, u16, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDOps<f32, __m512, u16, LANE_SIZE> for AVX512IgnoreNaN {
         const INITIAL_INDEX: __m512 = unsafe {
             std::mem::transmute([
                 0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32, 8.0f32, 9.0f32,
@@ -363,14 +363,14 @@ mod avx512_ignore_nan {
         }
     }
 
-    impl SIMDSetOps<f32, __m512> for AVX512FloatIgnoreNaN {
+    impl SIMDSetOps<f32, __m512> for AVX512IgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> __m512 {
             _mm512_set1_ps(a)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f32, __m512, u16, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f32, __m512, u16, LANE_SIZE> for AVX512IgnoreNaN {
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -381,8 +381,8 @@ mod avx512_ignore_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::AVX512FloatIgnoreNaN as AVX512;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::AVX512IgnoreNaN as AVX512;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -470,12 +470,12 @@ mod avx512_ignore_nan {
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
-    use super::super::config::{NEONFloatIgnoreNaN, NEON};
+    use super::super::config::{NEONIgnoreNaN, NEON};
     use super::*;
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
 
-    impl SIMDOps<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONFloatIgnoreNaN {
+    impl SIMDOps<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONIgnoreNaN {
         const INITIAL_INDEX: float32x4_t =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
         const INDEX_INCREMENT: float32x4_t =
@@ -513,14 +513,14 @@ mod neon {
         }
     }
 
-    impl SIMDSetOps<f32, float32x4_t> for NEONFloatIgnoreNaN {
+    impl SIMDSetOps<f32, float32x4_t> for NEONIgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> float32x4_t {
             vdupq_n_f32(a)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONFloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONIgnoreNaN {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -531,8 +531,8 @@ mod neon {
 
     #[cfg(test)]
     mod tests {
-        use super::NEONFloatIgnoreNaN as NEON;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::NEONIgnoreNaN as NEON;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;

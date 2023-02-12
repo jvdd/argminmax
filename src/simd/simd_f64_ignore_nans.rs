@@ -14,7 +14,7 @@
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
-use super::generic::{SIMDArgMinMaxFloatIgnoreNaN, SIMDOps, SIMDSetOps};
+use super::generic::{SIMDArgMinMaxIgnoreNaN, SIMDOps, SIMDSetOps};
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -30,12 +30,12 @@ const MAX_INDEX: usize = u32::MAX as usize;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2_ignore_nan {
-    use super::super::config::{AVX2FloatIgnoreNaN, AVX2};
+    use super::super::config::{AVX2IgnoreNaN, AVX2};
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
 
-    impl SIMDOps<f64, __m256d, __m256d, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDOps<f64, __m256d, __m256d, LANE_SIZE> for AVX2IgnoreNaN {
         const INITIAL_INDEX: __m256d =
             unsafe { std::mem::transmute([0.0f64, 1.0f64, 2.0f64, 3.0f64]) };
         const INDEX_INCREMENT: __m256d =
@@ -73,14 +73,14 @@ mod avx2_ignore_nan {
         }
     }
 
-    impl SIMDSetOps<f64, __m256d> for AVX2FloatIgnoreNaN {
+    impl SIMDSetOps<f64, __m256d> for AVX2IgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f64) -> __m256d {
             _mm256_set1_pd(a)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f64, __m256d, __m256d, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f64, __m256d, __m256d, LANE_SIZE> for AVX2IgnoreNaN {
         #[target_feature(enable = "avx")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -91,8 +91,8 @@ mod avx2_ignore_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::AVX2FloatIgnoreNaN as AVX2;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::AVX2IgnoreNaN as AVX2;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -165,12 +165,12 @@ mod avx2_ignore_nan {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse_ignore_nan {
-    use super::super::config::{SSEFloatIgnoreNaN, SSE};
+    use super::super::config::{SSEIgnoreNaN, SSE};
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_64;
 
-    impl SIMDOps<f64, __m128d, __m128d, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDOps<f64, __m128d, __m128d, LANE_SIZE> for SSEIgnoreNaN {
         const INITIAL_INDEX: __m128d = unsafe { std::mem::transmute([0.0f64, 1.0f64]) };
         const INDEX_INCREMENT: __m128d =
             unsafe { std::mem::transmute([LANE_SIZE as f64; LANE_SIZE]) };
@@ -207,14 +207,14 @@ mod sse_ignore_nan {
         }
     }
 
-    impl SIMDSetOps<f64, __m128d> for SSEFloatIgnoreNaN {
+    impl SIMDSetOps<f64, __m128d> for SSEIgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f64) -> __m128d {
             _mm_set1_pd(a)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f64, __m128d, __m128d, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f64, __m128d, __m128d, LANE_SIZE> for SSEIgnoreNaN {
         #[target_feature(enable = "sse4.1")] // TODO: check if this is correct
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -225,8 +225,8 @@ mod sse_ignore_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
-        use super::SSEFloatIgnoreNaN as SSE;
+        use super::SIMDArgMinMaxIgnoreNaN;
+        use super::SSEIgnoreNaN as SSE;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -287,12 +287,12 @@ mod sse_ignore_nan {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512_ignore_nan {
-    use super::super::config::{AVX512FloatIgnoreNaN, AVX512};
+    use super::super::config::{AVX512IgnoreNaN, AVX512};
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
 
-    impl SIMDOps<f64, __m512d, u8, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDOps<f64, __m512d, u8, LANE_SIZE> for AVX512IgnoreNaN {
         const INITIAL_INDEX: __m512d = unsafe {
             std::mem::transmute([
                 0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64, 5.0f64, 6.0f64, 7.0f64,
@@ -333,14 +333,14 @@ mod avx512_ignore_nan {
         }
     }
 
-    impl SIMDSetOps<f64, __m512d> for AVX512FloatIgnoreNaN {
+    impl SIMDSetOps<f64, __m512d> for AVX512IgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f64) -> __m512d {
             _mm512_set1_pd(a)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f64, __m512d, u8, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f64, __m512d, u8, LANE_SIZE> for AVX512IgnoreNaN {
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -351,8 +351,8 @@ mod avx512_ignore_nan {
 
     #[cfg(test)]
     mod tests {
-        use super::AVX512FloatIgnoreNaN as AVX512;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::AVX512IgnoreNaN as AVX512;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -430,14 +430,14 @@ mod avx512_ignore_nan {
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
-    use super::super::config::NEONFloatIgnoreNaN;
-    use super::super::generic::{unimpl_SIMDArgMinMaxFloatIgnoreNaN, unimpl_SIMDOps};
+    use super::super::config::NEONIgnoreNaN;
+    use super::super::generic::{unimpl_SIMDArgMinMaxIgnoreNaN, unimpl_SIMDOps};
     use super::*;
 
     // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
     // compiler will complain that the trait is not implemented for the struct -
     // even though we are not using the trait for the NEON struct when dealing with
     // > 64 bit data types.
-    unimpl_SIMDOps!(f64, usize, NEONFloatIgnoreNaN);
-    unimpl_SIMDArgMinMaxFloatIgnoreNaN!(f64, usize, NEONFloatIgnoreNaN);
+    unimpl_SIMDOps!(f64, usize, NEONIgnoreNaN);
+    unimpl_SIMDArgMinMaxIgnoreNaN!(f64, usize, NEONIgnoreNaN);
 }

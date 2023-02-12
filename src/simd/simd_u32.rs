@@ -35,10 +35,10 @@ mod avx2 {
     const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _u32_to_i32ord(u32: __m256i) -> __m256i {
+    unsafe fn _u32_as_m256i_to_i32ord(u32_as_m256i: __m256i) -> __m256i {
         // on a scalar: v ^ -0x80000000
         // transforms to monotonically increasing order
-        _mm256_xor_si256(u32, XOR_MASK)
+        _mm256_xor_si256(u32_as_m256i, XOR_MASK)
     }
 
     #[inline(always)]
@@ -63,7 +63,7 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u32) -> __m256i {
-            _u32_to_i32ord(_mm256_loadu_si256(data as *const __m256i))
+            _u32_as_m256i_to_i32ord(_mm256_loadu_si256(data as *const __m256i))
         }
 
         #[inline(always)]
@@ -196,10 +196,10 @@ mod sse {
     const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _u32_to_i32ord(u32: __m128i) -> __m128i {
+    unsafe fn _u32_as_m128i_to_i32ord(u32_as_m128i: __m128i) -> __m128i {
         // on a scalar: v ^ -0x80000000
         // transforms to monotonically increasing order
-        _mm_xor_si128(u32, XOR_MASK)
+        _mm_xor_si128(u32_as_m128i, XOR_MASK)
     }
 
     #[inline(always)]
@@ -223,7 +223,7 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u32) -> __m128i {
-            _u32_to_i32ord(_mm_loadu_si128(data as *const __m128i))
+            _u32_as_m128i_to_i32ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
@@ -344,10 +344,10 @@ mod avx512 {
     const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _u32_to_i32ord(u32: __m512i) -> __m512i {
+    unsafe fn _u32_as_m512i_to_i32ord(u32_as_m512i: __m512i) -> __m512i {
         // on scalar: v ^ -0x80000000
         // transforms to monotonically increasing order
-        _mm512_xor_si512(u32, XOR_MASK)
+        _mm512_xor_si512(u32_as_m512i, XOR_MASK)
     }
 
     #[inline(always)]
@@ -376,7 +376,7 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u32) -> __m512i {
-            _u32_to_i32ord(_mm512_loadu_epi32(data as *const i32))
+            _u32_as_m512i_to_i32ord(_mm512_loadu_epi32(data as *const i32))
         }
 
         #[inline(always)]

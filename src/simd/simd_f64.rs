@@ -32,15 +32,14 @@ use std::arch::x86_64::*;
 use super::task::{max_index_value, min_index_value};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-const XOR_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const BIT_SHIFT: i32 = 63;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+const MASK_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX - MASKS everything but the sign bit
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn _i64ord_to_f64(ord_i64: i64) -> f64 {
-    // TODO: more efficient transformation -> can be decreasing order as well
-    let v = ((ord_i64 >> BIT_SHIFT) & XOR_VALUE) ^ ord_i64;
+    let v = ((ord_i64 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i64;
     unsafe { std::mem::transmute::<i64, f64>(v) }
 }
 
@@ -55,10 +54,10 @@ mod avx2 {
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_64;
-    const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_63_MASK: __m256i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f64_to_i64ord(f64_as_m256i: __m256i) -> __m256i {
+    unsafe fn _f64_as_m256i_to_i64ord(f64_as_m256i: __m256i) -> __m256i {
         // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
         // Note: _mm256_srai_epi64 is not available on AVX2.. (only AVX512F)
         //  -> As we only want to shift the sign bit to the first position, we can use
@@ -66,7 +65,7 @@ mod avx2 {
         // sign bit to the next 32 bits (per 64 bit lane).
         let sign_bit_shifted =
             _mm256_shuffle_epi32(_mm256_srai_epi32(f64_as_m256i, BIT_SHIFT), 0b11110101);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, XOR_MASK);
+        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, LOWER_63_MASK);
         _mm256_xor_si256(sign_bit_masked, f64_as_m256i)
     }
 
@@ -91,7 +90,7 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m256i {
-            _f64_to_i64ord(_mm256_loadu_si256(data as *const __m256i))
+            _f64_as_m256i_to_i64ord(_mm256_loadu_si256(data as *const __m256i))
         }
 
         #[inline(always)]
@@ -221,10 +220,10 @@ mod sse {
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_64;
-    const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_63_MASK: __m128i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f64_to_i64ord(f64_as_m128i: __m128i) -> __m128i {
+    unsafe fn _f64_as_m128i_to_i64ord(f64_as_m128i: __m128i) -> __m128i {
         // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
         // Note: _mm_srai_epi64 is not available on AVX2.. (only on AVX512F)
         //  -> As we only want to shift the sign bit to the first position, we can use
@@ -232,7 +231,7 @@ mod sse {
         // sign bit to the next 32 bits (per 64 bit lane).
         let sign_bit_shifted =
             _mm_shuffle_epi32(_mm_srai_epi32(f64_as_m128i, BIT_SHIFT), 0b11110101);
-        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, XOR_MASK);
+        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, LOWER_63_MASK);
         _mm_xor_si128(sign_bit_masked, f64_as_m128i)
     }
 
@@ -257,7 +256,7 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m128i {
-            _f64_to_i64ord(_mm_loadu_si128(data as *const __m128i))
+            _f64_as_m128i_to_i64ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
@@ -373,13 +372,13 @@ mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_64;
-    const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_63_MASK: __m512i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f64_to_i64ord(f64_as_m512i: __m512i) -> __m512i {
+    unsafe fn _f64_as_m512i_to_i64ord(f64_as_m512i: __m512i) -> __m512i {
         // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
         let sign_bit_shifted = _mm512_srai_epi64(f64_as_m512i, BIT_SHIFT as u32);
-        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, XOR_MASK);
+        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, LOWER_63_MASK);
         _mm512_xor_si512(sign_bit_masked, f64_as_m512i)
     }
 
@@ -405,7 +404,7 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m512i {
-            _f64_to_i64ord(_mm512_loadu_epi64(data as *const i64))
+            _f64_as_m512i_to_i64ord(_mm512_loadu_epi64(data as *const i64))
         }
 
         #[inline(always)]

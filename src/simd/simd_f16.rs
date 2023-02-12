@@ -25,7 +25,7 @@
 #[cfg(feature = "half")]
 use super::config::SIMDInstructionSet;
 #[cfg(feature = "half")]
-use super::generic::{SIMDArgMinMaxFloatIgnoreNaN, SIMDOps, SIMDSetOps};
+use super::generic::{SIMDArgMinMaxIgnoreNaN, SIMDOps, SIMDSetOps};
 
 #[cfg(feature = "half")]
 #[cfg(target_arch = "aarch64")]
@@ -44,13 +44,14 @@ use std::arch::x86_64::*;
 use half::f16;
 
 #[cfg(feature = "half")]
-const XOR_VALUE: i16 = 0x7FFF; // i16::MAX
+const BIT_SHIFT: i32 = 15;
+#[cfg(feature = "half")]
+const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - MASKS everything but the sign bit
 
 #[cfg(feature = "half")]
 #[inline(always)]
 fn _i16ord_to_f16(ord_i16: i16) -> f16 {
-    // TODO: more efficient transformation -> can be decreasing order as well
-    let v = ((ord_i16 >> 15) & XOR_VALUE) ^ ord_i16;
+    let v = ((ord_i16 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i16;
     unsafe { std::mem::transmute::<i16, f16>(v) }
 }
 
@@ -62,19 +63,23 @@ const MAX_INDEX: usize = i16::MAX as usize;
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
-    use super::super::config::{AVX2FloatIgnoreNaN, AVX2};
+    use super::super::config::{AVX2IgnoreNaN, AVX2};
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
-    const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_15_MASK: __m256i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
-    // TODO: rename other projection funcs in this format
     #[inline(always)]
     unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = _mm256_srai_epi16(f16_as_m256i, 15);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, XOR_MASK);
+        let sign_bit_shifted = _mm256_srai_epi16(f16_as_m256i, BIT_SHIFT);
+        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, LOWER_15_MASK);
         _mm256_xor_si256(sign_bit_masked, f16_as_m256i)
+        // TODO: investigate if this is faster
+        // _mm256_xor_si256(
+        //     _mm256_srai_epi16(f16_as_m256i, 15),
+        //     _mm256_and_si256(f16_as_m256i, LOWER_15_MASK),
+        // )
     }
 
     #[inline(always)]
@@ -82,7 +87,7 @@ mod avx2 {
         std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, __m256i, __m256i, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDOps<f16, __m256i, __m256i, LANE_SIZE> for AVX2IgnoreNaN {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -187,14 +192,14 @@ mod avx2 {
         }
     }
 
-    impl SIMDSetOps<f16, __m256i> for AVX2FloatIgnoreNaN {
+    impl SIMDSetOps<f16, __m256i> for AVX2IgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m256i {
             _mm256_set1_epi16(a.to_bits() as i16)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f16, __m256i, __m256i, LANE_SIZE> for AVX2FloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f16, __m256i, __m256i, LANE_SIZE> for AVX2IgnoreNaN {
         #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -205,8 +210,8 @@ mod avx2 {
 
     #[cfg(test)]
     mod tests {
-        use super::AVX2FloatIgnoreNaN as AVX2;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::AVX2IgnoreNaN as AVX2;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;
@@ -298,17 +303,17 @@ mod avx2 {
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
-    use super::super::config::{SSEFloatIgnoreNaN, SSE};
+    use super::super::config::{SSEIgnoreNaN, SSE};
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_16;
-    const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_15_MASK: __m128i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m128i_to_i16ord(f16_as_m128i: __m128i) -> __m128i {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = _mm_srai_epi16(f16_as_m128i, 15);
-        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, XOR_MASK);
+        let sign_bit_shifted = _mm_srai_epi16(f16_as_m128i, BIT_SHIFT);
+        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, LOWER_15_MASK);
         _mm_xor_si128(sign_bit_masked, f16_as_m128i)
     }
 
@@ -317,7 +322,7 @@ mod sse {
         std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, __m128i, __m128i, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDOps<f16, __m128i, __m128i, LANE_SIZE> for SSEIgnoreNaN {
         const INITIAL_INDEX: __m128i =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: __m128i =
@@ -414,14 +419,14 @@ mod sse {
         }
     }
 
-    impl SIMDSetOps<f16, __m128i> for SSEFloatIgnoreNaN {
+    impl SIMDSetOps<f16, __m128i> for SSEIgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m128i {
             _mm_set1_epi16(a.to_bits() as i16)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f16, __m128i, __m128i, LANE_SIZE> for SSEFloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f16, __m128i, __m128i, LANE_SIZE> for SSEIgnoreNaN {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -432,8 +437,8 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
-        use super::SSEFloatIgnoreNaN as SSE;
+        use super::SIMDArgMinMaxIgnoreNaN;
+        use super::SSEIgnoreNaN as SSE;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;
@@ -509,17 +514,17 @@ mod sse {
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
-    use super::super::config::{AVX512FloatIgnoreNaN, AVX512};
+    use super::super::config::{AVX512IgnoreNaN, AVX512};
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_16;
-    const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_15_MASK: __m512i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m521i_to_i16ord(f16_as_m512i: __m512i) -> __m512i {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = _mm512_srai_epi16(f16_as_m512i, 15);
-        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, XOR_MASK);
+        let sign_bit_shifted = _mm512_srai_epi16(f16_as_m512i, BIT_SHIFT as u32);
+        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, LOWER_15_MASK);
         _mm512_xor_si512(f16_as_m512i, sign_bit_masked)
     }
 
@@ -528,7 +533,7 @@ mod avx512 {
         std::mem::transmute::<__m512i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, __m512i, u32, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDOps<f16, __m512i, u32, LANE_SIZE> for AVX512IgnoreNaN {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -638,14 +643,14 @@ mod avx512 {
         }
     }
 
-    impl SIMDSetOps<f16, __m512i> for AVX512FloatIgnoreNaN {
+    impl SIMDSetOps<f16, __m512i> for AVX512IgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m512i {
             _mm512_set1_epi16(a.to_bits() as i16)
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f16, __m512i, u32, LANE_SIZE> for AVX512FloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f16, __m512i, u32, LANE_SIZE> for AVX512IgnoreNaN {
         #[target_feature(enable = "avx512bw")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -656,8 +661,8 @@ mod avx512 {
 
     #[cfg(test)]
     mod tests {
-        use super::AVX512FloatIgnoreNaN as AVX512;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::AVX512IgnoreNaN as AVX512;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;
@@ -749,17 +754,17 @@ mod avx512 {
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
-    use super::super::config::{NEONFloatIgnoreNaN, NEON};
+    use super::super::config::{NEONIgnoreNaN, NEON};
     use super::*;
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_16;
-    const XOR_MASK: int16x8_t = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_15_MASK: int16x8_t = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_int16x8_to_i16ord(f16_as_int16x8: int16x8_t) -> int16x8_t {
         // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = vshrq_n_s16(f16_as_int16x8, 15);
-        let sign_bit_masked = vandq_s16(sign_bit_shifted, XOR_MASK);
+        let sign_bit_shifted = vshrq_n_s16(f16_as_int16x8, BIT_SHIFT);
+        let sign_bit_masked = vandq_s16(sign_bit_shifted, LOWER_15_MASK);
         veorq_s16(f16_as_int16x8, sign_bit_masked)
     }
 
@@ -768,7 +773,7 @@ mod neon {
         std::mem::transmute::<int16x8_t, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEONFloatIgnoreNaN {
+    impl SIMDOps<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEONIgnoreNaN {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: int16x8_t =
@@ -867,14 +872,14 @@ mod neon {
         }
     }
 
-    impl SIMDSetOps<f16, int16x8_t> for NEONFloatIgnoreNaN {
+    impl SIMDSetOps<f16, int16x8_t> for NEONIgnoreNaN {
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> int16x8_t {
             vdupq_n_s16(std::mem::transmute::<f16, i16>(a))
         }
     }
 
-    impl SIMDArgMinMaxFloatIgnoreNaN<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEONFloatIgnoreNaN {
+    impl SIMDArgMinMaxIgnoreNaN<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEONIgnoreNaN {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -885,8 +890,8 @@ mod neon {
 
     #[cfg(test)]
     mod tests {
-        use super::NEONFloatIgnoreNaN as NEON;
-        use super::SIMDArgMinMaxFloatIgnoreNaN;
+        use super::NEONIgnoreNaN as NEON;
+        use super::SIMDArgMinMaxIgnoreNaN;
         use crate::scalar::generic::scalar_argminmax;
 
         use half::f16;

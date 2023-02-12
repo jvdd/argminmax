@@ -32,13 +32,13 @@ use std::arch::x86_64::*;
 
 use super::task::{max_index_value, min_index_value};
 
-const XOR_VALUE: i32 = 0x7FFFFFFF; // i32::MAX
 const BIT_SHIFT: i32 = 31;
+const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - MASKS everything but the sign bit
 
 #[inline(always)]
 fn _i32ord_to_f32(ord_i32: i32) -> f32 {
     // TODO: more efficient transformation -> can be decreasing order as well
-    let v = ((ord_i32 >> BIT_SHIFT) & XOR_VALUE) ^ ord_i32;
+    let v = ((ord_i32 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i32;
     unsafe { std::mem::transmute::<i32, f32>(v) }
 }
 
@@ -52,13 +52,13 @@ mod avx2 {
     use super::*;
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_32;
-    const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_31_MASK: __m256i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f32_to_i32ord(f32_as_m256i: __m256i) -> __m256i {
+    unsafe fn _f32_as_m256i_to_i32ord(f32_as_m256i: __m256i) -> __m256i {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
         let sign_bit_shifted = _mm256_srai_epi32(f32_as_m256i, BIT_SHIFT);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, XOR_MASK);
+        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, LOWER_31_MASK);
         _mm256_xor_si256(sign_bit_masked, f32_as_m256i)
     }
 
@@ -84,7 +84,7 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m256i {
-            _f32_to_i32ord(_mm256_loadu_si256(data as *const __m256i))
+            _f32_as_m256i_to_i32ord(_mm256_loadu_si256(data as *const __m256i))
         }
 
         #[inline(always)]
@@ -258,13 +258,13 @@ mod sse {
     use super::*;
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_32;
-    const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_31_MASK: __m128i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f32_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
+    unsafe fn _f32_as_m128i_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
         let sign_bit_shifted = _mm_srai_epi32(f32_as_m128i, BIT_SHIFT);
-        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, XOR_MASK);
+        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, LOWER_31_MASK);
         _mm_xor_si128(sign_bit_masked, f32_as_m128i)
     }
 
@@ -289,7 +289,7 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m128i {
-            _f32_to_i32ord(_mm_loadu_si128(data as *const __m128i))
+            _f32_as_m128i_to_i32ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
@@ -416,13 +416,13 @@ mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
-    const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_31_MASK: __m512i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f32_to_i32ord(f32_as_m512i: __m512i) -> __m512i {
+    unsafe fn _f32_as_m512i_to_i32ord(f32_as_m512i: __m512i) -> __m512i {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
         let sign_bit_shifted = _mm512_srai_epi32(f32_as_m512i, BIT_SHIFT as u32);
-        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, XOR_MASK);
+        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, LOWER_31_MASK);
         _mm512_xor_si512(sign_bit_masked, f32_as_m512i)
     }
 
@@ -452,7 +452,7 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m512i {
-            _f32_to_i32ord(_mm512_loadu_si512(data as *const i32))
+            _f32_as_m512i_to_i32ord(_mm512_loadu_si512(data as *const i32))
         }
 
         #[inline(always)]
@@ -595,13 +595,13 @@ mod neon_float_return_nan {
     use super::*;
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_32;
-    const XOR_MASK: int32x4_t = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
+    const LOWER_31_MASK: int32x4_t = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f32_to_i32ord(f32_as_int32x4: int32x4_t) -> int32x4_t {
+    unsafe fn _f32_as_int32x4_to_i32ord(f32_as_int32x4: int32x4_t) -> int32x4_t {
         // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
         let sign_bit_shifted = vshrq_n_s32(f32_as_int32x4, BIT_SHIFT);
-        let sign_bit_masked = vandq_s32(sign_bit_shifted, XOR_MASK);
+        let sign_bit_masked = vandq_s32(sign_bit_shifted, LOWER_31_MASK);
         veorq_s32(sign_bit_masked, f32_as_int32x4)
     }
 
@@ -626,7 +626,7 @@ mod neon_float_return_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> int32x4_t {
-            _f32_to_i32ord(vld1q_s32(data as *const i32))
+            _f32_as_int32x4_to_i32ord(vld1q_s32(data as *const i32))
         }
 
         #[inline(always)]

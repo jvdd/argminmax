@@ -243,7 +243,7 @@ where
 }
 
 /// SIMDCore trait that ignore NaNs (for float types)
-pub trait SIMDCoreFloatIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
+pub trait SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> + SIMDSetOps<ScalarDType, SIMDVecDtype>
 where
     ScalarDType: Float + AsPrimitive<usize>,
@@ -351,9 +351,9 @@ where
     }
 }
 
-// Implement SIMDCoreFloatIgnoreNaNs where SIMDOps + SIMDSetOps is implemented for floats
+// Implement SIMDCoreIgnoreNaNs where SIMDOps + SIMDSetOps is implemented for floats
 impl<T, ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
-    SIMDCoreFloatIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> for T
+    SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> for T
 where
     ScalarDType: Float + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
@@ -363,30 +363,6 @@ where
 {
     // Use the implementation
 }
-
-// --------------- Float Return NaNs
-
-// IDEA: make SIMDOps extend this trait & provide empty implementations
-
-// pub trait SIMDOrdTransformOps<FloatDType, IntDType, SIMDVecDTtype, const LANE_SIZE: usize>
-// where
-//     FloatDType: Copy + Float,
-//     IntDType: Copy,
-//     SIMDVecDTtype: Copy,
-// {
-//     const BIT_SHIFT: i32;
-//     const SIGN_BIT_MASK: SIMDVecDTtype;
-//     fn _reg_to_int_arr(reg: SIMDVecDTtype) -> [IntDType; LANE_SIZE];
-//     fn _mm_srai(a: SIMDVecDTtype, imm8: i32) -> SIMDVecDTtype;
-//     fn _mm_and(a: SIMDVecDTtype, b: SIMDVecDTtype) -> SIMDVecDTtype;
-//     fn _mm_xor(a: SIMDVecDTtype, b: SIMDVecDTtype) -> SIMDVecDTtype;
-//     #[inline(always)]
-//     fn _mm_ord_transform(a: SIMDVecDTtype) -> SIMDVecDTtype {
-//         let sign_bit_shifted = Self::_mm_srai(a, Self::BIT_SHIFT);
-//         let sign_bit_masked = Self::_mm_and(sign_bit_shifted, Self::SIGN_BIT_MASK);
-//         Self::_mm_xor(a, sign_bit_masked)
-//     }
-// }
 
 // -------------------------------- ArgMinMax SIMD TRAIT -------------------------------
 
@@ -417,12 +393,9 @@ where
 // --------------- Float Ignore NaNs
 
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
-pub trait SIMDArgMinMaxFloatIgnoreNaN<
-    ScalarDType,
-    SIMDVecDtype,
-    SIMDMaskDtype,
-    const LANE_SIZE: usize,
->: SIMDCoreFloatIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> where
+pub trait SIMDArgMinMaxIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
+    SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
+where
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + Float,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
@@ -490,14 +463,14 @@ macro_rules! unimpl_SIMDArgMinMax {
 }
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-macro_rules! unimpl_SIMDArgMinMaxFloatIgnoreNaN {
+macro_rules! unimpl_SIMDArgMinMaxIgnoreNaN {
     ($scalar_type:ty, $reg:ty, $simd_instructionset:ident) => {
         impl SIMDSetOps<$scalar_type, $reg> for $simd_instructionset {
             unsafe fn _mm_set1(_a: $scalar_type) -> $reg {
                 unimplemented!()
             }
         }
-        impl SIMDArgMinMaxFloatIgnoreNaN<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
+        impl SIMDArgMinMaxIgnoreNaN<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
             unsafe fn argminmax(_data: &[$scalar_type]) -> (usize, usize) {
                 unimplemented!()
             }
@@ -508,6 +481,6 @@ macro_rules! unimpl_SIMDArgMinMaxFloatIgnoreNaN {
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub(crate) use unimpl_SIMDArgMinMax; // Now classic paths Just Work™
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-pub(crate) use unimpl_SIMDArgMinMaxFloatIgnoreNaN;
+pub(crate) use unimpl_SIMDArgMinMaxIgnoreNaN;
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub(crate) use unimpl_SIMDOps; // Now classic paths Just Work™ // Now classic paths Just Work™
