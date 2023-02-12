@@ -195,6 +195,7 @@ macro_rules! impl_argminmax_float {
                         //     return unsafe { SSE::argminmax(self) }
                         } else if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS < 64) {
                             // Scalar is faster for 64-bit numbers
+                            // TODO: double check this (observed different things for new float implementation)
                             return unsafe { SSE::argminmax(self) }
                         }
                     }

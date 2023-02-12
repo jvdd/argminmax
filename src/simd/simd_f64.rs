@@ -453,7 +453,7 @@ mod sse {
     }
 
     impl SIMDArgMinMax<f64, __m128i, __m128i, LANE_SIZE> for SSE {
-        #[target_feature(enable = "sse4.1")]
+        #[target_feature(enable = "sse4.2")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
         }
