@@ -19,22 +19,24 @@
 ///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_pd&ig_expand=886
 ///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi64&ig_expand=1094
 ///
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
 use super::generic::{SIMDArgMinMax, SIMDOps};
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
-#[cfg(target_arch = "arm")]
-use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::task::{max_index_value, min_index_value};
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const XOR_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const BIT_SHIFT: i32 = 63;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn _i64ord_to_f64(ord_i64: i64) -> f64 {
     // TODO: more efficient transformation -> can be decreasing order as well
@@ -42,6 +44,7 @@ fn _i64ord_to_f64(ord_i64: i64) -> f64 {
     unsafe { std::mem::transmute::<i64, f64>(v) }
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------
@@ -151,7 +154,7 @@ mod avx2 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -166,7 +169,7 @@ mod avx2 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -195,7 +198,7 @@ mod avx2 {
 
         #[test]
         fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx") {
+            if !is_x86_feature_detected!("avx2") {
                 return;
             }
 
@@ -524,130 +527,21 @@ mod avx512 {
 
 // ---------------------------------------- NEON -----------------------------------------
 
+// There are no NEON intrinsics for f64, so we need to use the scalar version.
+//   although NEON intrinsics exist for i64 and u64, we cannot use them as
+//   they there is no 64-bit variant (of any data type) for the following three
+//   intrinsics: vadd_, vcgt_, vclt_
+
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
+    use super::super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDOps};
     use super::*;
 
-    const LANE_SIZE: usize = NEON::LANE_SIZE_64;
-
-    impl SIMD<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEON {
-        const INITIAL_INDEX: float32x4_t =
-            unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
-
-        #[inline(always)]
-        unsafe fn _reg_to_arr(reg: float32x4_t) -> [f32; LANE_SIZE] {
-            std::mem::transmute::<float32x4_t, [f32; LANE_SIZE]>(reg)
-        }
-        // https://stackoverflow.com/a/3793950
-        const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
-
-        #[inline(always)]
-        unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
-            vld1q_f32(data as *const f32)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> float32x4_t {
-            vdupq_n_f32(a as f32)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_add(a: float32x4_t, b: float32x4_t) -> float32x4_t {
-            vaddq_f32(a, b)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_cmpgt(a: float32x4_t, b: float32x4_t) -> uint32x4_t {
-            vcgtq_f32(a, b)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_cmplt(a: float32x4_t, b: float32x4_t) -> uint32x4_t {
-            vcltq_f32(a, b)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_blendv(a: float32x4_t, b: float32x4_t, mask: uint32x4_t) -> float32x4_t {
-            vbslq_f32(mask, b, a)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
-
-    // ------------------------------------ TESTS --------------------------------------
-
-    #[cfg(test)]
-    mod tests {
-        use super::{NEON, SIMD};
-        use crate::scalar::generic::scalar_argminmax;
-
-        extern crate dev_utils;
-        use dev_utils::utils;
-
-        fn get_array_f32(n: usize) -> Vec<f32> {
-            utils::get_random_array(n, f32::MIN, f32::MAX)
-        }
-
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            let data: &[f32] = &get_array_f32(1025);
-            assert_eq!(data.len() % 4, 1);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10.,
-                std::f32::MAX,
-                6.,
-                std::f32::NEG_INFINITY,
-                std::f32::NEG_INFINITY,
-                std::f32::MAX,
-                10_000.0,
-            ];
-            let data: Vec<f32> = data.iter().map(|x| *x).collect();
-            let data: &[f32] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 3);
-            assert_eq!(argmax_index, 1);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
-            assert_eq!(argmin_simd_index, 3);
-            assert_eq!(argmax_simd_index, 1);
-        }
-
-        #[test]
-        fn test_no_overflow() {
-            let n: usize = 1 << 25;
-            let data: &[f32] = &get_array_f32(n);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            for _ in 0..10_000 {
-                let data: &[f32] = &get_array_f32(32 * 4 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
-    }
+    // We need to (un)implement the SIMD trait for the NEON struct as otherwise the
+    // compiler will complain that the trait is not implemented for the struct -
+    // even though we are not using the trait for the NEON struct when dealing with
+    // > 64 bit data types.
+    unimpl_SIMDOps!(f64, usize, NEON);
+    unimpl_SIMDArgMinMax!(f64, usize, NEON);
 }
