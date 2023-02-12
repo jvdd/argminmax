@@ -205,7 +205,6 @@ mod avx2_ignore_nan {
             let mut data: Vec<f64> = get_array_f64(arr_len);
             data[0] = f64::NAN;
 
-            // TODO: fix scalar implementation for this case
             let (argmin_index, argmax_index) = scalar_argminmax(&data);
             assert!(argmin_index != 0);
             assert!(argmax_index != 0);
@@ -457,7 +456,6 @@ mod sse_ignore_nan {
             let mut data: Vec<f64> = get_array_f64(arr_len);
             data[0] = f64::NAN;
 
-            // TODO: fix scalar implementation for this case
             let (argmin_index, argmax_index) = scalar_argminmax(&data);
             assert!(argmin_index != 0);
             assert!(argmax_index != 0);
@@ -725,7 +723,6 @@ mod avx512_ignore_nan {
             let mut data: Vec<f64> = get_array_f64(arr_len);
             data[0] = f64::NAN;
 
-            // TODO: fix scalar implementation for this case
             let (argmin_index, argmax_index) = scalar_argminmax(&data);
             assert!(argmin_index != 0);
             assert!(argmax_index != 0);

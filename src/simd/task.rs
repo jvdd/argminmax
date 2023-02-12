@@ -25,7 +25,31 @@ where
                 rem_max_index + simd_arr.len(),
                 rem[rem_max_index],
             );
-            find_final_index_minmax(simd_result, rem_result, ignore_nan)
+            let (min_index, min_value) = find_final_index_min(
+                (simd_result.0, simd_result.1),
+                (rem_result.0, rem_result.1),
+                ignore_nan,
+            );
+            let (max_index, max_value) = find_final_index_max(
+                (simd_result.2, simd_result.3),
+                (rem_result.2, rem_result.3),
+                ignore_nan,
+            );
+            if !ignore_nan && (min_value != min_value || max_value != max_value) {
+                if min_value != min_value && max_value != max_value {
+                    // If both are NaN, return lowest index
+                    let lowest_index = std::cmp::min(min_index, max_index);
+                    (lowest_index, lowest_index)
+                } else if min_value != min_value {
+                    // If min is the only NaN, return min index
+                    (min_index, min_index)
+                } else {
+                    // If max is the only NaN, return max index
+                    (max_index, max_index)
+                }
+            } else {
+                (min_index, max_index)
+            }
         }
         (None, Some(rem)) => {
             let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
@@ -61,15 +85,15 @@ fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[
 }
 
 #[inline(always)]
-fn find_final_index_minmax<T: Copy + PartialOrd>(
-    simd_result: (usize, T, usize, T),
-    remainder_result: (usize, T, usize, T),
+fn find_final_index_min<T: Copy + PartialOrd>(
+    simd_result: (usize, T),
+    remainder_result: (usize, T),
     ignore_nan: bool,
-) -> (usize, usize) {
-    let min_result = match simd_result.1.partial_cmp(&remainder_result.1) {
-        Some(Ordering::Less) => simd_result.0,
-        Some(Ordering::Equal) => simd_result.0,
-        Some(Ordering::Greater) => remainder_result.0,
+) -> (usize, T) {
+    let (min_index, min_value) = match simd_result.1.partial_cmp(&remainder_result.1) {
+        Some(Ordering::Less) => simd_result,
+        Some(Ordering::Equal) => simd_result,
+        Some(Ordering::Greater) => remainder_result,
         None => {
             if !ignore_nan {
                 // --- Return NaNs
@@ -77,9 +101,9 @@ fn find_final_index_minmax<T: Copy + PartialOrd>(
                 // NaN
                 if simd_result.1 != simd_result.1 {
                     // because NaN != NaN
-                    simd_result.0
+                    simd_result
                 } else {
-                    remainder_result.0
+                    remainder_result
                 }
             } else {
                 // --- Ignore NaNs
@@ -88,45 +112,52 @@ fn find_final_index_minmax<T: Copy + PartialOrd>(
                 if simd_result.1 != simd_result.1 && remainder_result.1 != remainder_result.1 {
                     panic!("Data contains only NaNs (or +/- inf)")
                 } else if remainder_result.1 != remainder_result.1 {
-                    simd_result.0
+                    simd_result
                 } else {
-                    remainder_result.0
+                    remainder_result
                 }
             }
         }
     };
+    (min_index, min_value)
+}
 
-    let max_result = match simd_result.3.partial_cmp(&remainder_result.3) {
-        Some(Ordering::Greater) => simd_result.2,
-        Some(Ordering::Equal) => simd_result.2,
-        Some(Ordering::Less) => remainder_result.2,
+#[inline(always)]
+fn find_final_index_max<T: Copy + PartialOrd>(
+    simd_result: (usize, T),
+    remainder_result: (usize, T),
+    ignore_nan: bool,
+) -> (usize, T) {
+    let (max_index, max_value) = match simd_result.1.partial_cmp(&remainder_result.1) {
+        Some(Ordering::Greater) => simd_result,
+        Some(Ordering::Equal) => simd_result,
+        Some(Ordering::Less) => remainder_result,
         None => {
             if !ignore_nan {
                 // --- Return NaNs
                 // Should prefer the simd result over the remainder result if both are
                 // NaN
-                if simd_result.3 != simd_result.3 {
+                if simd_result.1 != simd_result.1 {
                     // because NaN != NaN
-                    simd_result.2
+                    simd_result
                 } else {
-                    remainder_result.2
+                    remainder_result
                 }
             } else {
                 // --- Ignore NaNs
                 // If both are NaN raise panic, otherwise return the index of the
                 // non-NaN value
-                if simd_result.3 != simd_result.3 && remainder_result.3 != remainder_result.3 {
+                if simd_result.1 != simd_result.1 && remainder_result.1 != remainder_result.1 {
                     panic!("Data contains only NaNs (or +/- inf)")
-                } else if remainder_result.3 != remainder_result.3 {
-                    simd_result.2
+                } else if remainder_result.1 != remainder_result.1 {
+                    simd_result
                 } else {
-                    remainder_result.2
+                    remainder_result
                 }
             }
         }
     };
-
-    (min_result, max_result)
+    (max_index, max_value)
 }
 
 // ------------ Other helper functions
