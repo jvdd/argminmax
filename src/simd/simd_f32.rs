@@ -1164,10 +1164,6 @@ mod neon_float_return_nan {
 
         #[test]
         fn test_return_nans() {
-            if !is_x86_feature_detected!("avx512f") {
-                return;
-            }
-
             let arr_len: usize = 1027;
 
             // Case 1: NaN is the first element
