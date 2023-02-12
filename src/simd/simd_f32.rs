@@ -1,6 +1,6 @@
 /// Default implementation of the argminmax operations for f32.
-/// This implementation returns the index of the first NaN value if any, otherwise
-/// the index of the minimum/maximum value.
+/// This implementation returns the index of the first NaN value if any are present,
+/// otherwise it returns the index of the minimum and maximum values.
 ///
 /// To serve this functionality we transform the f32 values to ordinal i32 values:
 ///     ord_i32 = ((v >> 31) & 0x7FFFFFFF) ^ v

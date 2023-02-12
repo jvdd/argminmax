@@ -390,7 +390,7 @@ where
     where
         SCALAR: ScalarArgMinMax<ScalarDType>,
     {
-        argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax)
+        argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax, false)
     }
 }
 
@@ -414,7 +414,7 @@ where
     where
         SCALAR: ScalarArgMinMax<ScalarDType>,
     {
-        argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax)
+        argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax, true)
     }
 }
 

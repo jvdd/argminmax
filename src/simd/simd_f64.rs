@@ -1,6 +1,6 @@
 /// Default implementation of the argminmax operations for f64.
-/// This implementation returns the index of the first NaN value if any, otherwise
-/// the index of the minimum/maximum value.
+/// This implementation returns the index of the first NaN value if any are present,
+/// otherwise it returns the index of the minimum and maximum values.
 ///
 /// To serve this functionality we transform the f64 values to ordinal i64 values:
 ///     ord_i64 = ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v

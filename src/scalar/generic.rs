@@ -1,3 +1,5 @@
+use num_traits::Float;
+
 #[cfg(feature = "half")]
 use super::scalar_f16::scalar_argminmax_f16;
 #[cfg(feature = "half")]
@@ -9,8 +11,13 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
 
 pub struct SCALAR;
 
+pub struct SCALARIgnoreNaN; // TODO implement this
+
 // #[inline(always)] leads to poor performance on aarch64
 
+/// Default scalar implementation of the argminmax function.
+/// This implementation returns the index of the first NaN value if any are present,
+/// otherwise it returns the index of the minimum and maximum values.
 // #[inline(never)]
 pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     assert!(!arr.is_empty());
@@ -20,6 +27,39 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     // than using .iter().enumerate() (with a fold).
     let mut low: T = unsafe { *arr.get_unchecked(low_index) };
     let mut high: T = unsafe { *arr.get_unchecked(high_index) };
+    for i in 0..arr.len() {
+        let v: T = unsafe { *arr.get_unchecked(i) };
+        if v != v {
+            // Because NaN != NaN
+            // Return the index of the first NaN value
+            return (i, i);
+        }
+        if v < low {
+            low = v;
+            low_index = i;
+        } else if v > high {
+            high = v;
+            high_index = i;
+        }
+    }
+    (low_index, high_index)
+}
+
+/// Scalar implementation of the argminmax function that ignores NaN values.
+/// This implementation returns the index of the minimum and maximum values.
+pub fn scalar_argminmax_ignore_nans<T: Float>(arr: &[T]) -> (usize, usize) {
+    assert!(!arr.is_empty());
+    let mut low_index: usize = 0;
+    let mut high_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let start_value: T = unsafe { *arr.get_unchecked(0) };
+    let mut low: T = start_value;
+    let mut high: T = start_value;
+    if start_value.is_nan() {
+        low = T::infinity();
+        high = T::neg_infinity();
+    }
     for i in 0..arr.len() {
         let v: T = unsafe { *arr.get_unchecked(i) };
         if v < low {

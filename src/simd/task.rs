@@ -1,4 +1,4 @@
-use crate::scalar::{ScalarArgMinMax, SCALAR};
+use crate::scalar::{SCALARIgnoreNaN, ScalarArgMinMax, SCALAR};
 
 use std::cmp::Ordering;
 
@@ -7,34 +7,39 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: &[T],
     lane_size: usize,
     core_argminmax: unsafe fn(&[T]) -> (usize, T, usize, T),
+    ignore_nan: bool, // if false, NaNs will be returned
 ) -> (usize, usize)
 where
     SCALAR: ScalarArgMinMax<T>,
 {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
-        (Some(sim), Some(rem)) => {
+        (Some(simd_arr), Some(rem)) => {
+            // Perform SIMD operation on the first part of the array
+            let simd_result = unsafe { core_argminmax(simd_arr) };
+            // Perform scalar operation on the remainder of the array
             let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             let rem_result = (
-                rem_min_index + sim.len(),
+                rem_min_index + simd_arr.len(),
                 rem[rem_min_index],
-                rem_max_index + sim.len(),
+                rem_max_index + simd_arr.len(),
                 rem[rem_max_index],
             );
-            let sim_result = unsafe { core_argminmax(sim) };
-            find_final_index_minmax(rem_result, sim_result)
+            find_final_index_minmax(simd_result, rem_result, ignore_nan)
         }
         (None, Some(rem)) => {
             let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             (rem_min_index, rem_max_index)
         }
-        (Some(sim), None) => {
-            let sim_result = unsafe { core_argminmax(sim) };
+        (Some(simd_arr), None) => {
+            let sim_result = unsafe { core_argminmax(simd_arr) };
             (sim_result.0, sim_result.2)
         }
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
     }
 }
+
+// TODO: implement version that returns NaNs
 
 #[inline(always)]
 fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[T]>) {
@@ -57,19 +62,68 @@ fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[
 
 #[inline(always)]
 fn find_final_index_minmax<T: Copy + PartialOrd>(
-    remainder_result: (usize, T, usize, T),
     simd_result: (usize, T, usize, T),
+    remainder_result: (usize, T, usize, T),
+    ignore_nan: bool,
 ) -> (usize, usize) {
-    let min_result = match remainder_result.1.partial_cmp(&simd_result.1).unwrap() {
-        Ordering::Less => remainder_result.0,
-        Ordering::Equal => std::cmp::min(remainder_result.0, simd_result.0),
-        Ordering::Greater => simd_result.0,
+    let min_result = match simd_result.1.partial_cmp(&remainder_result.1) {
+        Some(Ordering::Less) => simd_result.0,
+        Some(Ordering::Equal) => simd_result.0,
+        Some(Ordering::Greater) => remainder_result.0,
+        None => {
+            if !ignore_nan {
+                // --- Return NaNs
+                // Should prefer the simd result over the remainder result if both are
+                // NaN
+                if simd_result.1 != simd_result.1 {
+                    // because NaN != NaN
+                    simd_result.0
+                } else {
+                    remainder_result.0
+                }
+            } else {
+                // --- Ignore NaNs
+                // If both are NaN raise panic, otherwise return the index of the
+                // non-NaN value
+                if simd_result.1 != simd_result.1 && remainder_result.1 != remainder_result.1 {
+                    panic!("Data contains only NaNs (or +/- inf)")
+                } else if remainder_result.1 != remainder_result.1 {
+                    simd_result.0
+                } else {
+                    remainder_result.0
+                }
+            }
+        }
     };
 
-    let max_result = match simd_result.3.partial_cmp(&remainder_result.3).unwrap() {
-        Ordering::Less => remainder_result.2,
-        Ordering::Equal => std::cmp::min(remainder_result.2, simd_result.2),
-        Ordering::Greater => simd_result.2,
+    let max_result = match simd_result.3.partial_cmp(&remainder_result.3) {
+        Some(Ordering::Greater) => simd_result.2,
+        Some(Ordering::Equal) => simd_result.2,
+        Some(Ordering::Less) => remainder_result.2,
+        None => {
+            if !ignore_nan {
+                // --- Return NaNs
+                // Should prefer the simd result over the remainder result if both are
+                // NaN
+                if simd_result.3 != simd_result.3 {
+                    // because NaN != NaN
+                    simd_result.2
+                } else {
+                    remainder_result.2
+                }
+            } else {
+                // --- Ignore NaNs
+                // If both are NaN raise panic, otherwise return the index of the
+                // non-NaN value
+                if simd_result.3 != simd_result.3 && remainder_result.3 != remainder_result.3 {
+                    panic!("Data contains only NaNs (or +/- inf)")
+                } else if remainder_result.3 != remainder_result.3 {
+                    simd_result.2
+                } else {
+                    remainder_result.2
+                }
+            }
+        }
     };
 
     (min_result, max_result)
