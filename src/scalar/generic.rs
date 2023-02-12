@@ -11,7 +11,7 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
 
 pub struct SCALAR;
 
-pub struct SCALARIgnoreNaN; // TODO implement this
+pub struct SCALARIgnoreNaN;
 
 // #[inline(always)] leads to poor performance on aarch64
 
@@ -47,6 +47,7 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
 
 /// Scalar implementation of the argminmax function that ignores NaN values.
 /// This implementation returns the index of the minimum and maximum values.
+/// Note that this function only works for floating point types.
 pub fn scalar_argminmax_ignore_nans<T: Float>(arr: &[T]) -> (usize, usize) {
     assert!(!arr.is_empty());
     let mut low_index: usize = 0;
