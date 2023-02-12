@@ -24,7 +24,12 @@ pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
     let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
     let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
     for i in 0..arr.len() {
-        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
+        let v: f16 = unsafe { *arr.get_unchecked(i) };
+        if v.is_nan() {
+            // Return the index of the first NaN value
+            return (i, i);
+        }
+        let v: i16 = f16_to_i16ord(v);
         if v < low {
             low = v;
             low_index = i;
@@ -83,9 +88,39 @@ mod tests {
         for _ in 0..100 {
             let data: &[f16] = &get_array_f16(1025);
             let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = scalar_argminmax_f16(data);
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
+            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16(data);
+            assert_eq!(argmin_index, argmin_index_f16);
+            assert_eq!(argmax_index, argmax_index_f16);
         }
+    }
+
+    #[test]
+    fn test_generic_and_specific_impl_return_nans() {
+        let arr_len: usize = 1025;
+
+        // firts, middle, last element
+        let nan_pos: [usize; 3] = [0, arr_len / 2, arr_len - 1];
+        for pos in nan_pos.iter() {
+            let mut data: Vec<f16> = get_array_f16(arr_len);
+            data[*pos] = f16::NAN;
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16(&data);
+            assert_eq!(argmin_index, argmin_index_f16);
+            assert_eq!(argmax_index, argmax_index_f16);
+            assert_eq!(argmin_index, *pos);
+            assert_eq!(argmax_index, *pos);
+        }
+
+        // All elements are NaN
+        let mut data: Vec<f16> = get_array_f16(arr_len);
+        for i in 0..arr_len {
+            data[i] = f16::NAN;
+        }
+        let (argmin_index, argmax_index) = scalar_argminmax(&data);
+        let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16(&data);
+        assert_eq!(argmin_index, argmin_index_f16);
+        assert_eq!(argmax_index, argmax_index_f16);
+        assert_eq!(argmin_index, 0);
+        assert_eq!(argmax_index, 0);
     }
 }

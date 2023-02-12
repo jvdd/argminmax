@@ -312,7 +312,20 @@ mod avx2 {
             assert_eq!(argmin_simd_index, 123);
             assert_eq!(argmax_simd_index, 123);
 
-            // Case 6: all elements are NaN
+            // Case 6: NaN in the middle of the array and last 100 elements are NaN
+            for i in 0..100 {
+                data[arr_len - 1 - i] = f64::NAN;
+            }
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 123);
+            assert_eq!(argmax_index, 123);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 123);
+            assert_eq!(argmax_simd_index, 123);
+
+            // Case 7: all elements are NaN
             for i in 0..data.len() {
                 data[i] = f64::NAN;
             }
@@ -325,7 +338,7 @@ mod avx2 {
             assert_eq!(argmin_simd_index, 0);
             assert_eq!(argmax_simd_index, 0);
 
-            // Case 7: array exact multiple of LANE_SIZE and only 1 element is NaN
+            // Case 8: array exact multiple of LANE_SIZE and only 1 element is NaN
             let mut data: Vec<f64> = get_array_f64(128);
             data[17] = f64::NAN;
 
@@ -605,7 +618,20 @@ mod sse {
             assert_eq!(argmin_simd_index, 123);
             assert_eq!(argmax_simd_index, 123);
 
-            // Case 6: all elements are NaN
+            // Case 6: NaN in the middle of the array and last 100 elements are NaN
+            for i in 0..100 {
+                data[arr_len - 1 - i] = f64::NAN;
+            }
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 123);
+            assert_eq!(argmax_index, 123);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 123);
+            assert_eq!(argmax_simd_index, 123);
+
+            // Case 7: all elements are NaN
             for i in 0..data.len() {
                 data[i] = f64::NAN;
             }
@@ -618,7 +644,7 @@ mod sse {
             assert_eq!(argmin_simd_index, 0);
             assert_eq!(argmax_simd_index, 0);
 
-            // Case 7: array exact multiple of LANE_SIZE and only 1 element is NaN
+            // Case 8: array exact multiple of LANE_SIZE and only 1 element is NaN
             let mut data: Vec<f64> = get_array_f64(128);
             data[17] = f64::NAN;
 
@@ -906,7 +932,20 @@ mod avx512 {
             assert_eq!(argmin_simd_index, 123);
             assert_eq!(argmax_simd_index, 123);
 
-            // Case 6: all elements are NaN
+            // Case 6: NaN in the middle of the array and last 100 elements are NaN
+            for i in 0..100 {
+                data[arr_len - 1 - i] = f64::NAN;
+            }
+
+            let (argmin_index, argmax_index) = scalar_argminmax(&data);
+            assert_eq!(argmin_index, 123);
+            assert_eq!(argmax_index, 123);
+
+            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
+            assert_eq!(argmin_simd_index, 123);
+            assert_eq!(argmax_simd_index, 123);
+
+            // Case 7: all elements are NaN
             for i in 0..data.len() {
                 data[i] = f64::NAN;
             }
@@ -919,7 +958,7 @@ mod avx512 {
             assert_eq!(argmin_simd_index, 0);
             assert_eq!(argmax_simd_index, 0);
 
-            // Case 7: array exact multiple of LANE_SIZE and only 1 element is NaN
+            // Case 8: array exact multiple of LANE_SIZE and only 1 element is NaN
             let mut data: Vec<f64> = get_array_f64(128);
             data[17] = f64::NAN;
 

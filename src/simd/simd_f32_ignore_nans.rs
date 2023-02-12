@@ -860,7 +860,7 @@ mod avx512_ignore_nan {
 // ---------------------------------------- NEON -----------------------------------------
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-mod neon {
+mod neon_ignore_nan {
     use super::super::config::{NEONIgnoreNaN, NEON};
     use super::*;
 

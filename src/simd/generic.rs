@@ -432,7 +432,10 @@ where
 
 // --------------------------------- Unimplement Macros --------------------------------
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// TODO: temporarily removed the target_arch specification bc we currently do not
+// ArgMinMaxIgnoreNan for f16
+
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 macro_rules! unimpl_SIMDOps {
     ($scalar_type:ty, $reg:ty, $simd_instructionset:ident) => {
         impl SIMDOps<$scalar_type, $reg, $reg, 0> for $simd_instructionset {
@@ -478,7 +481,7 @@ macro_rules! unimpl_SIMDArgMinMax {
     };
 }
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 macro_rules! unimpl_SIMDArgMinMaxIgnoreNaN {
     ($scalar_type:ty, $reg:ty, $simd_instructionset:ident) => {
         impl SIMDSetOps<$scalar_type, $reg> for $simd_instructionset {
@@ -496,7 +499,7 @@ macro_rules! unimpl_SIMDArgMinMaxIgnoreNaN {
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub(crate) use unimpl_SIMDArgMinMax; // Now classic paths Just Work™
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+                                     // #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub(crate) use unimpl_SIMDArgMinMaxIgnoreNaN;
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub(crate) use unimpl_SIMDOps; // Now classic paths Just Work™ // Now classic paths Just Work™
