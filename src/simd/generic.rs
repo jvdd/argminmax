@@ -2,7 +2,7 @@ use num_traits::{AsPrimitive, Float};
 
 use super::config::SIMDInstructionSet;
 use super::task::*;
-use crate::scalar::{ScalarArgMinMax, SCALAR};
+use crate::scalar::{SCALARIgnoreNaN, ScalarArgMinMax, SCALAR};
 
 // ---------------------------------- SIMD operations ----------------------------------
 
@@ -390,7 +390,13 @@ where
     where
         SCALAR: ScalarArgMinMax<ScalarDType>,
     {
-        argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax, false)
+        argminmax_generic(
+            data,
+            LANE_SIZE,
+            Self::_overflow_safe_core_argminmax,
+            false,
+            SCALAR::argminmax,
+        )
     }
 }
 
@@ -412,9 +418,15 @@ where
     #[inline(always)]
     unsafe fn _argminmax(data: &[ScalarDType]) -> (usize, usize)
     where
-        SCALAR: ScalarArgMinMax<ScalarDType>,
+        SCALARIgnoreNaN: ScalarArgMinMax<ScalarDType>,
     {
-        argminmax_generic(data, LANE_SIZE, Self::_overflow_safe_core_argminmax, true)
+        argminmax_generic(
+            data,
+            LANE_SIZE,
+            Self::_overflow_safe_core_argminmax,
+            true,
+            SCALARIgnoreNaN::argminmax,
+        )
     }
 }
 

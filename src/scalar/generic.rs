@@ -103,6 +103,18 @@ macro_rules! impl_scalar {
         )*
     };
 }
+macro_rules! impl_scalar_ignore_nans {
+    ($($t:ty),*) => // ty can only be Float
+    {
+        $(
+            impl ScalarArgMinMax<$t> for SCALARIgnoreNaN {
+                fn argminmax(data: &[$t]) -> (usize, usize) {
+                    scalar_argminmax_ignore_nans(data)
+                }
+            }
+        )*
+    };
+}
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod scalar_x86 {
@@ -155,6 +167,9 @@ mod scalar_generic {
         f64
     );
 }
+impl_scalar_ignore_nans!(f32, f64);
 
 #[cfg(feature = "half")]
 impl_scalar!(scalar_argminmax_f16, f16);
+#[cfg(feature = "half")]
+impl_scalar_ignore_nans!(f16); // TODO: use correct implementation (not sure if this is correct atm)

@@ -1,5 +1,3 @@
-use crate::scalar::{SCALARIgnoreNaN, ScalarArgMinMax, SCALAR};
-
 use std::cmp::Ordering;
 
 #[inline(always)]
@@ -8,24 +6,23 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     lane_size: usize,
     core_argminmax: unsafe fn(&[T]) -> (usize, T, usize, T),
     ignore_nan: bool, // if false, NaNs will be returned
-) -> (usize, usize)
-where
-    SCALAR: ScalarArgMinMax<T>,
-{
+    scalar_argminmax: fn(&[T]) -> (usize, usize),
+) -> (usize, usize) {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
         (Some(simd_arr), Some(rem)) => {
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argminmax(simd_arr) };
             // Perform scalar operation on the remainder of the array
-            // TODO: use if-let here with SCALARIgnoreNaN and SCALAR
-            let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
+            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
+            // let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             let rem_result = (
                 rem_min_index + simd_arr.len(),
                 rem[rem_min_index],
                 rem_max_index + simd_arr.len(),
                 rem[rem_max_index],
             );
+            // Find the final min and max values
             let (min_index, min_value) = find_final_index_min(
                 (simd_result.0, simd_result.1),
                 (rem_result.0, rem_result.1),
@@ -75,8 +72,7 @@ where
             }
         }
         (None, Some(rem)) => {
-            // TODO: use if-let here with SCALARIgnoreNaN and SCALAR
-            let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
+            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
             (rem_min_index, rem_max_index)
         }
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
