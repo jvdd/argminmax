@@ -1,3 +1,17 @@
+/// Implementation of the argminmax operations for f64 that ignores NaN values.
+/// This implement returns the index of the minimum/maximum value.
+/// However, unexpected behavior may occur when there are
+/// - *only* NaN values in the array
+/// - *only* +/- infinity values in the array
+/// - *only* NaN and +/- infinity values in the array
+/// In these cases, the index of the first element is (most likely) returned.
+///
+/// NaN values are ignored and treated as if they are not present in the array.
+/// To realize this we create an initial SIMD register with values +/- infinity.
+/// As comparisons with NaN always return false, it is guaranteed that no NaN values
+/// are added to the accumulating SIMD register.
+///
+
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
 use super::generic::{SIMDArgMinMaxFloatIgnoreNaN, SIMDOps, SIMDSetOps};
@@ -15,7 +29,7 @@ const MAX_INDEX: usize = u32::MAX as usize;
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx2 {
+mod avx2_ignore_nan {
     use super::super::config::{AVX2FloatIgnoreNaN, AVX2};
     use super::*;
 
@@ -150,7 +164,7 @@ mod avx2 {
 // ----------------------------------------- SSE -----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod sse {
+mod sse_ignore_nan {
     use super::super::config::{SSEFloatIgnoreNaN, SSE};
     use super::*;
 
@@ -272,7 +286,7 @@ mod sse {
 // --------------------------------------- AVX512 ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx512 {
+mod avx512_ignore_nan {
     use super::super::config::{AVX512FloatIgnoreNaN, AVX512};
     use super::*;
 
@@ -415,7 +429,7 @@ mod avx512 {
 //   intrinsics: vadd_, vcgt_, vclt_
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-mod neon {
+mod neon_ignore_nan {
     use super::super::config::NEON;
     use super::super::generic::unimplement_simd;
     use super::*;

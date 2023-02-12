@@ -1,3 +1,24 @@
+/// Default implementation of the argminmax operations for f64.
+/// This implementation returns the index of the first NaN value if any, otherwise
+/// the index of the minimum/maximum value.
+///
+/// To serve this functionality we transform the f64 values to ordinal i64 values:
+///     ord_i64 = ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
+///
+/// This transformation is a bijection, i.e. it is reversible:
+///     v = ((ord_i64 >> 63) & 0x7FFFFFFFFFFFFFFF) ^ ord_i64
+///
+/// Through this transformation we can perform the argminmax operations on the ordinal
+/// integer values and then transform the result back to the original f64 values.
+/// This transformation is necessary because comparisons with NaN values are always false.
+/// So unless we perform ! <=  as gt and ! >=  as lt the argminmax operations will not
+/// add NaN values to the accumulating SIMD register. And as le and ge are significantly
+/// more expensive than lt and gt we use this efficient bitwise transformation.
+///
+/// Also comparing integers is faster than comparing floats:
+///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_pd&ig_expand=886
+///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi64&ig_expand=1094
+///
 use super::config::SIMDInstructionSet;
 use super::generic::{SIMDArgMinMax, SIMDOps};
 #[cfg(target_arch = "aarch64")]
@@ -26,7 +47,7 @@ const MAX_INDEX: usize = i64::MAX as usize;
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx2_float_return_nan {
+mod avx2 {
     use super::super::config::AVX2;
     use super::*;
 
@@ -192,7 +213,7 @@ mod avx2_float_return_nan {
 // ----------------------------------------- SSE -----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod sse_float_return_nan {
+mod sse {
     use super::super::config::SSE;
     use super::*;
 
@@ -344,7 +365,7 @@ mod sse_float_return_nan {
 // --------------------------------------- AVX512 ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx512_float_return_nan {
+mod avx512 {
     use super::super::config::AVX512;
     use super::*;
 

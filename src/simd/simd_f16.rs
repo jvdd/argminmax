@@ -1,3 +1,24 @@
+/// Default implementation of the argminmax operations for f16.
+/// This implementation returns the index of the first NaN value if any, otherwise
+/// the index of the minimum/maximum value.
+///
+/// To serve this functionality we transform the f16 values to ordinal i32 values:
+///     ord_i16 = ((v >> 15) & 0x7FFFFFFF) ^ v
+///
+/// This transformation is a bijection, i.e. it is reversible:
+///     v = ((ord_i16 >> 15) & 0x7FFFFFFF) ^ ord_i16
+///
+/// Through this transformation we can perform the argminmax operations on the ordinal
+/// integer values and then transform the result back to the original f16 values.
+/// This transformation is necessary because comparisons with NaN values are always false.
+/// So unless we perform ! <=  as gt and ! >=  as lt the argminmax operations will not
+/// add NaN values to the accumulating SIMD register. And as le and ge are significantly
+/// more expensive than lt and gt we use this efficient bitwise transformation.
+///
+/// Note that most x86 CPUs do not support f16 instructions - making this implementation
+/// multitudes (up to 300x) faster than trying to use a scalar implementation.
+///
+
 #[cfg(feature = "half")]
 use super::config::SIMDInstructionSet;
 #[cfg(feature = "half")]
@@ -32,6 +53,8 @@ fn _i16ord_to_f16(ord_i16: i16) -> f16 {
 
 #[cfg(feature = "half")]
 const MAX_INDEX: usize = i16::MAX as usize;
+
+// TODO: implement for SIMDInstructionSet and not SIMDArgMinMaxFloatIgnoreNaN
 
 // ------------------------------------------ AVX2 ------------------------------------------
 
