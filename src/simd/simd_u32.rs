@@ -145,17 +145,7 @@ mod avx2 {
                 return;
             }
 
-            let data = [
-                10,
-                std::u32::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::u32::MAX,
-                4,
-                std::u32::MAX,
-            ];
+            let data = [10, u32::MIN, 6, 9, 9, 22, u32::MAX, 4, u32::MAX];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
             let data: &[u32] = &data;
 
@@ -297,17 +287,7 @@ mod sse {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::u32::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::u32::MAX,
-                4,
-                std::u32::MAX,
-            ];
+            let data = [10, u32::MIN, 6, 9, 9, 22, u32::MAX, 4, u32::MAX];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
             let data: &[u32] = &data;
 
@@ -458,17 +438,7 @@ mod avx512 {
                 return;
             }
 
-            let data = [
-                10,
-                std::u32::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::u32::MAX,
-                4,
-                std::u32::MAX,
-            ];
+            let data = [10, u32::MIN, 6, 9, 9, 22, u32::MAX, 4, u32::MAX];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
             let data: &[u32] = &data;
 
@@ -578,17 +548,7 @@ mod neon {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::u32::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::u32::MAX,
-                4,
-                std::u32::MAX,
-            ];
+            let data = [10, u32::MIN, 6, 9, 9, 22, u32::MAX, 4, u32::MAX];
             let data: Vec<u32> = data.iter().map(|x| *x).collect();
             let data: &[u32] = &data;
 

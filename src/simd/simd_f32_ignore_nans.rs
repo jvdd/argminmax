@@ -127,11 +127,11 @@ mod avx2_ignore_nan {
 
             let data = [
                 10.,
-                std::f32::MAX,
+                f32::MAX,
                 6.,
-                std::f32::NEG_INFINITY,
-                std::f32::NEG_INFINITY,
-                std::f32::MAX,
+                f32::NEG_INFINITY,
+                f32::NEG_INFINITY,
+                f32::MAX,
                 10_000.0,
             ];
             let data: Vec<f32> = data.iter().map(|x| *x).collect();
@@ -269,11 +269,11 @@ mod sse_ignore_nan {
         fn test_first_index_is_returned_when_identical_values_found() {
             let data = [
                 10.,
-                std::f32::MAX,
+                f32::MAX,
                 6.,
-                std::f32::NEG_INFINITY,
-                std::f32::NEG_INFINITY,
-                std::f32::MAX,
+                f32::NEG_INFINITY,
+                f32::NEG_INFINITY,
+                f32::MAX,
                 10_000.0,
             ];
             let data: Vec<f32> = data.iter().map(|x| *x).collect();
@@ -415,11 +415,11 @@ mod avx512_ignore_nan {
 
             let data = [
                 10.,
-                std::f32::MAX,
+                f32::MAX,
                 6.,
-                std::f32::NEG_INFINITY,
-                std::f32::NEG_INFINITY,
-                std::f32::MAX,
+                f32::NEG_INFINITY,
+                f32::NEG_INFINITY,
+                f32::MAX,
                 10_000.0,
             ];
             let data: Vec<f32> = data.iter().map(|x| *x).collect();
@@ -557,11 +557,11 @@ mod neon {
         fn test_first_index_is_returned_when_identical_values_found() {
             let data = [
                 10.,
-                std::f32::MAX,
+                f32::MAX,
                 6.,
-                std::f32::NEG_INFINITY,
-                std::f32::NEG_INFINITY,
-                std::f32::MAX,
+                f32::NEG_INFINITY,
+                f32::NEG_INFINITY,
+                f32::MAX,
                 10_000.0,
             ];
             let data: Vec<f32> = data.iter().map(|x| *x).collect();

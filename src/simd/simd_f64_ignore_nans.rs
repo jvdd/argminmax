@@ -125,11 +125,11 @@ mod avx2_ignore_nan {
 
             let data = [
                 10.,
-                std::f64::MAX,
+                f64::MAX,
                 6.,
-                std::f64::NEG_INFINITY,
-                std::f64::NEG_INFINITY,
-                std::f64::MAX,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+                f64::MAX,
                 10_000.0,
             ];
             let data: Vec<f64> = data.iter().map(|x| *x).collect();
@@ -251,11 +251,11 @@ mod sse_ignore_nan {
         fn test_first_index_is_returned_when_identical_values_found() {
             let data = [
                 10.,
-                std::f64::MAX,
+                f64::MAX,
                 6.,
-                std::f64::NEG_INFINITY,
-                std::f64::NEG_INFINITY,
-                std::f64::MAX,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+                f64::MAX,
                 10_000.0,
             ];
             let data: Vec<f64> = data.iter().map(|x| *x).collect();
@@ -385,11 +385,11 @@ mod avx512_ignore_nan {
 
             let data = [
                 10.,
-                std::f64::MAX,
+                f64::MAX,
                 6.,
-                std::f64::NEG_INFINITY,
-                std::f64::NEG_INFINITY,
-                std::f64::MAX,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+                f64::MAX,
                 10_000.0,
             ];
             let data: Vec<f64> = data.iter().map(|x| *x).collect();

@@ -164,17 +164,7 @@ mod avx2 {
                 return;
             }
 
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 
@@ -356,17 +346,7 @@ mod sse {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 
@@ -561,17 +541,7 @@ mod avx512 {
                 return;
             }
 
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 
@@ -753,17 +723,7 @@ mod neon {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 

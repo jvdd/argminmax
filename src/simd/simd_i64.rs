@@ -97,16 +97,7 @@ mod avx2 {
                 return;
             }
 
-            let data = [
-                std::i64::MIN,
-                std::i64::MIN,
-                4,
-                6,
-                9,
-                std::i64::MAX,
-                22,
-                std::i64::MAX,
-            ];
+            let data = [i64::MIN, i64::MIN, 4, 6, 9, i64::MAX, 22, i64::MAX];
             let data: Vec<i64> = data.iter().map(|x| *x).collect();
             let data: &[i64] = &data;
 
@@ -216,16 +207,7 @@ mod sse {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                std::i64::MIN,
-                std::i64::MIN,
-                4,
-                6,
-                9,
-                std::i64::MAX,
-                22,
-                std::i64::MAX,
-            ];
+            let data = [i64::MIN, i64::MIN, 4, 6, 9, i64::MAX, 22, i64::MAX];
             let data: Vec<i64> = data.iter().map(|x| *x).collect();
             let data: &[i64] = &data;
 
@@ -340,16 +322,7 @@ mod avx512 {
                 return;
             }
 
-            let data = [
-                std::i64::MIN,
-                std::i64::MIN,
-                4,
-                6,
-                9,
-                std::i64::MAX,
-                22,
-                std::i64::MAX,
-            ];
+            let data = [i64::MIN, i64::MIN, 4, 6, 9, i64::MAX, 22, i64::MAX];
             let data: Vec<i64> = data.iter().map(|x| *x).collect();
             let data: &[i64] = &data;
 

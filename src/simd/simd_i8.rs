@@ -169,7 +169,7 @@ mod avx2 {
                 return;
             }
 
-            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
+            let data = [10, i8::MIN, 6, 9, 9, 22, i8::MAX, 4, i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data: &[i8] = &data;
 
@@ -359,7 +359,7 @@ mod sse {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
+            let data = [10, i8::MIN, 6, 9, 9, 22, i8::MAX, 4, i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data: &[i8] = &data;
 
@@ -560,7 +560,7 @@ mod avx512 {
                 return;
             }
 
-            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
+            let data = [10, i8::MIN, 6, 9, 9, 22, i8::MAX, 4, i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data: &[i8] = &data;
 
@@ -751,7 +751,7 @@ mod neon {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [10, std::i8::MIN, 6, 9, 9, 22, std::i8::MAX, 4, std::i8::MAX];
+            let data = [10, i8::MIN, 6, 9, 9, 22, i8::MAX, 4, i8::MAX];
             let data: Vec<i8> = data.iter().map(|x| *x).collect();
             let data: &[i8] = &data;
 
