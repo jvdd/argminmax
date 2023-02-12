@@ -8,9 +8,7 @@ use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use argminmax::{
-    AVX2IgnoreNaN as AVX2, AVX512IgnoreNaN as AVX512, SIMDArgMinMaxIgnoreNaN, SSEIgnoreNaN as SSE,
-};
+use argminmax::{SIMDArgMinMax, AVX2, AVX512, SSE};
 use argminmax::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 use argminmax::{NEON, SIMD};
