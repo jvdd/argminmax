@@ -1,8 +1,8 @@
 /// Currently not supported. Should give this some more thought.
 ///
 
-#[cfg(feature = "half")]
-use super::config::SIMDInstructionSet;
+// #[cfg(feature = "half")]
+// use super::config::SIMDInstructionSet;
 #[cfg(feature = "half")]
 use super::generic::{unimpl_SIMDArgMinMaxIgnoreNaN, unimpl_SIMDOps};
 #[cfg(feature = "half")]

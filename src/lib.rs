@@ -98,11 +98,14 @@ impl_nb_bits!(f16);
 //                     }
 //                     #[cfg(target_arch = "aarch64")]
 //                     {
-//                         // TODO: support aarch64
+//                          if *NEON_DETECTED & (<$t>::NB_BITS < 64) {
+//                              // We miss some NEON instructions for 64-bit numbers
+//                              return unsafe { NEON::argminmax(self) }
+//                          }
 //                     }
 //                     #[cfg(target_arch = "arm")]
 //                     {
-//                         if *NEON_DETECTED & (<$t>::NB_BITS < 32) {
+//                         if *NEON_DETECTED & (<$t>::NB_BITS < 64) {
 //                             // TODO: requires v7?
 //                             // We miss some NEON instructions for 64-bit numbers
 //                             return unsafe { NEON::argminmax(self) }
