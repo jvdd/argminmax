@@ -40,7 +40,7 @@ const MASK_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX - MASKS everything but t
 #[inline(always)]
 fn _i64ord_to_f64(ord_i64: i64) -> f64 {
     let v = ((ord_i64 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i64;
-    unsafe { std::mem::transmute::<i64, f64>(v) }
+    f64::from_bits(v as u64)
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

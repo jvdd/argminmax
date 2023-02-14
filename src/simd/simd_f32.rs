@@ -39,7 +39,7 @@ const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - MASKS everything but the sign 
 fn _i32ord_to_f32(ord_i32: i32) -> f32 {
     // TODO: more efficient transformation -> can be decreasing order as well
     let v = ((ord_i32 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i32;
-    unsafe { std::mem::transmute::<i32, f32>(v) }
+    f32::from_bits(v as u32)
 }
 
 const MAX_INDEX: usize = i32::MAX as usize;

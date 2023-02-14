@@ -49,7 +49,7 @@ const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - MASKS everything but the sign bit
 #[inline(always)]
 fn _i16ord_to_f16(ord_i16: i16) -> f16 {
     let v = ((ord_i16 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i16;
-    unsafe { std::mem::transmute::<i16, f16>(v) }
+    f16::from_bits(v as u16)
 }
 
 #[cfg(feature = "half")]
