@@ -168,6 +168,7 @@ fn find_final_index_max<T: Copy + PartialOrd>(
 /// - If one value is NaN, returns the index of the non-NaN value twice
 /// - If neither value is NaN, returns the min_index and max_index
 /// If ignoring NaNs: returns the min_index and max_index
+#[inline(always)]
 fn get_correct_argminmax_result<T: Copy + PartialOrd>(
     min_index: usize,
     min_value: T,
@@ -195,7 +196,7 @@ fn get_correct_argminmax_result<T: Copy + PartialOrd>(
 
 // ------------ Other helper functions
 
-// #[inline(always)]
+#[inline(always)]
 pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
     assert!(!index.is_empty());
     assert_eq!(index.len(), values.len());
@@ -212,7 +213,7 @@ pub(crate) fn min_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -
     (min_index, min_value)
 }
 
-// #[inline(always)]
+#[inline(always)]
 pub(crate) fn max_index_value<T: Copy + PartialOrd>(index: &[T], values: &[T]) -> (T, T) {
     assert!(!index.is_empty());
     assert_eq!(index.len(), values.len());
