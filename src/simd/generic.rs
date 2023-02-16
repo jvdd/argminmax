@@ -497,9 +497,10 @@ macro_rules! unimpl_SIMDArgMinMaxIgnoreNaN {
     };
 }
 
+// TODO: temporarily removed the target_arch until we implement f16_ignore_nans
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub(crate) use unimpl_SIMDArgMinMax; // Now classic paths Just Work™
                                      // #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-pub(crate) use unimpl_SIMDArgMinMaxIgnoreNaN;
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-pub(crate) use unimpl_SIMDOps; // Now classic paths Just Work™ // Now classic paths Just Work™
+pub(crate) use unimpl_SIMDArgMinMaxIgnoreNaN; // Now classic paths Just Work™
+                                              // #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+pub(crate) use unimpl_SIMDOps; // Now classic paths Just Work™

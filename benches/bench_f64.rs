@@ -2,7 +2,6 @@
 
 extern crate dev_utils;
 
-#[cfg(feature = "half")]
 use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};

@@ -30,6 +30,7 @@ dev_utils = { path = "dev_utils" }
 [[bench]]
 name = "bench_f16"
 harness = false
+required-features = ["half"]
 
 [[bench]]
 name = "bench_f32"
