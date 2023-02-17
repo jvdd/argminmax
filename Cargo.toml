@@ -37,7 +37,15 @@ name = "bench_f32"
 harness = false
 
 [[bench]]
+name = "bench_f32_ignore_nan"
+harness = false
+
+[[bench]]
 name = "bench_f64"
+harness = false
+
+[[bench]]
+name = "bench_f64_ignore_nan"
 harness = false
 
 [[bench]]
