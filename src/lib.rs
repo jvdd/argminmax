@@ -175,6 +175,7 @@ macro_rules! impl_argminmax_non_float {
     };
 }
 
+// Macro for implementing ArgMinMax for floats (f32, f64)
 macro_rules! impl_argminmax_float {
     ($($t:ty),*) => {
         $(
@@ -222,23 +223,14 @@ macro_rules! impl_argminmax_float {
                 fn nanargminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
-                            // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSEIgnoreNaN::argminmax(self) }
-                        // } else if is_x86_feature_detected!("avx512bw") & (<$t>::NB_BITS <= 16) {
-                        //     // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
-                        //     return unsafe { AVX512::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
+                        if <$t>::NB_BITS <= 16 {
+                            // f16 is not yet SIMD-optimized
+                            // do nothing (defaults to scalar)
+                        } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512IgnoreNaN::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx2") {
-                            return unsafe { AVX2IgnoreNaN::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx")  & (<$t>::NB_BITS >= 32) {
+                        } else if is_x86_feature_detected!("avx") {
                             // f32 and f64 do not require avx2
                             return unsafe { AVX2IgnoreNaN::argminmax(self) }
-                        // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
-                        // // } else if is_x86_feature_detected!("sse4.2") & (<$t>::NB_BITS == 64) & (<$t>::IS_FLOAT == false) {
-                        //     // SSE4.2 is needed for comparing 64-bit integers
-                        //     return unsafe { SSE::argminmax(self) }
                         } else if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS < 64) {
                             // Scalar is faster for 64-bit numbers
                             return unsafe { SSEIgnoreNaN::argminmax(self) }
