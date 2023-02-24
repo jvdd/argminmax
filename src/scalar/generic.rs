@@ -1,4 +1,4 @@
-use num_traits::Float;
+use num_traits::float::FloatCore;
 
 #[cfg(feature = "half")]
 use super::scalar_f16::scalar_argminmax_f16;
@@ -30,7 +30,7 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
     for i in 0..arr.len() {
         let v: T = unsafe { *arr.get_unchecked(i) };
         if v != v {
-            // Because NaN != NaN
+            // Because NaN != NaN - compiled identically to v.is_nan(): https://godbolt.org/z/Y6xh51ePb
             // Return the index of the first NaN value
             return (i, i);
         }
@@ -48,7 +48,7 @@ pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
 /// Scalar implementation of the argminmax function that ignores NaN values.
 /// This implementation returns the index of the minimum and maximum values.
 /// Note that this function only works for floating point types.
-pub fn scalar_argminmax_ignore_nans<T: Float>(arr: &[T]) -> (usize, usize) {
+pub fn scalar_argminmax_ignore_nans<T: FloatCore>(arr: &[T]) -> (usize, usize) {
     assert!(!arr.is_empty());
     let mut low_index: usize = 0;
     let mut high_index: usize = 0;
@@ -105,7 +105,7 @@ macro_rules! impl_scalar {
     };
 }
 macro_rules! impl_scalar_ignore_nans {
-    ($($t:ty),*) => // ty can only be Float
+    ($($t:ty),*) => // ty can only be float types
     {
         $(
             impl ScalarArgMinMax<$t> for SCALARIgnoreNaN {

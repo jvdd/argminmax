@@ -1,4 +1,5 @@
-use num_traits::{AsPrimitive, Float};
+use num_traits::float::FloatCore;
+use num_traits::AsPrimitive;
 
 use super::config::SIMDInstructionSet;
 use super::task::*;
@@ -241,7 +242,7 @@ where
 /// SIMD operations for setting a SIMD vector to a scalar value (only required for floats)
 pub trait SIMDSetOps<ScalarDType, SIMDVecDtype>
 where
-    ScalarDType: Float,
+    ScalarDType: FloatCore,
 {
     unsafe fn _mm_set1(a: ScalarDType) -> SIMDVecDtype;
 }
@@ -250,7 +251,7 @@ where
 pub trait SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> + SIMDSetOps<ScalarDType, SIMDVecDtype>
 where
-    ScalarDType: Float + AsPrimitive<usize>,
+    ScalarDType: FloatCore + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
 {
@@ -359,7 +360,7 @@ where
 impl<T, ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
     SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> for T
 where
-    ScalarDType: Float + AsPrimitive<usize>,
+    ScalarDType: FloatCore + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
     T: SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -406,7 +407,7 @@ where
 pub trait SIMDArgMinMaxIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
 where
-    ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + Float,
+    ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + FloatCore,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
 {
