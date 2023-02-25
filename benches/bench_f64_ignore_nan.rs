@@ -35,7 +35,7 @@ fn argminmax_f64_random_array_long(c: &mut Criterion) {
         });
     }
     c.bench_function("impl_random_long_f64", |b| {
-        b.iter(|| black_box(data.nanargminmax()))
+        b.iter(|| black_box(data.argminmax()))
     });
 }
 

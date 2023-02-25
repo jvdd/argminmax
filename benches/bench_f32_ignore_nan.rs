@@ -2,7 +2,7 @@
 
 extern crate dev_utils;
 
-use argminmax::{ArgMinMax, NEONIgnoreNaN};
+use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
@@ -49,7 +49,7 @@ fn argminmax_f32_random_array_long(c: &mut Criterion) {
         });
     }
     c.bench_function("impl_random_long_f32", |b| {
-        b.iter(|| black_box(data.nanargminmax()))
+        b.iter(|| black_box(data.argminmax()))
     });
 }
 
