@@ -26,15 +26,25 @@ pub trait ArgMinMax {
     // fn argmin(self) -> usize;
     // fn argmax(self) -> usize;
 
-    /// Get the index of the minimum and maximum values in the array.
-    /// If the array contains NaNs, the index of the first NaN is returned.
-    fn argminmax(&self) -> (usize, usize);
-
     /// Get the index of the minimum and maximum values in the array, ignoring NaNs.
     /// This will only result in unexpected behavior if the array contains *only* NaNs
     /// and infinities (in which case index 0 is returned for both).
+    /// Note that this differs from numpy, where the `argmin` and `argmax` functions
+    /// return the index of the first NaN (which is the behavior of our nanargminmax
+    /// function).
+    fn argminmax(&self) -> (usize, usize);
+
+    /// Get the index of the minimum and maximum values in the array.
+    /// If the array contains NaNs, the index of the first NaN is returned.
+    /// Note that this differs from numpy, where the `nanargmin` and `nanargmax`
+    /// functions ignore NaNs (which is the behavior of our argminmax function).
     fn nanargminmax(&self) -> (usize, usize);
 }
+
+// TODO: split this up
+// pub trait NaNArgMinMax {
+//     fn nanargminmax(&self) -> (usize, usize);
+// }
 
 // ---- Helper macros ----
 
@@ -180,7 +190,7 @@ macro_rules! impl_argminmax_float {
     ($($t:ty),*) => {
         $(
             impl ArgMinMax for &[$t] {
-                fn argminmax(&self) -> (usize, usize) {
+                fn nanargminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS == 8) {
@@ -220,7 +230,7 @@ macro_rules! impl_argminmax_float {
                     }
                     SCALAR::argminmax(self)
                 }
-                fn nanargminmax(&self) -> (usize, usize) {
+                fn argminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         if <$t>::NB_BITS <= 16 {
