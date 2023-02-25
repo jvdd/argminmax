@@ -1,4 +1,5 @@
 use num_traits::float::FloatCore;
+use num_traits::int::PrimInt;
 use num_traits::AsPrimitive;
 
 use super::config::SIMDInstructionSet;
@@ -401,13 +402,18 @@ where
     }
 }
 
-// --------------- Float Ignore NaNs
+// --------------- Float Return NaN
+
+// This is the same code as the default trait - thus we can just use the default trait.
+// Note however that for floats the trait is implemented for the _ReturnNaN structs.
+
+// --------------- Float Ignore NaN
 
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMDArgMinMaxIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
 where
-    ScalarDType: Copy + PartialOrd + AsPrimitive<usize> + FloatCore,
+    ScalarDType: FloatCore + AsPrimitive<usize>,
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
 {
