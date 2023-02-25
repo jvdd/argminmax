@@ -47,7 +47,7 @@ const MAX_INDEX: usize = i32::MAX as usize;
 // ------------------------------------------ AVX2 ------------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx2 {
+mod avx2_return_nan {
     use super::super::config::AVX2;
     use super::*;
 
