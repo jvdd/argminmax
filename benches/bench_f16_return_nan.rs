@@ -73,7 +73,7 @@ fn nanargminmax_f16_random_array_long(c: &mut Criterion) {
         });
     }
     c.bench_function("impl_random_long_f16", |b| {
-        b.iter(|| black_box(data.argminmax()))
+        b.iter(|| black_box(data.nanargminmax()))
     });
 }
 
