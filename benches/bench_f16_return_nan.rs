@@ -78,9 +78,6 @@ fn nanargminmax_f16_random_array_long(c: &mut Criterion) {
 }
 
 #[cfg(feature = "half")]
-criterion_group!(
-    benches,
-    nanargminmax_f16_random_array_long,
-);
+criterion_group!(benches, nanargminmax_f16_random_array_long,);
 #[cfg(feature = "half")]
 criterion_main!(benches);
