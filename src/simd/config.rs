@@ -1,6 +1,9 @@
 // https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#target-features
 
+/// SIMD instruction set trait - used to store the register size and get the lane size
+/// for a given datatype
 pub trait SIMDInstructionSet {
+    /// The size of the register in bits
     const REGISTER_SIZE: usize;
 
     // Set the const lanesize for each datatype
@@ -14,37 +17,84 @@ pub trait SIMDInstructionSet {
     }
 }
 
-// ----------------------------- x86_64 / x86 -----------------------------
+// ----------------------------------- x86_64 / x86 ------------------------------------
 
+/// SSE instruction set - this will be implemented for all:
+/// - ints (see, the simd_i*.rs files)
+/// - uints (see, the simd_u*.rs files)
+/// - floats: returning NaNs (see, the simd_f*_return_nan.rs files)
 pub struct SSE;
+/// SSE instruction set - this will be implemented for all:
+/// - floats: ignoring NaNs (see, the `simd_f*_ignore_nan.rs` files)
 pub struct SSEIgnoreNaN;
 
 impl SIMDInstructionSet for SSE {
+    /// SSE register size is 128 bits
+    /// https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions#Registers
     const REGISTER_SIZE: usize = 128;
 }
 
-pub struct AVX2; // for f32 and f64 AVX is enough
+/// AVX2 instruction set - this will be implemented for all:
+/// - ints (see, the simd_i*.rs files)
+/// - uints (see, the simd_u*.rs files)
+/// - floats: returning NaNs (see, the simd_f*_return_nan.rs files)
+pub struct AVX2;
+
+/// AVX(2) instruction set - this will be implemented for all:
+/// - floats: ignoring NaNs (see, the `simd_f*_ignore_nan.rs` files)
+///
+/// Important remark: AVX is enough for f32 and f64!
+/// -> for f16 we need AVX2 - but this is currently not yet implemented (TODO)
+///
+/// Note: this struct does not implement the `SIMDInstructionSet` trait
 pub struct AVX2IgnoreNaN;
 
 impl SIMDInstructionSet for AVX2 {
+    /// AVX(2) register size is 256 bits
+    /// AVX:  https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions
+    /// AVX2: https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#AVX2
     const REGISTER_SIZE: usize = 256;
 }
 
+/// AVX512 instruction set - this will be implemented for all:
+/// - ints (see, the simd_i*.rs files)
+/// - uints (see, the simd_u*.rs files)
+/// - floats: returning NaNs (see, the simd_f*_return_nan.rs files)
 pub struct AVX512;
+
+/// AVX512 instruction set - this will be implemented for all:
+/// - floats: ignoring NaNs (see, the `simd_f*_ignore_nan.rs` files)
+///
+/// Note: this struct does not implement the `SIMDInstructionSet` trait
 pub struct AVX512IgnoreNaN;
 
 impl SIMDInstructionSet for AVX512 {
+    /// AVX512 register size is 512 bits
+    /// https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#AVX-512
     const REGISTER_SIZE: usize = 512;
 }
 
-// ----------------------------- aarch64 / arm -----------------------------
+// ----------------------------------- aarch64 / arm -----------------------------------
 
+/// NEON instruction set - this will be implemented for all:
+/// - ints (see, the simd_i*.rs files)
+/// - uints (see, the simd_u*.rs files)
+/// - floats: returning NaNs (see, the simd_f*_return_nan.rs files)
 pub struct NEON;
+
+/// NEON instruction set - this will be implemented for all:
+/// - floats: ignoring NaNs (see, the `simd_f*_ignore_nan.rs` files)
+///
+/// Note: this struct does not implement the `SIMDInstructionSet` trait
 pub struct NEONIgnoreNaN;
 
 impl SIMDInstructionSet for NEON {
+    /// NEON register size is 128 bits
+    /// https://en.wikipedia.org/wiki/ARM_architecture#Advanced_SIMD_(Neon)
     const REGISTER_SIZE: usize = 128;
 }
+
+// --------------------------------------- Tests ---------------------------------------
 
 #[cfg(test)]
 mod tests {

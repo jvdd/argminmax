@@ -1,5 +1,4 @@
 use num_traits::float::FloatCore;
-use num_traits::int::PrimInt;
 use num_traits::AsPrimitive;
 
 use super::config::SIMDInstructionSet;
@@ -9,6 +8,16 @@ use crate::scalar::{SCALARIgnoreNaN, ScalarArgMinMax, SCALAR};
 // ---------------------------------- SIMD operations ----------------------------------
 
 /// Core SIMD operations
+/// These operations are used by the SIMD algorithm and have to be implemented for each
+/// data type - SIMD instruction set combination.
+/// The operations are implemented in the `simd_*.rs` files.
+///
+/// Note that for floating point dataypes two implementations are required:
+/// - one for the ignore NaN case (uses a floating point SIMDVecDtype)
+///   (see the `simd_f*_ignore_nan.rs` files)
+/// - one for the return NaN case (uses an integer SIMDVecDtype - as we use the
+///   ord_transform to view the floating point data as ordinal integer data).
+///   (see the `simd_f*_return_nan.rs` files)
 pub trait SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
 where
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
@@ -22,38 +31,27 @@ where
     /// Increment value for the SIMD vector
     const INDEX_INCREMENT: SIMDVecDtype;
 
+    /// Convert a SIMD register to array
     unsafe fn _reg_to_arr(reg: SIMDVecDtype) -> [ScalarDType; LANE_SIZE];
 
+    /// Load a SIMD register from memory
     unsafe fn _mm_loadu(data: *const ScalarDType) -> SIMDVecDtype;
 
+    /// Add two SIMD registers
     unsafe fn _mm_add(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype;
 
+    /// Compare two SIMD registers for greater-than (gt): a > b
+    /// Returns a SIMD mask
     unsafe fn _mm_cmpgt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
 
+    /// Compare two SIMD registers for less-than (lt): a < b
     unsafe fn _mm_cmplt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
 
+    /// Blend two SIMD registers using a SIMD mask (selects elements from a or b)
     unsafe fn _mm_blendv(a: SIMDVecDtype, b: SIMDVecDtype, mask: SIMDMaskDtype) -> SIMDVecDtype;
 
-    // TODO: remove this?
-    #[inline(always)]
-    unsafe fn _mm_prefetch(data: *const ScalarDType) {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            #[cfg(target_arch = "x86")]
-            use std::arch::x86::_mm_prefetch;
-            #[cfg(target_arch = "x86_64")]
-            use std::arch::x86_64::_mm_prefetch;
-
-            _mm_prefetch(data as *const i8, 0); // 0=NTA
-        }
-        #[cfg(target_arch = "aarch64")]
-        {
-            use std::arch::aarch64::_prefetch;
-
-            _prefetch(data as *const i8, 0, 0); // 0=READ, 0=NTA
-        }
-    }
-
+    /// Horizontal min: get the minimum value from the value SIMD register and its
+    /// corresponding index from the index SIMD register
     #[inline(always)]
     unsafe fn _horiz_min(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
         // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
@@ -70,6 +68,8 @@ where
         (min_index.as_(), min_value)
     }
 
+    /// Horizontal max: get the maximum value from the value SIMD register and its
+    /// corresponding index from the index SIMD register
     #[inline(always)]
     unsafe fn _horiz_max(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
         // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
@@ -98,6 +98,13 @@ where
 // --------------- Default
 
 /// The default SIMDCore trait (for all data types)
+///
+/// This trait is auto-implemented below for:
+/// - ints
+/// - uints
+/// - floats: returning NaN
+/// => this corresponds to structs that implement SIMDInstructionSet (see `config.rs`)
+///    (thus also for example `SSE` for float returning NaN)
 pub trait SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
 where
@@ -105,6 +112,18 @@ where
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
 {
+    /// Core argminmax algorithm - returns (argmin, min, argmax, max)
+    ///
+    /// This method asserts:
+    /// - the array length is a multiple of LANE_SIZE
+    /// This method assumes:
+    /// - the array length is <= MAX_INDEX
+    ///
+    /// Note that this method is not overflow safe, as it assumes that the array length
+    /// is <= MAX_INDEX. The `_overflow_safe_core_argminmax method` is overflow safe.
+    ///
+    /// Note that this method is leveraged by the return NaN implementation (as the
+    /// float values - including NaNs - are mapped to ordinal integers).
     #[inline(always)]
     unsafe fn _core_argminmax(arr: &[ScalarDType]) -> (usize, ScalarDType, usize, ScalarDType) {
         assert_eq!(arr.len() % LANE_SIZE, 0);
@@ -141,22 +160,17 @@ where
             new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
             // Load the next chunk of data
             arr_ptr = arr_ptr.add(LANE_SIZE);
-            // Self::_mm_prefetch(arr_ptr); // Hint to the CPU to prefetch the next chunk of data
             let new_values = Self::_mm_loadu(arr_ptr);
 
             // Update the lowest values and index
-            let mask = Self::_mm_cmplt(new_values, values_low);
-            values_low = Self::_mm_blendv(values_low, new_values, mask);
-            index_low = Self::_mm_blendv(index_low, new_index, mask);
+            let mask_low = Self::_mm_cmplt(new_values, values_low);
+            values_low = Self::_mm_blendv(values_low, new_values, mask_low);
+            index_low = Self::_mm_blendv(index_low, new_index, mask_low);
 
             // Update the highest values and index
-            let mask = Self::_mm_cmpgt(new_values, values_high);
-            values_high = Self::_mm_blendv(values_high, new_values, mask);
-            index_high = Self::_mm_blendv(index_high, new_index, mask);
-
-            // 25 is a non-scientific number, but seems to work overall
-            //  => TODO: probably this should be in function of the data type
-            // Self::_mm_prefetch(arr_ptr.add(LANE_SIZE * 25)); // Hint to the CPU to prefetch upcoming data
+            let mask_high = Self::_mm_cmpgt(new_values, values_high);
+            values_high = Self::_mm_blendv(values_high, new_values, mask_high);
+            index_high = Self::_mm_blendv(index_high, new_index, mask_high);
         }
 
         // Get the min/max index and corresponding value from the SIMD vectors and return
@@ -165,11 +179,20 @@ where
         (min_index, min_value, max_index, max_value)
     }
 
+    /// Overflow-safe core argminmax algorithm - returns (argmin, min, argmax, max)
+    ///
+    /// This method asserts:
+    /// - the array is not empty
+    /// - the array length is a multiple of LANE_SIZE
+    ///
+    /// Note that this method checks for nans by comparing v != v (is true for nans)
+    /// -> returns once `_core_argminmax` returns a NaN value
     #[inline(always)]
     unsafe fn _overflow_safe_core_argminmax(
         arr: &[ScalarDType],
     ) -> (usize, ScalarDType, usize, ScalarDType) {
         assert!(!arr.is_empty());
+        assert_eq!(arr.len() % LANE_SIZE, 0);
         // 0. Get the max value of the data type - which needs to be divided by LANE_SIZE
         let dtype_max = Self::_get_overflow_lane_size_limit();
 
@@ -189,7 +212,6 @@ where
                 // If min_value or max_value is NaN, we can return immediately
                 return (min_index, min_value, max_index, max_value);
             }
-            // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..start + dtype_max]);
             if min_value_ < min_value || min_value_ != min_value_ {
@@ -208,7 +230,6 @@ where
                 // If min_value or max_value is NaN, we can return immediately
                 return (min_index, min_value, max_index, max_value);
             }
-            // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..]);
             if min_value_ < min_value || min_value_ != min_value_ {
@@ -245,10 +266,16 @@ pub trait SIMDSetOps<ScalarDType, SIMDVecDtype>
 where
     ScalarDType: FloatCore,
 {
+    /// Set a SIMD vector to a scalar value (each lane is set to the scalar value)
     unsafe fn _mm_set1(a: ScalarDType) -> SIMDVecDtype;
 }
 
 /// SIMDCore trait that ignore NaNs (for float types)
+///
+/// This trait is auto-implemented below for:
+/// - floats: ignoring NaN
+/// => this corresponds to the IgnoreNan structs (see `config.rs`)
+///    (for example `SSEIgnoreNaN`)
 pub trait SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE> + SIMDSetOps<ScalarDType, SIMDVecDtype>
 where
@@ -256,6 +283,15 @@ where
     SIMDVecDtype: Copy,
     SIMDMaskDtype: Copy,
 {
+    /// Core argminmax algorithm - returns (argmin, min, argmax, max)
+    ///
+    /// This method asserts:
+    /// - the array length is a multiple of LANE_SIZE
+    /// This method assumes:
+    /// - the array length is <= MAX_INDEX
+    ///
+    /// Note that this method is not overflow safe, as it assumes that the array length
+    /// is <= MAX_INDEX. The `_overflow_safe_core_argminmax method` is overflow safe.
     #[inline(always)]
     unsafe fn _core_argminmax(arr: &[ScalarDType]) -> (usize, ScalarDType, usize, ScalarDType) {
         assert_eq!(arr.len() % LANE_SIZE, 0);
@@ -266,19 +302,24 @@ where
         let new_values = Self::_mm_loadu(arr_ptr);
 
         // Update the lowest values and index
-        let mask = Self::_mm_cmplt(new_values, Self::_mm_set1(ScalarDType::infinity()));
-        let mut values_low =
-            Self::_mm_blendv(Self::_mm_set1(ScalarDType::infinity()), new_values, mask);
-        let mut index_low = Self::_mm_blendv(Self::_mm_set1(ScalarDType::zero()), new_index, mask);
+        let mask_low = Self::_mm_cmplt(new_values, Self::_mm_set1(ScalarDType::infinity()));
+        let mut values_low = Self::_mm_blendv(
+            Self::_mm_set1(ScalarDType::infinity()),
+            new_values,
+            mask_low,
+        );
+        let mut index_low =
+            Self::_mm_blendv(Self::_mm_set1(ScalarDType::zero()), new_index, mask_low);
 
         // Update the highest values and index
-        let mask = Self::_mm_cmpgt(new_values, Self::_mm_set1(ScalarDType::neg_infinity()));
+        let mask_high = Self::_mm_cmpgt(new_values, Self::_mm_set1(ScalarDType::neg_infinity()));
         let mut values_high = Self::_mm_blendv(
             Self::_mm_set1(ScalarDType::neg_infinity()),
             new_values,
-            mask,
+            mask_high,
         );
-        let mut index_high = Self::_mm_blendv(Self::_mm_set1(ScalarDType::zero()), new_index, mask);
+        let mut index_high =
+            Self::_mm_blendv(Self::_mm_set1(ScalarDType::zero()), new_index, mask_high);
 
         for _ in 0..arr.len() / LANE_SIZE - 1 {
             // Increment the index
@@ -288,14 +329,14 @@ where
             let new_values = Self::_mm_loadu(arr_ptr);
 
             // Update the lowest values and index
-            let mask = Self::_mm_cmplt(new_values, values_low);
-            values_low = Self::_mm_blendv(values_low, new_values, mask);
-            index_low = Self::_mm_blendv(index_low, new_index, mask);
+            let mask_low = Self::_mm_cmplt(new_values, values_low);
+            values_low = Self::_mm_blendv(values_low, new_values, mask_low);
+            index_low = Self::_mm_blendv(index_low, new_index, mask_low);
 
             // Update the highest values and index
-            let mask = Self::_mm_cmpgt(new_values, values_high);
-            values_high = Self::_mm_blendv(values_high, new_values, mask);
-            index_high = Self::_mm_blendv(index_high, new_index, mask);
+            let mask_high = Self::_mm_cmpgt(new_values, values_high);
+            values_high = Self::_mm_blendv(values_high, new_values, mask_high);
+            index_high = Self::_mm_blendv(index_high, new_index, mask_high);
         }
 
         // Get the min/max index and corresponding value from the SIMD vectors and return
@@ -304,6 +345,15 @@ where
         (min_index, min_value, max_index, max_value)
     }
 
+    /// Overflow-safe core argminmax algorithm - returns (argmin, min, argmax, max)
+    ///
+    /// This method asserts:
+    /// - the array is not empty
+    /// - the array length is a multiple of LANE_SIZE
+    ///
+    /// Note that this method ignores nans by assuring that no NaN values are inserted
+    /// in the initial min / max SIMD vectors. Since comparing a value to NaN always
+    /// returns false, the NaN values will never be selected as the min / max values.
     #[inline(always)]
     unsafe fn _overflow_safe_core_argminmax(
         arr: &[ScalarDType],
@@ -324,7 +374,6 @@ where
         let mut start: usize = 0;
         // 2.0 Perform the full loops
         for _ in 0..n_loops {
-            // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..start + dtype_max]);
             if min_value_ < min_value {
@@ -339,7 +388,6 @@ where
         }
         // 2.1 Handle the remainder
         if start < arr.len() {
-            // Self::_mm_prefetch(arr.as_ptr().add(start));
             let (min_index_, min_value_, max_index_, max_value_) =
                 Self::_core_argminmax(&arr[start..]);
             if min_value_ < min_value {
@@ -374,6 +422,14 @@ where
 
 // --------------- Default
 
+/// Trait for SIMD argminmax operations
+///
+/// This trait its `argminmax` method should be implemented for all structs that
+/// implement `SIMDOps` for the same generics.
+/// This trait is implemented for:
+/// - ints (see, the simd_i*.rs files)
+/// - uints (see, the simd_u*.rs files)
+/// - floats: returning NaNs (see, the simd_f*_return_nan.rs files)
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -408,6 +464,12 @@ where
 
 // --------------- Float Ignore NaN
 
+/// Trait for SIMD argminmax operations that ignore NaNs
+///
+/// This trait its `argminmax` method should be implemented for all structs that
+/// implement `SIMDOps` and `SIMDSetOps` for the same generics.
+/// This trait is implemented for:
+/// - floats: ignoring NaNs (see, the simd_f*_ignore_nan.rs files)
 #[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
 pub trait SIMDArgMinMaxIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDCoreIgnoreNaN<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
