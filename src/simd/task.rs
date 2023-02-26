@@ -1,5 +1,3 @@
-use crate::scalar::{ScalarArgMinMax, SCALAR};
-
 use std::cmp::Ordering;
 
 #[inline(always)]
@@ -7,30 +5,43 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: &[T],
     lane_size: usize,
     core_argminmax: unsafe fn(&[T]) -> (usize, T, usize, T),
-) -> (usize, usize)
-where
-    SCALAR: ScalarArgMinMax<T>,
-{
+    ignore_nan: bool, // if false, NaNs will be returned
+    scalar_argminmax: fn(&[T]) -> (usize, usize),
+) -> (usize, usize) {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
-        (Some(sim), Some(rem)) => {
-            let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
+        (Some(simd_arr), Some(rem)) => {
+            // Perform SIMD operation on the first part of the array
+            let simd_result = unsafe { core_argminmax(simd_arr) };
+            // Perform scalar operation on the remainder of the array
+            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
+            // let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
             let rem_result = (
-                rem_min_index + sim.len(),
+                rem_min_index + simd_arr.len(),
                 rem[rem_min_index],
-                rem_max_index + sim.len(),
+                rem_max_index + simd_arr.len(),
                 rem[rem_max_index],
             );
-            let sim_result = unsafe { core_argminmax(sim) };
-            find_final_index_minmax(rem_result, sim_result)
+            // Find the final min and max values
+            let (min_index, min_value) = find_final_index_min(
+                (simd_result.0, simd_result.1),
+                (rem_result.0, rem_result.1),
+                ignore_nan,
+            );
+            let (max_index, max_value) = find_final_index_max(
+                (simd_result.2, simd_result.3),
+                (rem_result.2, rem_result.3),
+                ignore_nan,
+            );
+            get_correct_argminmax_result(min_index, min_value, max_index, max_value, ignore_nan)
+        }
+        (Some(simd_arr), None) => {
+            let (min_index, min_value, max_index, max_value) = unsafe { core_argminmax(simd_arr) };
+            get_correct_argminmax_result(min_index, min_value, max_index, max_value, ignore_nan)
         }
         (None, Some(rem)) => {
-            let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
+            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
             (rem_min_index, rem_max_index)
-        }
-        (Some(sim), None) => {
-            let sim_result = unsafe { core_argminmax(sim) };
-            (sim_result.0, sim_result.2)
         }
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
     }
@@ -55,24 +66,131 @@ fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[
     }
 }
 
+/// Get the final index of the min value when both a SIMD and scalar result is available
+/// If not ignoring NaNs (thus returning NaN index if any present):
+/// - If both values are NaN, returns the index of the simd result (as the first part
+/// of the array is passed to the SIMD function)
+/// - If one value is NaN, returns the index of the non-NaN value
+/// - If neither value is NaN, returns the index of the min value
+/// If ignoring NaNs: returns the index of the min value
+///
+/// Note: when the values are equal, the index of the simd result is returned (as the
+/// first part of the array is passed to the SIMD function)
 #[inline(always)]
-fn find_final_index_minmax<T: Copy + PartialOrd>(
-    remainder_result: (usize, T, usize, T),
-    simd_result: (usize, T, usize, T),
+fn find_final_index_min<T: Copy + PartialOrd>(
+    simd_result: (usize, T),
+    remainder_result: (usize, T),
+    ignore_nan: bool,
+) -> (usize, T) {
+    let (min_index, min_value) = match simd_result.1.partial_cmp(&remainder_result.1) {
+        Some(Ordering::Less) => simd_result,
+        Some(Ordering::Equal) => simd_result,
+        Some(Ordering::Greater) => remainder_result,
+        None => {
+            if !ignore_nan {
+                // --- Return NaNs
+                // Should prefer the simd result over the remainder result if both are
+                // NaN
+                if simd_result.1 != simd_result.1 {
+                    // because NaN != NaN
+                    simd_result
+                } else {
+                    remainder_result
+                }
+            } else {
+                // --- Ignore NaNs
+                // If both are NaN raise panic, otherwise return the index of the
+                // non-NaN value
+                if simd_result.1 != simd_result.1 && remainder_result.1 != remainder_result.1 {
+                    panic!("Data contains only NaNs (or +/- inf)")
+                } else if remainder_result.1 != remainder_result.1 {
+                    simd_result
+                } else {
+                    remainder_result
+                }
+            }
+        }
+    };
+    (min_index, min_value)
+}
+
+/// Get the final index of the max value when both a SIMD and scalar result is available
+/// If not ignoring NaNs (thus returning NaN index if any present):
+/// - If both values are NaN, returns the index of the simd result (as the first part
+/// of the array is passed to the SIMD function)
+/// - If one value is NaN, returns the index of the non-NaN value
+/// - If neither value is NaN, returns the index of the max value
+/// If ignoring NaNs: returns the index of the max value
+///
+/// Note: when the values are equal, the index of the simd result is returned (as the
+/// first part of the array is passed to the SIMD function)
+#[inline(always)]
+fn find_final_index_max<T: Copy + PartialOrd>(
+    simd_result: (usize, T),
+    remainder_result: (usize, T),
+    ignore_nan: bool,
+) -> (usize, T) {
+    let (max_index, max_value) = match simd_result.1.partial_cmp(&remainder_result.1) {
+        Some(Ordering::Greater) => simd_result,
+        Some(Ordering::Equal) => simd_result,
+        Some(Ordering::Less) => remainder_result,
+        None => {
+            if !ignore_nan {
+                // --- Return NaNs
+                // Should prefer the simd result over the remainder result if both are
+                // NaN
+                if simd_result.1 != simd_result.1 {
+                    // because NaN != NaN
+                    simd_result
+                } else {
+                    remainder_result
+                }
+            } else {
+                // --- Ignore NaNs
+                // If both are NaN raise panic, otherwise return the index of the
+                // non-NaN value
+                if simd_result.1 != simd_result.1 && remainder_result.1 != remainder_result.1 {
+                    panic!("Data contains only NaNs (or +/- inf)")
+                } else if remainder_result.1 != remainder_result.1 {
+                    simd_result
+                } else {
+                    remainder_result
+                }
+            }
+        }
+    };
+    (max_index, max_value)
+}
+
+/// Get the correct index(es) for the argmin and argmax functions
+/// If not ignoring NaNs (thus returning NaN index if any present):
+/// - If both values are NaN, returns the lowest index twice
+/// - If one value is NaN, returns the index of the non-NaN value twice
+/// - If neither value is NaN, returns the min_index and max_index
+/// If ignoring NaNs: returns the min_index and max_index
+fn get_correct_argminmax_result<T: Copy + PartialOrd>(
+    min_index: usize,
+    min_value: T,
+    max_index: usize,
+    max_value: T,
+    ignore_nan: bool,
 ) -> (usize, usize) {
-    let min_result = match remainder_result.1.partial_cmp(&simd_result.1).unwrap() {
-        Ordering::Less => remainder_result.0,
-        Ordering::Equal => std::cmp::min(remainder_result.0, simd_result.0),
-        Ordering::Greater => simd_result.0,
-    };
-
-    let max_result = match simd_result.3.partial_cmp(&remainder_result.3).unwrap() {
-        Ordering::Less => remainder_result.2,
-        Ordering::Equal => std::cmp::min(remainder_result.2, simd_result.2),
-        Ordering::Greater => simd_result.2,
-    };
-
-    (min_result, max_result)
+    if !ignore_nan && (min_value != min_value || max_value != max_value) {
+        // --- Return NaNs
+        // -> at least one of the values is NaN
+        if min_value != min_value && max_value != max_value {
+            // If both are NaN, return lowest index
+            let lowest_index = std::cmp::min(min_index, max_index);
+            return (lowest_index, lowest_index);
+        } else if min_value != min_value {
+            // If min is the only NaN, return min index
+            return (min_index, min_index);
+        } else {
+            // If max is the only NaN, return max index
+            return (max_index, max_index);
+        }
+    }
+    (min_index, max_index)
 }
 
 // ------------ Other helper functions

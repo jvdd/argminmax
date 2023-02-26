@@ -1,5 +1,5 @@
 use super::config::SIMDInstructionSet;
-use super::generic::SIMD;
+use super::generic::{SIMDArgMinMax, SIMDOps};
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -8,6 +8,8 @@ use std::arch::arm::*;
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+
+const MAX_INDEX: usize = i16::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------
 
@@ -18,14 +20,16 @@ mod avx2 {
 
     const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
 
-    impl SIMD<i16, __m256i, __m256i, LANE_SIZE> for AVX2 {
+    impl SIMDOps<i16, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
                 13i16, 14i16, 15i16,
             ])
         };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: __m256i =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m256i) -> [i16; LANE_SIZE] {
@@ -35,11 +39,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> __m256i {
             _mm256_loadu_si256(data as *const __m256i)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256i {
-            _mm256_set1_epi16(a as i16)
         }
 
         #[inline(always)]
@@ -60,13 +59,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
             _mm256_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -130,11 +122,18 @@ mod avx2 {
         }
     }
 
+    impl SIMDArgMinMax<i16, __m256i, __m256i, LANE_SIZE> for AVX2 {
+        #[target_feature(enable = "avx2")]
+        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX2, SIMD};
+        use super::{SIMDArgMinMax, AVX2};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -165,17 +164,7 @@ mod avx2 {
                 return;
             }
 
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 
@@ -229,10 +218,12 @@ mod sse {
 
     const LANE_SIZE: usize = SSE::LANE_SIZE_16;
 
-    impl SIMD<i16, __m128i, __m128i, LANE_SIZE> for SSE {
+    impl SIMDOps<i16, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: __m128i =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128i) -> [i16; LANE_SIZE] {
@@ -242,11 +233,6 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> __m128i {
             _mm_loadu_si128(data as *const __m128i)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i {
-            _mm_set1_epi16(a as i16)
         }
 
         #[inline(always)]
@@ -267,13 +253,6 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
             _mm_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -333,11 +312,18 @@ mod sse {
         }
     }
 
+    impl SIMDArgMinMax<i16, __m128i, __m128i, LANE_SIZE> for SSE {
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{SIMD, SSE};
+        use super::{SIMDArgMinMax, SSE};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -360,17 +346,7 @@ mod sse {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 
@@ -416,7 +392,7 @@ mod avx512 {
 
     const LANE_SIZE: usize = AVX512::LANE_SIZE_16;
 
-    impl SIMD<i16, __m512i, u32, LANE_SIZE> for AVX512 {
+    impl SIMDOps<i16, __m512i, u32, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -424,7 +400,9 @@ mod avx512 {
                 25i16, 26i16, 27i16, 28i16, 29i16, 30i16, 31i16,
             ])
         };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: __m512i =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m512i) -> [i16; LANE_SIZE] {
@@ -434,11 +412,6 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> __m512i {
             _mm512_loadu_epi16(data as *const i16)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i {
-            _mm512_set1_epi16(a as i16)
         }
 
         #[inline(always)]
@@ -459,13 +432,6 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u32) -> __m512i {
             _mm512_mask_blend_epi16(mask, a, b)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx512bw")]
-        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -533,11 +499,18 @@ mod avx512 {
         }
     }
 
+    impl SIMDArgMinMax<i16, __m512i, u32, LANE_SIZE> for AVX512 {
+        #[target_feature(enable = "avx512bw")]
+        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX512, SIMD};
+        use super::{SIMDArgMinMax, AVX512};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -568,17 +541,7 @@ mod avx512 {
                 return;
             }
 
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 
@@ -632,10 +595,12 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_16;
 
-    impl SIMD<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
+    impl SIMDOps<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
-        const MAX_INDEX: usize = i16::MAX as usize;
+        const INDEX_INCREMENT: int16x8_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: int16x8_t) -> [i16; LANE_SIZE] {
@@ -645,11 +610,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> int16x8_t {
             vld1q_s16(data as *const i16)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> int16x8_t {
-            vdupq_n_s16(a as i16)
         }
 
         #[inline(always)]
@@ -670,13 +630,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_blendv(a: int16x8_t, b: int16x8_t, mask: uint16x8_t) -> int16x8_t {
             vbslq_s16(mask, b, a)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -736,11 +689,18 @@ mod neon {
         }
     }
 
+    impl SIMDArgMinMax<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON {
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ------------------------------------ TESTS --------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::{SIMDArgMinMax, NEON};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -763,17 +723,7 @@ mod neon {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10,
-                std::i16::MIN,
-                6,
-                9,
-                9,
-                22,
-                std::i16::MAX,
-                4,
-                std::i16::MAX,
-            ];
+            let data = [10, i16::MIN, 6, 9, 9, 22, i16::MAX, 4, i16::MAX];
             let data: Vec<i16> = data.iter().map(|x| *x).collect();
             let data: &[i16] = &data;
 

@@ -22,21 +22,38 @@ arrow = { version = ">0", default-features = false, optional = true}
 default = ["half"] # TODO: remove this as default feature as soon as https://github.com/CodSpeedHQ/codspeed-rust/issues/1 is fixed
 
 [dev-dependencies]
+# rstest = { version = "0.16", default-features = false}
+# rstest_reuse = "0.5"
 codspeed-criterion-compat = "1.0.1"
 criterion = "0.3.1"
 dev_utils = { path = "dev_utils" }
 
 
 [[bench]]
-name = "bench_f16"
+name = "bench_f16_return_nan"
+harness = false
+required-features = ["half"]
+
+# TODO: support this
+# [[bench]]
+# name = "bench_f16_ignore_nan"
+# harness = false
+# required-features = ["half"]
+
+[[bench]]
+name = "bench_f32_return_nan"
 harness = false
 
 [[bench]]
-name = "bench_f32"
+name = "bench_f32_ignore_nan"
 harness = false
 
 [[bench]]
-name = "bench_f64"
+name = "bench_f64_return_nan"
+harness = false
+
+[[bench]]
+name = "bench_f64_ignore_nan"
 harness = false
 
 [[bench]]

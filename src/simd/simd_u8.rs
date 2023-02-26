@@ -1,5 +1,5 @@
 use super::config::SIMDInstructionSet;
-use super::generic::SIMD;
+use super::generic::{SIMDArgMinMax, SIMDOps};
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -10,14 +10,16 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-const XOR_VALUE: i8 = 0x7F;
+const XOR_VALUE: i8 = -0x80; // i8::MIN
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
-fn _i8decrord_to_u8(decrord_i8: i8) -> u8 {
-    // let v = ord_i8 ^ 0x7F;
-    unsafe { std::mem::transmute::<i8, u8>(decrord_i8 ^ XOR_VALUE) }
+fn _i8ord_to_u8(ord_i8: i8) -> u8 {
+    // let v = ord_i8 ^ -0x80;
+    unsafe { std::mem::transmute::<i8, u8>(ord_i8 ^ XOR_VALUE) }
 }
+
+const MAX_INDEX: usize = i8::MAX as usize;
 
 // ------------------------------------------ AVX2 ------------------------------------------
 
@@ -30,10 +32,10 @@ mod avx2 {
     const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _u8_to_i8decrord(u8: __m256i) -> __m256i {
-        // on a scalar: v^ 0x7F
-        // transforms to monotonically **decreasing** order
-        _mm256_xor_si256(u8, XOR_MASK) // Only 1 operation
+    unsafe fn _u8_as_m256i_to_i8ord(u8_as_m256i: __m256i) -> __m256i {
+        // on a scalar: v ^ -0x80
+        // transforms to monotonically increasing order
+        _mm256_xor_si256(u8_as_m256i, XOR_MASK)
     }
 
     #[inline(always)]
@@ -41,7 +43,7 @@ mod avx2 {
         std::mem::transmute::<__m256i, [i8; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<u8, __m256i, __m256i, LANE_SIZE> for AVX2 {
+    impl SIMDOps<u8, __m256i, __m256i, LANE_SIZE> for AVX2 {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -49,22 +51,21 @@ mod avx2 {
                 29i8, 30i8, 31i8,
             ])
         };
-        const MAX_INDEX: usize = i8::MAX as usize;
+        const INDEX_INCREMENT: __m256i =
+            unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [u8; LANE_SIZE] {
-            // Not used because we work with i8ord and override _get_min_index_value and _get_max_index_value
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to signed integers.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u8) -> __m256i {
-            _u8_to_i8decrord(_mm256_loadu_si256(data as *const __m256i))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m256i {
-            _mm256_set1_epi8(a as i8)
+            _u8_as_m256i_to_i8ord(_mm256_loadu_si256(data as *const __m256i))
         }
 
         #[inline(always)]
@@ -85,13 +86,6 @@ mod avx2 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
             _mm256_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -123,7 +117,7 @@ mod avx2 {
             imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 1));
             let min_index: usize = _mm256_extract_epi8(imin, 0) as usize;
 
-            (min_index, _i8decrord_to_u8(min_value))
+            (min_index, _i8ord_to_u8(min_value))
         }
 
         #[inline(always)]
@@ -155,20 +149,14 @@ mod avx2 {
             imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 1));
             let max_index: usize = _mm256_extract_epi8(imin, 0) as usize;
 
-            (max_index, _i8decrord_to_u8(max_value))
+            (max_index, _i8ord_to_u8(max_value))
         }
+    }
 
-        #[inline(always)]
-        unsafe fn _get_min_max_index_value(
-            index_low: __m256i,
-            values_low: __m256i,
-            index_high: __m256i,
-            values_high: __m256i,
-        ) -> (usize, u8, usize, u8) {
-            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
-            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
-            // Swap min and max here because we worked with i8ord in decreasing order (max => actual min, and vice versa)
-            (max_index, max_value, min_index, min_value)
+    impl SIMDArgMinMax<u8, __m256i, __m256i, LANE_SIZE> for AVX2 {
+        #[target_feature(enable = "avx2")]
+        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -176,7 +164,7 @@ mod avx2 {
 
     #[cfg(test)]
     mod tests {
-        use super::{AVX2, SIMD};
+        use super::{SIMDArgMinMax, AVX2};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -207,7 +195,7 @@ mod avx2 {
                 return;
             }
 
-            let data = [10, std::u8::MIN, 6, 9, 9, 22, std::u8::MAX, 4, std::u8::MAX];
+            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
             let data: Vec<u8> = data.iter().map(|x| *x).collect();
             let data: &[u8] = &data;
 
@@ -263,10 +251,10 @@ mod sse {
     const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _u8_to_i8decrord(u8: __m128i) -> __m128i {
-        // on a scalar: v^ 0x7F
-        // transforms to monotonically **decreasing** order
-        _mm_xor_si128(u8, XOR_MASK)
+    unsafe fn _u8_as_m128i_to_i8ord(u8_as_m128i: __m128i) -> __m128i {
+        // on a scalar: v ^ -0x80
+        // transforms to monotonically increasing order
+        _mm_xor_si128(u8_as_m128i, XOR_MASK)
     }
 
     #[inline(always)]
@@ -274,29 +262,28 @@ mod sse {
         std::mem::transmute::<__m128i, [i8; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<u8, __m128i, __m128i, LANE_SIZE> for SSE {
+    impl SIMDOps<u8, __m128i, __m128i, LANE_SIZE> for SSE {
         const INITIAL_INDEX: __m128i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
                 15i8,
             ])
         };
-        const MAX_INDEX: usize = i8::MAX as usize;
+        const INDEX_INCREMENT: __m128i =
+            unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [u8; LANE_SIZE] {
-            // Not used because we work with i8ord and override _get_min_index_value and _get_max_index_value
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to signed integers.
             unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u8) -> __m128i {
-            _u8_to_i8decrord(_mm_loadu_si128(data as *const __m128i))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m128i {
-            _mm_set1_epi8(a as i8)
+            _u8_as_m128i_to_i8ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
@@ -317,13 +304,6 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
             _mm_blendv_epi8(a, b, mask)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -353,7 +333,7 @@ mod sse {
             imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 1));
             let min_index: usize = _mm_extract_epi8(imin, 0) as usize;
 
-            (min_index, _i8decrord_to_u8(min_value))
+            (min_index, _i8ord_to_u8(min_value))
         }
 
         #[inline(always)]
@@ -383,20 +363,14 @@ mod sse {
             imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 1));
             let max_index: usize = _mm_extract_epi8(imin, 0) as usize;
 
-            (max_index, _i8decrord_to_u8(max_value))
+            (max_index, _i8ord_to_u8(max_value))
         }
+    }
 
-        #[inline(always)]
-        unsafe fn _get_min_max_index_value(
-            index_low: __m128i,
-            values_low: __m128i,
-            index_high: __m128i,
-            values_high: __m128i,
-        ) -> (usize, u8, usize, u8) {
-            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
-            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
-            // Swap min and max here because we worked with i8ord in decreasing order (max => actual min, and vice versa)
-            (max_index, max_value, min_index, min_value)
+    impl SIMDArgMinMax<u8, __m128i, __m128i, LANE_SIZE> for SSE {
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -404,7 +378,7 @@ mod sse {
 
     #[cfg(test)]
     mod tests {
-        use super::{SIMD, SSE};
+        use super::{SIMDArgMinMax, SSE};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -427,7 +401,7 @@ mod sse {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [10, std::u8::MIN, 6, 9, 9, 22, std::u8::MAX, 4, std::u8::MAX];
+            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
             let data: Vec<u8> = data.iter().map(|x| *x).collect();
             let data: &[u8] = &data;
 
@@ -474,13 +448,11 @@ mod avx512 {
     const LANE_SIZE: usize = AVX512::LANE_SIZE_8;
     const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
-    // TODO - comparison swappen => dan moeten we opt einde niet meer swappen?
-
     #[inline(always)]
-    unsafe fn _u8_to_i8decrord(u8: __m512i) -> __m512i {
-        // on a scalar: v^ 0x7F
-        // transforms to monotonically **decreasing** order
-        _mm512_xor_si512(u8, XOR_MASK)
+    unsafe fn _u8_as_m512i_to_i8ord(u8_as_m512i: __m512i) -> __m512i {
+        // on a scalar: v ^ -0x80
+        // transforms to monotonically increasing order
+        _mm512_xor_si512(u8_as_m512i, XOR_MASK)
     }
 
     #[inline(always)]
@@ -488,7 +460,7 @@ mod avx512 {
         std::mem::transmute::<__m512i, [i8; LANE_SIZE]>(reg)
     }
 
-    impl SIMD<u8, __m512i, u64, LANE_SIZE> for AVX512 {
+    impl SIMDOps<u8, __m512i, u64, LANE_SIZE> for AVX512 {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i8, 1i8, 2i8, 3i8, 4i8, 5i8, 6i8, 7i8, 8i8, 9i8, 10i8, 11i8, 12i8, 13i8, 14i8,
@@ -498,23 +470,21 @@ mod avx512 {
                 57i8, 58i8, 59i8, 60i8, 61i8, 62i8, 63i8,
             ])
         };
-        const MAX_INDEX: usize = i8::MAX as usize;
+        const INDEX_INCREMENT: __m512i =
+            unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m512i) -> [u8; LANE_SIZE] {
-            unimplemented!(
-                "We work with decrordi8 and override _get_min_index_value and _get_max_index_value"
-            )
+            // Not implemented because we will perform the horizontal operations on the
+            // signed integer values instead of trying to retransform **only** the values
+            // (and thus not the indices) to signed integers.
+            unimplemented!()
         }
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u8) -> __m512i {
-            _u8_to_i8decrord(_mm512_loadu_epi8(data as *const i8))
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> __m512i {
-            _mm512_set1_epi8(a as i8)
+            _u8_as_m512i_to_i8ord(_mm512_loadu_epi8(data as *const i8))
         }
 
         #[inline(always)]
@@ -535,13 +505,6 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u64) -> __m512i {
             _mm512_mask_blend_epi8(mask, a, b)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "avx512bw")]
-        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -575,7 +538,7 @@ mod avx512 {
             imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 1));
             let min_index: usize = _mm_extract_epi8(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (min_index, _i8decrord_to_u8(min_value))
+            (min_index, _i8ord_to_u8(min_value))
         }
 
         #[inline(always)]
@@ -609,20 +572,14 @@ mod avx512 {
             imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 1));
             let max_index: usize = _mm_extract_epi8(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (max_index, _i8decrord_to_u8(max_value))
+            (max_index, _i8ord_to_u8(max_value))
         }
+    }
 
-        #[inline(always)]
-        unsafe fn _get_min_max_index_value(
-            index_low: __m512i,
-            values_low: __m512i,
-            index_high: __m512i,
-            values_high: __m512i,
-        ) -> (usize, u8, usize, u8) {
-            let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
-            let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
-            // Swap min and max here because we worked with i8ord in decreasing order (max => actual min, and vice versa)
-            (max_index, max_value, min_index, min_value)
+    impl SIMDArgMinMax<u8, __m512i, u64, LANE_SIZE> for AVX512 {
+        #[target_feature(enable = "avx512bw")]
+        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
+            Self::_argminmax(data)
         }
     }
 
@@ -631,7 +588,7 @@ mod avx512 {
     #[cfg(test)]
 
     mod tests {
-        use super::{AVX512, SIMD};
+        use super::{SIMDArgMinMax, AVX512};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -643,7 +600,7 @@ mod avx512 {
 
         #[test]
         fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx512f") {
+            if !is_x86_feature_detected!("avx512bw") {
                 return;
             }
 
@@ -658,11 +615,11 @@ mod avx512 {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx512f") {
+            if !is_x86_feature_detected!("avx512bw") {
                 return;
             }
 
-            let data = [10, std::u8::MIN, 6, 9, 9, 22, std::u8::MAX, 4, std::u8::MAX];
+            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
             let data: Vec<u8> = data.iter().map(|x| *x).collect();
             let data: &[u8] = &data;
 
@@ -677,7 +634,7 @@ mod avx512 {
 
         #[test]
         fn test_no_overflow() {
-            if !is_x86_feature_detected!("avx512f") {
+            if !is_x86_feature_detected!("avx512bw") {
                 return;
             }
 
@@ -692,7 +649,7 @@ mod avx512 {
 
         #[test]
         fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx512f") {
+            if !is_x86_feature_detected!("avx512bw") {
                 return;
             }
 
@@ -716,14 +673,16 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::LANE_SIZE_8;
 
-    impl SIMD<u8, uint8x16_t, uint8x16_t, LANE_SIZE> for NEON {
+    impl SIMDOps<u8, uint8x16_t, uint8x16_t, LANE_SIZE> for NEON {
         const INITIAL_INDEX: uint8x16_t = unsafe {
             std::mem::transmute([
                 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, 10u8, 11u8, 12u8, 13u8, 14u8,
                 15u8,
             ])
         };
-        const MAX_INDEX: usize = u8::MAX as usize;
+        const INDEX_INCREMENT: uint8x16_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: uint8x16_t) -> [u8; LANE_SIZE] {
@@ -733,11 +692,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u8) -> uint8x16_t {
             vld1q_u8(data as *const u8)
-        }
-
-        #[inline(always)]
-        unsafe fn _mm_set1(a: usize) -> uint8x16_t {
-            vdupq_n_u8(a as u8)
         }
 
         #[inline(always)]
@@ -758,13 +712,6 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_blendv(a: uint8x16_t, b: uint8x16_t, mask: uint8x16_t) -> uint8x16_t {
             vbslq_u8(mask, b, a)
-        }
-
-        // ------------------------------------ ARGMINMAX --------------------------------------
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
-            Self::_argminmax(data)
         }
 
         #[inline(always)]
@@ -828,11 +775,18 @@ mod neon {
         }
     }
 
+    impl SIMDArgMinMax<u8, uint8x16_t, uint8x16_t, LANE_SIZE> for NEON {
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
+            Self::_argminmax(data)
+        }
+    }
+
     // ----------------------------------------- TESTS -----------------------------------------
 
     #[cfg(test)]
     mod tests {
-        use super::{NEON, SIMD};
+        use super::{SIMDArgMinMax, NEON};
         use crate::scalar::generic::scalar_argminmax;
 
         extern crate dev_utils;
@@ -855,7 +809,7 @@ mod neon {
 
         #[test]
         fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [10, std::u8::MIN, 6, 9, 9, 22, std::u8::MAX, 4, std::u8::MAX];
+            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
             let data: Vec<u8> = data.iter().map(|x| *x).collect();
             let data: &[u8] = &data;
 
