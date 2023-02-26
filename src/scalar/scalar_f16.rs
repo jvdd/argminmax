@@ -105,7 +105,7 @@ mod tests {
     fn test_generic_and_specific_impl_return_nans() {
         let arr_len: usize = 1025;
 
-        // firts, middle, last element
+        // first, middle, last element
         let nan_pos: [usize; 3] = [0, arr_len / 2, arr_len - 1];
         for pos in nan_pos.iter() {
             let mut data: Vec<f16> = get_array_f16(arr_len);

@@ -1,5 +1,5 @@
-/// Default implementation of the argminmax operations for f16.
-/// This implementation returns the index of the first NaN value if any are present,
+/// Implementation of the argminmax operations for f16 where NaN values take precedence.
+/// This implementation returns the index of the first* NaN value if any are present,
 /// otherwise it returns the index of the minimum and maximum values.
 ///
 /// To serve this functionality we transform the f16 values to ordinal i32 values:
@@ -16,7 +16,16 @@
 /// more expensive than lt and gt we use this efficient bitwise transformation.
 ///
 /// Note that most x86 CPUs do not support f16 instructions - making this implementation
-/// multitudes (up to 300x) faster than trying to use a scalar implementation.
+/// multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
+///
+///
+/// ---
+///
+/// *Note: the first NaN value is only returned iff all NaN values have the same bit
+/// representation. When NaN values have different bit representations then the index of
+/// the highest / lowest ord_i16 is returned for the
+/// SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
+/// necessarily the index of the first NaN value.
 ///
 
 #[cfg(feature = "half")]
@@ -43,7 +52,7 @@ use half::f16;
 #[cfg(feature = "half")]
 const BIT_SHIFT: i32 = 15;
 #[cfg(feature = "half")]
-const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - MASKS everything but the sign bit
+const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - masks everything but the sign bit
 
 #[cfg(feature = "half")]
 #[inline(always)]

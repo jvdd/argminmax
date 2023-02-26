@@ -130,8 +130,6 @@ impl_nb_bits!(f16);
 
 // ------------------------------ &[T] ------------------------------
 
-// TODO: use tail recursion for more clean implementation (less duplicate code)
-
 macro_rules! impl_argminmax_non_float {
     ($($t:ty),*) => {
         $(
@@ -204,9 +202,6 @@ macro_rules! impl_argminmax_float {
                         } else if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::argminmax(self) }
                         // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
-                        // // } else if is_x86_feature_detected!("sse4.2") & (<$t>::NB_BITS == 64) & (<$t>::IS_FLOAT == false) {
-                        //     // SSE4.2 is needed for comparing 64-bit integers
-                        //     return unsafe { SSE::argminmax(self) }
                         } else if is_x86_feature_detected!("sse4.1") & (<$t>::NB_BITS < 64) {
                             // Scalar is faster for 64-bit numbers
                             // TODO: double check this (observed different things for new float implementation)
@@ -234,7 +229,7 @@ macro_rules! impl_argminmax_float {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         if <$t>::NB_BITS <= 16 {
-                            // f16 is not yet SIMD-optimized
+                            // TODO: f16 IgnoreNaN is not yet SIMD-optimized
                             // do nothing (defaults to scalar)
                         } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512IgnoreNaN::argminmax(self) }
@@ -273,7 +268,7 @@ impl_argminmax_non_float!(i8, i16, i32, i64, u8, u16, u32, u64);
 impl_argminmax_float!(f32, f64);
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
-impl_argminmax_float!(f16); // TODO: implement f16 correctly
+impl_argminmax_float!(f16);
 
 // ------------------------------ [T] ------------------------------
 

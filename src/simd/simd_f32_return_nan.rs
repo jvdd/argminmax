@@ -1,5 +1,5 @@
-/// Default implementation of the argminmax operations for f32.
-/// This implementation returns the index of the first NaN value if any are present,
+/// Implementation of the argminmax operations for f32 where NaN values take precedence.
+/// This implementation returns the index of the first* NaN value if any are present,
 /// otherwise it returns the index of the minimum and maximum values.
 ///
 /// To serve this functionality we transform the f32 values to ordinal i32 values:
@@ -19,6 +19,15 @@
 ///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_ps&ig_expand=902
 ///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi32&ig_expand=1084
 ///
+///
+/// ---
+///
+/// *Note: the first NaN value is only returned iff all NaN values have the same bit
+/// representation. When NaN values have different bit representations then the index of
+/// the highest / lowest ord_i32 is returned for the
+/// SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
+/// necessarily the index of the first NaN value.
+///
 use super::config::SIMDInstructionSet;
 use super::generic::{SIMDArgMinMax, SIMDOps};
 #[cfg(target_arch = "aarch64")]
@@ -33,11 +42,10 @@ use std::arch::x86_64::*;
 use super::task::{max_index_value, min_index_value};
 
 const BIT_SHIFT: i32 = 31;
-const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - MASKS everything but the sign bit
+const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - masks everything but the sign bit
 
 #[inline(always)]
 fn _i32ord_to_f32(ord_i32: i32) -> f32 {
-    // TODO: more efficient transformation -> can be decreasing order as well
     let v = ((ord_i32 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i32;
     f32::from_bits(v as u32)
 }

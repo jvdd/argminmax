@@ -17,7 +17,7 @@ fn nanargminmax_f64_random_array_long(c: &mut Criterion) {
         b.iter(|| SCALAR::argminmax(black_box(data)))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("sse4.1") {
+    if is_x86_feature_detected!("sse4.2") {
         c.bench_function("sse_nanargminmax_f64", |b| {
             b.iter(|| unsafe { SSE::argminmax(black_box(data)) })
         });

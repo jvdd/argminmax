@@ -1,5 +1,5 @@
-/// Default implementation of the argminmax operations for f64.
-/// This implementation returns the index of the first NaN value if any are present,
+/// Implementation of the argminmax operations for f64 where NaN values take precedence.
+/// This implementation returns the index of the first* NaN value if any are present,
 /// otherwise it returns the index of the minimum and maximum values.
 ///
 /// To serve this functionality we transform the f64 values to ordinal i64 values:
@@ -19,6 +19,15 @@
 ///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_pd&ig_expand=886
 ///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi64&ig_expand=1094
 ///
+///
+/// ---
+///
+/// *Note: the first NaN value is only returned iff all NaN values have the same bit
+/// representation. When NaN values have different bit representations then the index of
+/// the highest / lowest ord_i64 is returned for the
+/// SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
+/// necessarily the index of the first NaN value.
+///
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
@@ -34,7 +43,7 @@ use super::task::{max_index_value, min_index_value};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const BIT_SHIFT: i32 = 63;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-const MASK_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX - MASKS everything but the sign bit
+const MASK_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX - masks everything but the sign bit
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]

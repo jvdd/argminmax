@@ -405,7 +405,6 @@ where
 // --------------- Float Return NaN
 
 // This is the same code as the default trait - thus we can just use the default trait.
-// Note however that for floats the trait is implemented for the _ReturnNaN structs.
 
 // --------------- Float Ignore NaN
 
@@ -440,7 +439,7 @@ where
 // --------------------------------- Unimplement Macros --------------------------------
 
 // TODO: temporarily removed the target_arch specification bc we currently do not
-// ArgMinMaxIgnoreNan for f16
+// ArgMinMaxIgnoreNan for f16 ignore nan
 
 // #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 macro_rules! unimpl_SIMDOps {
