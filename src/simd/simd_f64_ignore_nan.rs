@@ -26,10 +26,10 @@ const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
 #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
 const MAX_INDEX: usize = u32::MAX as usize;
 
-// ------------------------------------------ AVX2 ------------------------------------------
+// --------------------------------------- AVX2 ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod avx2_ignore_nan {
+mod avx_ignore_nan {
     use super::super::config::{AVX2IgnoreNaN, AVX2};
     use super::*;
 
@@ -86,215 +86,9 @@ mod avx2_ignore_nan {
             Self::_argminmax(data)
         }
     }
-
-    // ------------------------------------ TESTS --------------------------------------
-
-    #[cfg(test)]
-    mod tests {
-        use super::AVX2IgnoreNaN as AVX2;
-        use super::SIMDArgMinMaxIgnoreNaN;
-        use crate::scalar::generic::scalar_argminmax_ignore_nans as scalar_argminmax;
-
-        extern crate dev_utils;
-        use dev_utils::utils;
-
-        fn get_array_f64(n: usize) -> Vec<f64> {
-            utils::get_random_array(n, f64::MIN, f64::MAX)
-        }
-
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx") {
-                return;
-            }
-
-            let data: &[f64] = &get_array_f64(1025);
-            assert_eq!(data.len() % 4, 1);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx") {
-                return;
-            }
-
-            let data = [
-                10.,
-                f64::MAX,
-                6.,
-                f64::NEG_INFINITY,
-                f64::NEG_INFINITY,
-                f64::MAX,
-                10_000.0,
-            ];
-            let data: Vec<f64> = data.iter().map(|x| *x).collect();
-            let data: &[f64] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 3);
-            assert_eq!(argmax_index, 1);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
-            assert_eq!(argmin_simd_index, 3);
-            assert_eq!(argmax_simd_index, 1);
-        }
-
-        #[test]
-        fn test_return_infs() {
-            if !is_x86_feature_detected!("avx") {
-                return;
-            }
-
-            let arr_len: usize = 1027;
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-
-            // Case 1: all elements are +inf
-            for i in 0..data.len() {
-                data[i] = f64::INFINITY;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-
-            // Case 2: all elements are -inf
-            for i in 0..data.len() {
-                data[i] = f64::NEG_INFINITY;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-
-            // Case 3: add some +inf and -inf in the middle
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[100] = f64::INFINITY;
-            data[200] = f64::NEG_INFINITY;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 200);
-            assert_eq!(argmax_index, 100);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 200);
-            assert_eq!(argmax_simd_index, 100);
-        }
-
-        #[test]
-        fn test_ignore_nans() {
-            if !is_x86_feature_detected!("avx") {
-                return;
-            }
-
-            let arr_len: usize = 1027;
-
-            // Case 1: NaN is the first element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[0] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 0);
-            assert!(argmax_index != 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert!(argmin_simd_index != 0);
-            assert!(argmax_simd_index != 0);
-
-            // Case 2: first 100 elements are NaN
-            for i in 0..100 {
-                data[i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index > 99);
-            assert!(argmax_index > 99);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert!(argmin_simd_index > 99);
-            assert!(argmax_simd_index > 99);
-
-            // Case 3: NaN is the last element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[arr_len - 1] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 1026);
-            assert!(argmax_index != 1026);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert!(argmin_simd_index != 1026);
-            assert!(argmax_simd_index != 1026);
-
-            // Case 4: last 100 elements are NaN
-            for i in 0..100 {
-                data[arr_len - 1 - i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index < arr_len - 100);
-            assert!(argmax_index < arr_len - 100);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert!(argmin_simd_index < arr_len - 100);
-            assert!(argmax_simd_index < arr_len - 100);
-
-            // Case 5: NaN is somewhere in the middle element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[123] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 123);
-            assert!(argmax_index != 123);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert!(argmin_simd_index != 123);
-            assert!(argmax_simd_index != 123);
-
-            // Case 6: all elements are NaN
-            for i in 0..data.len() {
-                data[i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx") {
-                return;
-            }
-
-            for _ in 0..10_000 {
-                let data: &[f64] = &get_array_f64(32 * 8 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
-    }
 }
 
-// ----------------------------------------- SSE -----------------------------------------
+// ---------------------------------------- SSE ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse_ignore_nan {
@@ -353,195 +147,9 @@ mod sse_ignore_nan {
             Self::_argminmax(data)
         }
     }
-
-    // ------------------------------------ TESTS --------------------------------------
-
-    #[cfg(test)]
-    mod tests {
-        use super::SIMDArgMinMaxIgnoreNaN;
-        use super::SSEIgnoreNaN as SSE;
-        use crate::scalar::generic::scalar_argminmax_ignore_nans as scalar_argminmax;
-
-        extern crate dev_utils;
-        use dev_utils::utils;
-
-        fn get_array_f64(n: usize) -> Vec<f64> {
-            utils::get_random_array(n, f64::MIN, f64::MAX)
-        }
-
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            let data: &[f64] = &get_array_f64(1025);
-            assert_eq!(data.len() % 2, 1);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [
-                10.,
-                f64::MAX,
-                6.,
-                f64::NEG_INFINITY,
-                f64::NEG_INFINITY,
-                f64::MAX,
-                10_000.0,
-            ];
-            let data: Vec<f64> = data.iter().map(|x| *x).collect();
-            let data: &[f64] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 3);
-            assert_eq!(argmax_index, 1);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
-            assert_eq!(argmin_simd_index, 3);
-            assert_eq!(argmax_simd_index, 1);
-        }
-
-        #[test]
-        fn test_return_infs() {
-            let arr_len: usize = 1027;
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-
-            // Case 1: all elements are +inf
-            for i in 0..data.len() {
-                data[i] = f64::INFINITY;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-
-            // Case 2: all elements are -inf
-            for i in 0..data.len() {
-                data[i] = f64::NEG_INFINITY;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-
-            // Case 3: add some +inf and -inf in the middle
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[100] = f64::INFINITY;
-            data[200] = f64::NEG_INFINITY;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 200);
-            assert_eq!(argmax_index, 100);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 200);
-            assert_eq!(argmax_simd_index, 100);
-        }
-
-        #[test]
-        fn test_ignore_nans() {
-            let arr_len: usize = 1027;
-
-            // Case 1: NaN is the first element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[0] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 0);
-            assert!(argmax_index != 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert!(argmin_simd_index != 0);
-            assert!(argmax_simd_index != 0);
-
-            // Case 2: first 100 elements are NaN
-            for i in 0..100 {
-                data[i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index > 99);
-            assert!(argmax_index > 99);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert!(argmin_simd_index > 99);
-            assert!(argmax_simd_index > 99);
-
-            // Case 3: NaN is the last element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[arr_len - 1] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 1026);
-            assert!(argmax_index != 1026);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert!(argmin_simd_index != 1026);
-            assert!(argmax_simd_index != 1026);
-
-            // Case 4: last 100 elements are NaN
-            for i in 0..100 {
-                data[arr_len - 1 - i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index < arr_len - 100);
-            assert!(argmax_index < arr_len - 100);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert!(argmin_simd_index < arr_len - 100);
-            assert!(argmax_simd_index < arr_len - 100);
-
-            // Case 5: NaN is somewhere in the middle element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[123] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 123);
-            assert!(argmax_index != 123);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert!(argmin_simd_index != 123);
-            assert!(argmax_simd_index != 123);
-
-            // Case 6: all elements are NaN
-            for i in 0..data.len() {
-                data[i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            for _ in 0..10_000 {
-                let data: &[f64] = &get_array_f64(32 * 2 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
-    }
 }
 
-// --------------------------------------- AVX512 ----------------------------------------
+// -------------------------------------- AVX512 ---------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512_ignore_nan {
@@ -604,215 +212,9 @@ mod avx512_ignore_nan {
             Self::_argminmax(data)
         }
     }
-
-    // ------------------------------------ TESTS --------------------------------------
-
-    #[cfg(test)]
-    mod tests {
-        use super::AVX512IgnoreNaN as AVX512;
-        use super::SIMDArgMinMaxIgnoreNaN;
-        use crate::scalar::generic::scalar_argminmax_ignore_nans as scalar_argminmax;
-
-        extern crate dev_utils;
-        use dev_utils::utils;
-
-        fn get_array_f64(n: usize) -> Vec<f64> {
-            utils::get_random_array(n, f64::MIN, f64::MAX)
-        }
-
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx512f") {
-                return;
-            }
-
-            let data: &[f64] = &get_array_f64(1025);
-            assert_eq!(data.len() % 2, 1);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx512f") {
-                return;
-            }
-
-            let data = [
-                10.,
-                f64::MAX,
-                6.,
-                f64::NEG_INFINITY,
-                f64::NEG_INFINITY,
-                f64::MAX,
-                10_000.0,
-            ];
-            let data: Vec<f64> = data.iter().map(|x| *x).collect();
-            let data: &[f64] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 3);
-            assert_eq!(argmax_index, 1);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
-            assert_eq!(argmin_simd_index, 3);
-            assert_eq!(argmax_simd_index, 1);
-        }
-
-        #[test]
-        fn test_return_infs() {
-            if !is_x86_feature_detected!("avx512f") {
-                return;
-            }
-
-            let arr_len: usize = 1027;
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-
-            // Case 1: all elements are +inf
-            for i in 0..data.len() {
-                data[i] = f64::INFINITY;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-
-            // Case 2: all elements are -inf
-            for i in 0..data.len() {
-                data[i] = f64::NEG_INFINITY;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-
-            // Case 3: add some +inf and -inf in the middle
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[100] = f64::INFINITY;
-            data[200] = f64::NEG_INFINITY;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 200);
-            assert_eq!(argmax_index, 100);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 200);
-            assert_eq!(argmax_simd_index, 100);
-        }
-
-        #[test]
-        fn test_ignore_nans() {
-            if !is_x86_feature_detected!("avx512f") {
-                return;
-            }
-
-            let arr_len: usize = 1027;
-
-            // Case 1: NaN is the first element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[0] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 0);
-            assert!(argmax_index != 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert!(argmin_simd_index != 0);
-            assert!(argmax_simd_index != 0);
-
-            // Case 2: first 100 elements are NaN
-            for i in 0..100 {
-                data[i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index > 99);
-            assert!(argmax_index > 99);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert!(argmin_simd_index > 99);
-            assert!(argmax_simd_index > 99);
-
-            // Case 3: NaN is the last element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[arr_len - 1] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 1026);
-            assert!(argmax_index != 1026);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert!(argmin_simd_index != 1026);
-            assert!(argmax_simd_index != 1026);
-
-            // Case 4: last 100 elements are NaN
-            for i in 0..100 {
-                data[arr_len - 1 - i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index < arr_len - 100);
-            assert!(argmax_index < arr_len - 100);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert!(argmin_simd_index < arr_len - 100);
-            assert!(argmax_simd_index < arr_len - 100);
-
-            // Case 5: NaN is somewhere in the middle element
-            let mut data: Vec<f64> = get_array_f64(arr_len);
-            data[123] = f64::NAN;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert!(argmin_index != 123);
-            assert!(argmax_index != 123);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert!(argmin_simd_index != 123);
-            assert!(argmax_simd_index != 123);
-
-            // Case 6: all elements are NaN
-            for i in 0..data.len() {
-                data[i] = f64::NAN;
-            }
-
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            assert_eq!(argmin_index, 0);
-            assert_eq!(argmax_index, 0);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(&data) };
-            assert_eq!(argmin_simd_index, 0);
-            assert_eq!(argmax_simd_index, 0);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx512f") {
-                return;
-            }
-
-            for _ in 0..10_000 {
-                let data: &[f64] = &get_array_f64(32 * 2 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
-    }
 }
 
-// ---------------------------------------- NEON -----------------------------------------
+// --------------------------------------- NEON ----------------------------------------
 
 // There are no NEON intrinsics for f64, so we need to use the scalar version.
 //   although NEON intrinsics exist for i64 and u64, we cannot use them as
@@ -831,4 +233,109 @@ mod neon_ignore_nan {
     // > 64 bit data types.
     unimpl_SIMDOps!(f64, usize, NEONIgnoreNaN);
     unimpl_SIMDArgMinMaxIgnoreNaN!(f64, usize, NEONIgnoreNaN);
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+    use rstest_reuse::{self, *};
+
+    use crate::scalar::generic::scalar_argminmax_ignore_nans as scalar_argminmax;
+    use crate::simd::config::{AVX2IgnoreNaN, AVX512IgnoreNaN, SSEIgnoreNaN};
+    use crate::SIMDArgMinMaxIgnoreNaN; // todo use type-state pattern
+
+    use super::super::test_utils::{
+        test_first_index_identical_values_argminmax, test_long_array_argminmax,
+        test_random_runs_argminmax,
+    };
+    // Float specific tests
+    use super::super::test_utils::{test_ignore_nans_argminmax, test_return_infs_argminmax};
+
+    use dev_utils::utils;
+
+    fn get_array_f64(n: usize) -> Vec<f64> {
+        utils::get_random_array(n, f64::MIN, f64::MAX)
+    }
+
+    // ------------ Template for x86 / x86_64 -------------
+
+    #[template]
+    #[rstest]
+    #[case::sse(SSEIgnoreNaN, is_x86_feature_detected!("sse4.1"))]
+    #[case::avx2(AVX2IgnoreNaN, is_x86_feature_detected!("avx"))]
+    #[case::avx512(AVX512IgnoreNaN, is_x86_feature_detected!("avx512f"))]
+    fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T,
+        #[case] simd_available: bool,
+    ) {
+    }
+
+    // ----------------- The actual tests -----------------
+
+    #[apply(simd_implementations)]
+    fn test_first_index_is_returned_when_identical_values_found<
+        T,
+        SIMDV,
+        SIMDM,
+        const LANE_SIZE: usize,
+    >(
+        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMaxIgnoreNaN<f64, SIMDV, SIMDM, LANE_SIZE>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_first_index_identical_values_argminmax(scalar_argminmax, T::argminmax);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_same_result<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMaxIgnoreNaN<f64, SIMDV, SIMDM, LANE_SIZE>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_long_array_argminmax(get_array_f64, scalar_argminmax, T::argminmax);
+        test_random_runs_argminmax(get_array_f64, scalar_argminmax, T::argminmax);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_infs<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMaxIgnoreNaN<f64, SIMDV, SIMDM, LANE_SIZE>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_return_infs_argminmax(get_array_f64, scalar_argminmax, T::argminmax);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_ignore_nans<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMaxIgnoreNaN<f64, SIMDV, SIMDM, LANE_SIZE>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_ignore_nans_argminmax(get_array_f64, scalar_argminmax, T::argminmax);
+    }
 }

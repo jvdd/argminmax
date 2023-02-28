@@ -11,7 +11,7 @@ use super::generic::{SIMDArgMinMaxIgnoreNaN, SIMDOps, SIMDSetOps};
 #[cfg(feature = "half")]
 use half::f16;
 
-// ------------------------------------------ AVX2 ------------------------------------------
+// --------------------------------------- AVX2 ----------------------------------------
 
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -23,7 +23,7 @@ mod avx2_ignore_nan {
     unimpl_SIMDArgMinMaxIgnoreNaN!(f16, usize, AVX2IgnoreNaN);
 }
 
-// ----------------------------------------- SSE -----------------------------------------
+// ---------------------------------------- SSE ----------------------------------------
 
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -35,7 +35,7 @@ mod sse_ignore_nan {
     unimpl_SIMDArgMinMaxIgnoreNaN!(f16, usize, SSEIgnoreNaN);
 }
 
-// --------------------------------------- AVX512 ----------------------------------------
+// -------------------------------------- AVX512 ---------------------------------------
 
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -47,7 +47,7 @@ mod avx512_ignore_nan {
     unimpl_SIMDArgMinMaxIgnoreNaN!(f16, usize, AVX512IgnoreNaN);
 }
 
-// ---------------------------------------- NEON -----------------------------------------
+// --------------------------------------- NEON ----------------------------------------
 
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
