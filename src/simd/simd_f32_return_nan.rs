@@ -445,7 +445,7 @@ mod tests {
     #[template]
     #[rstest]
     #[case::sse(SSE, is_x86_feature_detected!("sse4.1"))]
-    #[case::avx2(AVX2, is_x86_feature_detected!("avx"))]
+    #[case::avx2(AVX2, is_x86_feature_detected!("avx2"))]
     #[case::avx512(AVX512, is_x86_feature_detected!("avx512f"))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
