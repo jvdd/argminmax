@@ -22,8 +22,9 @@ arrow = { version = ">0", default-features = false, optional = true}
 default = ["half"] # TODO: remove this as default feature as soon as https://github.com/CodSpeedHQ/codspeed-rust/issues/1 is fixed
 
 [dev-dependencies]
-# rstest = { version = "0.16", default-features = false}
-# rstest_reuse = "0.5"
+rstest = { version = "0.16", default-features = false }
+rstest_reuse = { version = "0.5", default-features = false }
+rand = { version = "0.7.2", default-features = false }
 codspeed-criterion-compat = "1.0.1"
 criterion = "0.3.1"
 dev_utils = { path = "dev_utils" }

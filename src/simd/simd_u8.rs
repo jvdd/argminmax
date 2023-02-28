@@ -21,7 +21,7 @@ fn _i8ord_to_u8(ord_i8: i8) -> u8 {
 
 const MAX_INDEX: usize = i8::MAX as usize;
 
-// ------------------------------------------ AVX2 ------------------------------------------
+// --------------------------------------- AVX2 ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
@@ -159,88 +159,9 @@ mod avx2 {
             Self::_argminmax(data)
         }
     }
-
-    // ------------------------------------ TESTS --------------------------------------
-
-    #[cfg(test)]
-    mod tests {
-        use super::{SIMDArgMinMax, AVX2};
-        use crate::scalar::generic::scalar_argminmax;
-
-        extern crate dev_utils;
-        use dev_utils::utils;
-
-        fn get_array_u8(n: usize) -> Vec<u8> {
-            utils::get_random_array(n, u8::MIN, u8::MAX)
-        }
-
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx2") {
-                return;
-            }
-
-            let data: &[u8] = &get_array_u8(65);
-            assert_eq!(data.len() % 16, 1);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (simd_argmin_index, simd_argmax_index) = unsafe { AVX2::argminmax(data) };
-            assert_eq!(argmin_index, simd_argmin_index);
-            assert_eq!(argmax_index, simd_argmax_index);
-        }
-
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx2") {
-                return;
-            }
-
-            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
-            let data: Vec<u8> = data.iter().map(|x| *x).collect();
-            let data: &[u8] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 1);
-            assert_eq!(argmax_index, 6);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
-            assert_eq!(argmin_simd_index, 1);
-            assert_eq!(argmax_simd_index, 6);
-        }
-
-        #[test]
-        fn test_no_overflow() {
-            if !is_x86_feature_detected!("avx2") {
-                return;
-            }
-
-            let n: usize = 1 << 10;
-            let data: &[u8] = &get_array_u8(n);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx2") {
-                return;
-            }
-
-            for _ in 0..10_000 {
-                let data: &[u8] = &get_array_u8(32 * 2 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { AVX2::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
-    }
 }
 
-// ----------------------------------------- SSE -----------------------------------------
+// ---------------------------------------- SSE ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
@@ -373,72 +294,9 @@ mod sse {
             Self::_argminmax(data)
         }
     }
-
-    // ----------------------------------------- TESTS -----------------------------------------
-
-    #[cfg(test)]
-    mod tests {
-        use super::{SIMDArgMinMax, SSE};
-        use crate::scalar::generic::scalar_argminmax;
-
-        extern crate dev_utils;
-        use dev_utils::utils;
-
-        fn get_array_u8(n: usize) -> Vec<u8> {
-            utils::get_random_array(n, u8::MIN, u8::MAX)
-        }
-
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            let data: &[u8] = &get_array_u8(65);
-            assert_eq!(data.len() % 16, 1);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (simd_argmin_index, simd_argmax_index) = unsafe { SSE::argminmax(data) };
-            assert_eq!(argmin_index, simd_argmin_index);
-            assert_eq!(argmax_index, simd_argmax_index);
-        }
-
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
-            let data: Vec<u8> = data.iter().map(|x| *x).collect();
-            let data: &[u8] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 1);
-            assert_eq!(argmax_index, 6);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
-            assert_eq!(argmin_simd_index, 1);
-            assert_eq!(argmax_simd_index, 6);
-        }
-
-        #[test]
-        fn test_no_overflow() {
-            let n: usize = 1 << 10;
-            let data: &[u8] = &get_array_u8(n);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            for _ in 0..10_000 {
-                let data: &[u8] = &get_array_u8(32 * 2 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { SSE::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
-    }
 }
 
-// --------------------------------------- AVX512 ----------------------------------------
+// -------------------------------------- AVX512 ---------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
@@ -582,89 +440,9 @@ mod avx512 {
             Self::_argminmax(data)
         }
     }
-
-    // ----------------------------------------- TESTS -----------------------------------------
-
-    #[cfg(test)]
-
-    mod tests {
-        use super::{SIMDArgMinMax, AVX512};
-        use crate::scalar::generic::scalar_argminmax;
-
-        extern crate dev_utils;
-        use dev_utils::utils;
-
-        fn get_array_u8(n: usize) -> Vec<u8> {
-            utils::get_random_array(n, u8::MIN, u8::MAX)
-        }
-
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            if !is_x86_feature_detected!("avx512bw") {
-                return;
-            }
-
-            let data: &[u8] = &get_array_u8(65);
-            assert_eq!(data.len() % 16, 1);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (simd_argmin_index, simd_argmax_index) = unsafe { AVX512::argminmax(data) };
-            assert_eq!(argmin_index, simd_argmin_index);
-            assert_eq!(argmax_index, simd_argmax_index);
-        }
-
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            if !is_x86_feature_detected!("avx512bw") {
-                return;
-            }
-
-            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
-            let data: Vec<u8> = data.iter().map(|x| *x).collect();
-            let data: &[u8] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 1);
-            assert_eq!(argmax_index, 6);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
-            assert_eq!(argmin_simd_index, 1);
-            assert_eq!(argmax_simd_index, 6);
-        }
-
-        #[test]
-        fn test_no_overflow() {
-            if !is_x86_feature_detected!("avx512bw") {
-                return;
-            }
-
-            let n: usize = 1 << 10;
-            let data: &[u8] = &get_array_u8(n);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            if !is_x86_feature_detected!("avx512bw") {
-                return;
-            }
-
-            for _ in 0..10_000 {
-                let data: &[u8] = &get_array_u8(32 * 4 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { AVX512::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
-    }
 }
 
-// ---------------------------------------- NEON -----------------------------------------
+// --------------------------------------- NEON ----------------------------------------
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
@@ -781,67 +559,124 @@ mod neon {
             Self::_argminmax(data)
         }
     }
+}
 
-    // ----------------------------------------- TESTS -----------------------------------------
+// ======================================= TESTS =======================================
 
-    #[cfg(test)]
-    mod tests {
-        use super::{SIMDArgMinMax, NEON};
-        use crate::scalar::generic::scalar_argminmax;
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "arm",
+    target_arch = "aarch64",
+))]
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+    use rstest_reuse::{self, *};
 
-        extern crate dev_utils;
-        use dev_utils::utils;
+    use crate::scalar::generic::scalar_argminmax;
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    use crate::simd::config::NEON;
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    use crate::simd::config::{AVX2, AVX512, SSE};
+    use crate::SIMDArgMinMax;
 
-        fn get_array_u8(n: usize) -> Vec<u8> {
-            utils::get_random_array(n, u8::MIN, u8::MAX)
+    use super::super::test_utils::{
+        test_long_array_argminmax, test_no_overflow_argminmax, test_random_runs_argminmax,
+    };
+
+    use dev_utils::utils;
+
+    fn get_array_u8(n: usize) -> Vec<u8> {
+        utils::get_random_array(n, u8::MIN, u8::MAX)
+    }
+
+    // ------------ Template for x86 / x86_64 -------------
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[template]
+    #[rstest]
+    #[case::sse(SSE, is_x86_feature_detected!("sse4.1"))]
+    #[case::avx2(AVX2, is_x86_feature_detected!("avx2"))]
+    #[case::avx512(AVX512, is_x86_feature_detected!("avx512bw"))]
+    fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T,
+        #[case] simd_available: bool,
+    ) {
+    }
+
+    // ------------ Template for ARM / AArch64 ------------
+
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[template]
+    #[rstest]
+    #[case::neon(NEON, true)]
+    fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T,
+        #[case] simd_available: bool,
+    ) {
+    }
+
+    // ----------------- The actual tests -----------------
+
+    #[apply(simd_implementations)]
+    fn test_first_index_is_returned_when_identical_values_found<
+        T,
+        SIMDV,
+        SIMDM,
+        const LANE_SIZE: usize,
+    >(
+        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
         }
 
-        #[test]
-        fn test_both_versions_return_the_same_results() {
-            let data: &[u8] = &get_array_u8(513);
-            assert_eq!(data.len() % 16, 1);
+        let data = [u8::MIN, u8::MIN, 4, 6, 9, u8::MAX, 22, u8::MAX];
+        let data: &[u8] = &data;
 
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (simd_argmin_index, simd_argmax_index) = unsafe { NEON::argminmax(data) };
-            assert_eq!(argmin_index, simd_argmin_index);
-            assert_eq!(argmax_index, simd_argmax_index);
+        let (argmin_index, argmax_index) = scalar_argminmax(data);
+        assert_eq!(argmin_index, 0);
+        assert_eq!(argmax_index, 5);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { T::argminmax(data) };
+        assert_eq!(argmin_simd_index, 0);
+        assert_eq!(argmax_simd_index, 5);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_same_result<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
         }
+        test_long_array_argminmax(get_array_u8, scalar_argminmax, T::argminmax);
+        test_random_runs_argminmax(get_array_u8, scalar_argminmax, T::argminmax);
+    }
 
-        #[test]
-        fn test_first_index_is_returned_when_identical_values_found() {
-            let data = [10, u8::MIN, 6, 9, 9, 22, u8::MAX, 4, u8::MAX];
-            let data: Vec<u8> = data.iter().map(|x| *x).collect();
-            let data: &[u8] = &data;
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            assert_eq!(argmin_index, 1);
-            assert_eq!(argmax_index, 6);
-
-            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
-            assert_eq!(argmin_simd_index, 1);
-            assert_eq!(argmax_simd_index, 6);
+    #[apply(simd_implementations)]
+    fn test_no_overflow<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
         }
-
-        #[test]
-        fn test_no_overflow() {
-            let n: usize = 1 << 10;
-            let data: &[u8] = &get_array_u8(n);
-
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
-            assert_eq!(argmin_index, argmin_simd_index);
-            assert_eq!(argmax_index, argmax_simd_index);
-        }
-
-        #[test]
-        fn test_many_random_runs() {
-            for _ in 0..10_000 {
-                let data: &[u8] = &get_array_u8(32 * 2 + 1);
-                let (argmin_index, argmax_index) = scalar_argminmax(data);
-                let (argmin_simd_index, argmax_simd_index) = unsafe { NEON::argminmax(data) };
-                assert_eq!(argmin_index, argmin_simd_index);
-                assert_eq!(argmax_index, argmax_simd_index);
-            }
-        }
+        test_no_overflow_argminmax(get_array_u8, scalar_argminmax, T::argminmax, None);
     }
 }

@@ -82,7 +82,6 @@ mod tests {
 
     use half::f16;
 
-    extern crate dev_utils;
     use dev_utils::utils;
 
     fn get_array_f16(len: usize) -> Vec<f16> {
