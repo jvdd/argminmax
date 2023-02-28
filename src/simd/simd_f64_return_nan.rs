@@ -360,7 +360,10 @@ mod tests {
     use crate::simd::config::{AVX2, AVX512, SSE};
     use crate::SIMDArgMinMax;
 
-    use super::super::test_utils::{test_long_array_argminmax, test_random_runs_argminmax};
+    use super::super::test_utils::{
+        test_first_index_identical_values_argminmax, test_long_array_argminmax,
+        test_random_runs_argminmax,
+    };
     // Float specific tests
     use super::super::test_utils::{test_return_infs_argminmax, test_return_nans_argminmax};
 
@@ -402,25 +405,7 @@ mod tests {
         if !simd_available {
             return;
         }
-
-        let data = [
-            10.,
-            f64::MAX,
-            6.,
-            f64::NEG_INFINITY,
-            f64::NEG_INFINITY,
-            f64::MAX,
-            10_000.0,
-        ];
-        let data: &[f64] = &data;
-
-        let (argmin_index, argmax_index) = scalar_argminmax(data);
-        assert_eq!(argmin_index, 3);
-        assert_eq!(argmax_index, 1);
-
-        let (argmin_simd_index, argmax_simd_index) = unsafe { T::argminmax(data) };
-        assert_eq!(argmin_simd_index, 3);
-        assert_eq!(argmax_simd_index, 1);
+        test_first_index_identical_values_argminmax(scalar_argminmax, T::argminmax);
     }
 
     #[apply(simd_implementations)]

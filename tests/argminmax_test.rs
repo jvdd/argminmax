@@ -41,55 +41,83 @@ where
         .collect::<Vec<T>>()
 }
 
-#[apply(dtypes)]
-fn test_argminmax_slice<T>(#[case] _min: T, #[case] max: T)
-where
-    T: Copy + FromPrimitive + AsPrimitive<usize>,
-    for<'a> &'a [T]: ArgMinMax,
-{
-    // max_index is the max value that can be represented by T
-    let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
-    let data: &[T] = &get_monotonic_array(ARRAY_LENGTH, max_index);
-    // Test slice (aka the base implementation)
-    let (min, max) = data.argminmax();
-    assert_eq!(min, 0);
-    assert_eq!(max, max_index - 1);
-    // Borrowed slice
-    let (min, max) = (&data).argminmax();
-    assert_eq!(min, 0);
-    assert_eq!(max, max_index - 1);
+/// Test the ArgMinMax trait for the default implementations: slice and vec
+#[cfg(test)]
+mod default_test {
+    use super::*;
+
+    #[apply(dtypes)]
+    fn test_argminmax_slice<T>(#[case] _min: T, #[case] max: T)
+    where
+        T: Copy + FromPrimitive + AsPrimitive<usize>,
+        for<'a> &'a [T]: ArgMinMax,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+        let data: &[T] = &get_monotonic_array(ARRAY_LENGTH, max_index);
+        // Test slice (aka the base implementation)
+        let (min, max) = data.argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Borrowed slice
+        let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
+    // TODO: this is currently not supported yet
+    // #[test]
+    // fn test_argminmax_array() {
+    //     // Test array
+    //     let data: [f32; ARRAY_LENGTH] = (0..ARRAY_LENGTH).map(|x| x as f32).collect::<Vec<f32>>().try_into().unwrap();
+    //     let (min, max) = data.argminmax();
+    //     assert_eq!(min, 0);
+    //     assert_eq!(max, ARRAY_LENGTH - 1);
+    // }
+
+    #[apply(dtypes)]
+    fn test_argminmax_vec<T>(#[case] _min: T, #[case] max: T)
+    where
+        T: Copy + FromPrimitive + AsPrimitive<usize>,
+        for<'a> &'a [T]: ArgMinMax,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+        let data: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
+        // Test owned vec
+        let (min, max) = data.argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed vec
+        let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
+    #[apply(dtypes)]
+    fn test_argminmax_many_random_runs_ndarray<T>(#[case] min: T, #[case] max: T)
+    where
+        T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
+        for<'a> &'a [T]: ArgMinMax,
+    {
+        for _ in 0..500 {
+            let data: Vec<T> = utils::get_random_array::<T>(5_000, min, max);
+            // Slice
+            let slice: &[T] = &data;
+            let (min_slice, max_slice) = slice.argminmax();
+            // Vec
+            let (min_vec, max_vec) = data.argminmax();
+
+            // Check
+            assert_eq!(min_slice, min_vec);
+            assert_eq!(max_slice, max_vec);
+        }
+    }
 }
 
-// TODO: this is currently not supported yet
-// #[test]
-// fn test_argminmax_array() {
-//     // Test array
-//     let data: [f32; ARRAY_LENGTH] = (0..ARRAY_LENGTH).map(|x| x as f32).collect::<Vec<f32>>().try_into().unwrap();
-//     let (min, max) = data.argminmax();
-//     assert_eq!(min, 0);
-//     assert_eq!(max, ARRAY_LENGTH - 1);
-// }
-
-#[apply(dtypes)]
-fn test_argminmax_vec<T>(#[case] _min: T, #[case] max: T)
-where
-    T: Copy + FromPrimitive + AsPrimitive<usize>,
-    for<'a> &'a [T]: ArgMinMax,
-{
-    // max_index is the max value that can be represented by T
-    let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
-    let data: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
-    // Test owned vec
-    let (min, max) = data.argminmax();
-    assert_eq!(min, 0);
-    assert_eq!(max, max_index - 1);
-    // Test borrowed vec
-    let (min, max) = (&data).argminmax();
-    assert_eq!(min, 0);
-    assert_eq!(max, max_index - 1);
-}
-
+/// Test the ArgMinMax trait for the ndarray implementation: Array1 and ArrayView1
 #[cfg(feature = "ndarray")]
+#[cfg(test)]
 mod ndarray_tests {
     use super::*;
 

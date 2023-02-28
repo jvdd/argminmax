@@ -301,7 +301,8 @@ mod tests {
     use crate::SIMDArgMinMaxIgnoreNaN; // TODO use type-state pattern
 
     use super::super::test_utils::{
-        test_long_array_argminmax, test_no_overflow_argminmax, test_random_runs_argminmax,
+        test_first_index_identical_values_argminmax, test_long_array_argminmax,
+        test_no_overflow_argminmax, test_random_runs_argminmax,
     };
     // Float specific tests
     use super::super::test_utils::{test_ignore_nans_argminmax, test_return_infs_argminmax};
@@ -357,25 +358,7 @@ mod tests {
         if !simd_available {
             return;
         }
-
-        let data = [
-            10.,
-            f32::MAX,
-            6.,
-            f32::NEG_INFINITY,
-            f32::NEG_INFINITY,
-            f32::MAX,
-            10_000.0,
-        ];
-        let data: &[f32] = &data;
-
-        let (argmin_index, argmax_index) = scalar_argminmax(data);
-        assert_eq!(argmin_index, 3);
-        assert_eq!(argmax_index, 1);
-
-        let (argmin_simd_index, argmax_simd_index) = unsafe { T::argminmax(data) };
-        assert_eq!(argmin_simd_index, 3);
-        assert_eq!(argmax_simd_index, 1);
+        test_first_index_identical_values_argminmax(scalar_argminmax, T::argminmax);
     }
 
     #[apply(simd_implementations)]

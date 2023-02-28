@@ -1,5 +1,5 @@
 use num_traits::AsPrimitive;
-use num_traits::Float;
+use num_traits::{Bounded, Float, One};
 
 // ------- Generic tests for argminmax
 
@@ -51,8 +51,49 @@ pub(crate) fn test_random_runs_argminmax<DType>(
     }
 }
 
+/// Test if the first index is returned when the MIN/MAX value occurs multiple times.
+#[cfg(test)]
+pub(crate) fn test_first_index_identical_values_argminmax<DType>(
+    scalar_f: fn(&[DType]) -> (usize, usize),
+    simd_f: unsafe fn(&[DType]) -> (usize, usize),
+) where
+    DType: Copy + One + Bounded,
+{
+    let mut data: [DType; 64] = [DType::one(); 64]; // multiple of lane size
+
+    // Case 1: all elements are identical
+    let (argmin_index, argmax_index) = scalar_f(&data);
+    assert_eq!(argmin_index, 0);
+    assert_eq!(argmax_index, 0);
+
+    let (argmin_simd_index, argmax_simd_index) = unsafe { simd_f(&data) };
+    assert_eq!(argmin_simd_index, 0);
+    assert_eq!(argmax_simd_index, 0);
+
+    // Case 2: all elements are identical except for a couple of MIN/MAX values
+    // Add multiple MIN values to the array
+    data[5] = DType::min_value();
+    data[13] = DType::min_value();
+    data[41] = DType::min_value();
+
+    // Add multiple MAX values to the array
+    data[7] = DType::max_value();
+    data[17] = DType::max_value();
+    data[31] = DType::max_value();
+
+    let (argmin_index, argmax_index) = scalar_f(&data);
+    assert_eq!(argmin_index, 5);
+    assert_eq!(argmax_index, 7);
+
+    let (argmin_simd_index, argmax_simd_index) = unsafe { simd_f(&data) };
+    assert_eq!(argmin_simd_index, 5);
+    assert_eq!(argmax_simd_index, 7);
+}
+
 // ------- Overflow test
 
+/// Test wheter no overflow occurs when the array is too long.
+/// The array length is 2^(size_of(DType) * 8 + 1), unless `arr_len` is specified.
 #[cfg(test)]
 pub(crate) fn test_no_overflow_argminmax<DType>(
     get_data: fn(usize) -> Vec<DType>,
@@ -76,6 +117,8 @@ pub(crate) fn test_no_overflow_argminmax<DType>(
 #[cfg(test)]
 const FLOAT_ARR_LEN: usize = 1024 + 3;
 
+/// Test whether infinities are handled correctly.
+/// -> infinities should be returned as the argmin/argmax
 #[cfg(test)]
 pub(crate) fn test_return_infs_argminmax<DType>(
     get_data: fn(usize) -> Vec<DType>,
@@ -125,6 +168,7 @@ pub(crate) fn test_return_infs_argminmax<DType>(
     assert_eq!(argmax_simd_index, 100);
 }
 
+/// Test whether NaNs are handled correctly - in this case, they should be ignored.
 #[cfg(test)]
 pub(crate) fn test_ignore_nans_argminmax<DType>(
     get_data: fn(usize) -> Vec<DType>,
@@ -215,6 +259,8 @@ pub(crate) fn test_ignore_nans_argminmax<DType>(
     assert_eq!(argmax_simd_index, 0);
 }
 
+/// Test whether NaNs are handled correctly - in this case, the index of the first NaN
+/// should be returned.
 #[cfg(test)]
 pub(crate) fn test_return_nans_argminmax<DType>(
     get_data: fn(usize) -> Vec<DType>,

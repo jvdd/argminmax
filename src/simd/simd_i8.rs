@@ -524,7 +524,8 @@ mod tests {
     use crate::SIMDArgMinMax;
 
     use super::super::test_utils::{
-        test_long_array_argminmax, test_no_overflow_argminmax, test_random_runs_argminmax,
+        test_first_index_identical_values_argminmax, test_long_array_argminmax,
+        test_no_overflow_argminmax, test_random_runs_argminmax,
     };
 
     use dev_utils::utils;
@@ -578,17 +579,7 @@ mod tests {
         if !simd_available {
             return;
         }
-
-        let data = [i8::MIN, i8::MIN, 4, 6, 9, i8::MAX, 22, i8::MAX];
-        let data: &[i8] = &data;
-
-        let (argmin_index, argmax_index) = scalar_argminmax(data);
-        assert_eq!(argmin_index, 0);
-        assert_eq!(argmax_index, 5);
-
-        let (argmin_simd_index, argmax_simd_index) = unsafe { T::argminmax(data) };
-        assert_eq!(argmin_simd_index, 0);
-        assert_eq!(argmax_simd_index, 5);
+        test_first_index_identical_values_argminmax(scalar_argminmax, T::argminmax);
     }
 
     #[apply(simd_implementations)]
