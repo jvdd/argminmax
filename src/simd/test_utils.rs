@@ -103,7 +103,18 @@ pub(crate) fn test_no_overflow_argminmax<DType>(
 ) where
     DType: Copy + PartialOrd + AsPrimitive<usize>,
 {
-    let arr_len = arr_len.unwrap_or(1 << (std::mem::size_of::<DType>() * 8 + 1));
+    // left shift 1 by the number of bits in DType + 1
+    let shift_size = {
+        #[cfg(target_arch = "arm")] // clip shift size to 31 for armv7 (32-bit usize)
+        {
+            std::cmp::min(std::mem::size_of::<DType>() * 8 + 1, 31)
+        }
+        #[cfg(not(target_arch = "arm"))]
+        {
+            std::mem::size_of::<DType>() * 8 + 1 // #bits + 1
+        }
+    };
+    let arr_len = arr_len.unwrap_or(1 << shift_size);
     let data: &[DType] = &get_data(arr_len);
 
     let (argmin_index, argmax_index) = scalar_f(data);
