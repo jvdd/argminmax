@@ -1,7 +1,5 @@
 #![feature(stdsimd)]
 
-extern crate dev_utils;
-
 use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
@@ -12,175 +10,46 @@ use argminmax::{SIMDArgMinMax, AVX2, AVX512, SSE};
 use argminmax::{SIMDArgMinMax, NEON};
 use argminmax::{ScalarArgMinMax, SCALAR};
 
-fn minmax_u8_random_array_long(c: &mut Criterion) {
+fn argminmax_u8_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data: &[u8] = &utils::get_random_array::<u8>(n, u8::MIN, u8::MAX);
-    c.bench_function("scalar_random_long_u8", |b| {
+    c.bench_function("scalar_u8_argminmax", |b| {
         b.iter(|| SCALAR::argminmax(black_box(data)))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
-        c.bench_function("sse_random_long_u8", |b| {
+        c.bench_function("sse_u8_argminmax", |b| {
             b.iter(|| unsafe { SSE::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
-        c.bench_function("avx2_random_long_u8", |b| {
+        c.bench_function("avx2_u8_argminmax", |b| {
             b.iter(|| unsafe { AVX2::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512bw") {
-        c.bench_function("avx512_random_long_u8", |b| {
+        c.bench_function("avx512_u8_argminmax", |b| {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data)) })
         });
     }
     #[cfg(target_arch = "arm")]
     if std::arch::is_arm_feature_detected!("neon") {
-        c.bench_function("neon_random_long_u8", |b| {
+        c.bench_function("neon_u8_argminmax", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
         });
     }
     #[cfg(target_arch = "aarch64")]
     if std::arch::is_aarch64_feature_detected!("neon") {
-        c.bench_function("neon_random_long_u8", |b| {
+        c.bench_function("neon_u8_argminmax", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
         });
     }
-    c.bench_function("impl_random_long_u8", |b| {
+    c.bench_function("impl_u8_argminmax", |b| {
         b.iter(|| black_box(data.argminmax()))
     });
 }
 
-fn minmax_u8_random_array_short(c: &mut Criterion) {
-    let n = config::ARRAY_LENGTH_SHORT;
-    let data: &[u8] = &utils::get_random_array::<u8>(n, u8::MIN, u8::MAX);
-    c.bench_function("scalar_random_short_u8", |b| {
-        b.iter(|| SCALAR::argminmax(black_box(data)))
-    });
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("sse4.1") {
-        c.bench_function("sse_random_short_u8", |b| {
-            b.iter(|| unsafe { SSE::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx2") {
-        c.bench_function("avx2_random_short_u8", |b| {
-            b.iter(|| unsafe { AVX2::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx512bw") {
-        c.bench_function("avx512_random_short_u8", |b| {
-            b.iter(|| unsafe { AVX512::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(target_arch = "arm")]
-    if std::arch::is_arm_feature_detected!("neon") {
-        c.bench_function("neon_random_short_u8", |b| {
-            b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(target_arch = "aarch64")]
-    if std::arch::is_aarch64_feature_detected!("neon") {
-        c.bench_function("neon_random_short_u8", |b| {
-            b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
-        });
-    }
-    c.bench_function("impl_random_short_u8", |b| {
-        b.iter(|| black_box(data.argminmax()))
-    });
-}
-
-fn minmax_u8_worst_case_array_long(c: &mut Criterion) {
-    let n = config::ARRAY_LENGTH_LONG;
-    let data: &[u8] = &utils::get_worst_case_array::<u8>(n, 1);
-    c.bench_function("scalar_worst_long_u8", |b| {
-        b.iter(|| SCALAR::argminmax(black_box(data)))
-    });
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("sse4.1") {
-        c.bench_function("sse_worst_long_u8", |b| {
-            b.iter(|| unsafe { SSE::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx2") {
-        c.bench_function("avx2_worst_long_u8", |b| {
-            b.iter(|| unsafe { AVX2::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx512bw") {
-        c.bench_function("avx512_worst_long_u8", |b| {
-            b.iter(|| unsafe { AVX512::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(target_arch = "arm")]
-    if std::arch::is_arm_feature_detected!("neon") {
-        c.bench_function("neon_worst_long_u8", |b| {
-            b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(target_arch = "aarch64")]
-    if std::arch::is_aarch64_feature_detected!("neon") {
-        c.bench_function("neon_worst_long_u8", |b| {
-            b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
-        });
-    }
-    c.bench_function("impl_worst_long_u8", |b| {
-        b.iter(|| black_box(data.argminmax()))
-    });
-}
-
-fn minmax_u8_worst_case_array_short(c: &mut Criterion) {
-    let n = config::ARRAY_LENGTH_SHORT;
-    let data: &[u8] = &utils::get_worst_case_array::<u8>(n, 1);
-    c.bench_function("scalar_worst_short_u8", |b| {
-        b.iter(|| SCALAR::argminmax(black_box(data)))
-    });
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("sse4.1") {
-        c.bench_function("sse_worst_short_u8", |b| {
-            b.iter(|| unsafe { SSE::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx2") {
-        c.bench_function("avx2_worst_short_u8", |b| {
-            b.iter(|| unsafe { AVX2::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx512bw") {
-        c.bench_function("avx512_worst_short_u8", |b| {
-            b.iter(|| unsafe { AVX512::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(target_arch = "arm")]
-    if std::arch::is_arm_feature_detected!("neon") {
-        c.bench_function("neon_worst_short_u8", |b| {
-            b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
-        });
-    }
-    #[cfg(target_arch = "aarch64")]
-    if std::arch::is_aarch64_feature_detected!("neon") {
-        c.bench_function("neon_worst_short_u8", |b| {
-            b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
-        });
-    }
-    c.bench_function("impl_worst_short_u8", |b| {
-        b.iter(|| black_box(data.argminmax()))
-    });
-}
-
-criterion_group!(
-    benches,
-    minmax_u8_random_array_long,
-    // minmax_u8_random_array_short,
-    // minmax_u8_worst_case_array_long,
-    // minmax_u8_worst_case_array_short
-);
+criterion_group!(benches, argminmax_u8_random_array_long,);
 criterion_main!(benches);

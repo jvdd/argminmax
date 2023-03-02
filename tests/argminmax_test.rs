@@ -4,7 +4,7 @@ use rstest::rstest;
 use rstest_reuse::{self, *};
 
 use dev_utils::utils;
-extern crate rand;
+use rand;
 
 const ARRAY_LENGTH: usize = 100_000;
 
