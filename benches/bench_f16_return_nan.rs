@@ -34,50 +34,51 @@ fn get_random_f16_array(n: usize) -> Vec<f16> {
     data
 }
 
-// TODO: rename _random_long_ to _nanargminmax_
+// _rn stands for "return nan"
+
 #[cfg(feature = "half")]
-fn nanargminmax_f16_random_array_long(c: &mut Criterion) {
+fn argminmax_rn_f16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data: &[f16] = &get_random_f16_array(n);
-    c.bench_function("scalar_random_long_f16", |b| {
+    c.bench_function("scalar_argminmax_rn_f16", |b| {
         b.iter(|| SCALAR::argminmax(black_box(data)))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
-        c.bench_function("sse_random_long_f16", |b| {
+        c.bench_function("sse_argminmax_rn_f16", |b| {
             b.iter(|| unsafe { SSE::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
-        c.bench_function("avx2_random_long_f16", |b| {
+        c.bench_function("avx2_argminmax_rn_f16", |b| {
             b.iter(|| unsafe { AVX2::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512bw") {
-        c.bench_function("avx512_random_long_f16", |b| {
+        c.bench_function("avx512_argminmax_rn_f16", |b| {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data)) })
         });
     }
     #[cfg(target_arch = "arm")]
     if std::arch::is_arm_feature_detected!("neon") {
-        c.bench_function("neon_random_long_f16", |b| {
+        c.bench_function("neon_argminmax_rn_f16", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
         });
     }
     #[cfg(target_arch = "aarch64")]
     if std::arch::is_aarch64_feature_detected!("neon") {
-        c.bench_function("neon_random_long_f16", |b| {
+        c.bench_function("neon_argminmax_rn_f16", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
         });
     }
-    c.bench_function("impl_random_long_f16", |b| {
+    c.bench_function("impl_argminmax_rn_f16", |b| {
         b.iter(|| black_box(data.nanargminmax()))
     });
 }
 
 #[cfg(feature = "half")]
-criterion_group!(benches, nanargminmax_f16_random_array_long,);
+criterion_group!(benches, argminmax_rn_f16_random_array_long,);
 #[cfg(feature = "half")]
 criterion_main!(benches);
