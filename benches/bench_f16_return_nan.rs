@@ -1,7 +1,5 @@
 #![feature(stdsimd)]
 
-extern crate dev_utils;
-
 #[cfg(feature = "half")]
 use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;

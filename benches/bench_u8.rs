@@ -1,7 +1,5 @@
 #![feature(stdsimd)]
 
-extern crate dev_utils;
-
 use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
