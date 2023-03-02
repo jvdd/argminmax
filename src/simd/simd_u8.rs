@@ -1,3 +1,15 @@
+/// Implementation of the argminmax operations for u8.
+/// As there are no SIMD instructions for uints (on x86 & x86_64) we transform the u8
+/// values to i8 ordinal values:
+///     ord_i8 = v ^ -0x80
+///
+/// This transformation is a bijection, i.e. it is reversible:
+///     v = ord_i8 ^ -0x80
+///
+/// Through this transformation we can perform the argminmax operations using SIMD on
+/// the ordinal integer values and then transform the result back to the original u8
+/// values.
+///
 use super::config::SIMDInstructionSet;
 use super::generic::{SIMDArgMinMax, SIMDOps};
 #[cfg(target_arch = "aarch64")]
