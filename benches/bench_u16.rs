@@ -15,40 +15,40 @@ use argminmax::{ScalarArgMinMax, SCALAR};
 fn argminmax_u16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data: &[u16] = &utils::get_random_array::<u16>(n, u16::MIN, u16::MAX);
-    c.bench_function("scalar_argminmax_u16", |b| {
+    c.bench_function("scalar_u16_argminmax", |b| {
         b.iter(|| SCALAR::argminmax(black_box(data)))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
-        c.bench_function("sse_argminmax_u16", |b| {
+        c.bench_function("sse_u16_argminmax", |b| {
             b.iter(|| unsafe { SSE::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx2") {
-        c.bench_function("avx2_argminmax_u16", |b| {
+        c.bench_function("avx2_u16_argminmax", |b| {
             b.iter(|| unsafe { AVX2::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512bw") {
-        c.bench_function("avx512_argminmax_u16", |b| {
+        c.bench_function("avx512_u16_argminmax", |b| {
             b.iter(|| unsafe { AVX512::argminmax(black_box(data)) })
         });
     }
     #[cfg(target_arch = "arm")]
     if std::arch::is_arm_feature_detected!("neon") {
-        c.bench_function("neon_argminmax_u16", |b| {
+        c.bench_function("neon_u16_argminmax", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
         });
     }
     #[cfg(target_arch = "aarch64")]
     if std::arch::is_aarch64_feature_detected!("neon") {
-        c.bench_function("neon_argminmax_u16", |b| {
+        c.bench_function("neon_u16_argminmax", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
         });
     }
-    c.bench_function("impl_argminmax_u16", |b| {
+    c.bench_function("impl_u16_argminmax", |b| {
         b.iter(|| black_box(data.argminmax()))
     });
 }
