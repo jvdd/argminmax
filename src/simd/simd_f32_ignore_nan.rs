@@ -12,7 +12,8 @@
 /// are added to the accumulating SIMD register.
 ///
 use super::config::SIMDInstructionSet;
-use super::generic::{SIMDArgMinMaxIgnoreNaN, SIMDOps, SIMDSetOps};
+use super::generic::{impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps};
+use crate::SCALARIgnoreNaN;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -22,6 +23,9 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+/// The dtype-strategy for performing operations on f32 data: ignore NaN values
+use super::super::dtype_strategy::FloatIgnoreNaN;
+
 // https://stackoverflow.com/a/3793950
 const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
@@ -29,12 +33,12 @@ const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx_ignore_nan {
-    use super::super::config::{AVX2IgnoreNaN, AVX2};
+    use super::super::config::AVX2;
     use super::*;
 
-    const LANE_SIZE: usize = AVX2::LANE_SIZE_32;
+    const LANE_SIZE: usize = AVX2::<FloatIgnoreNaN>::LANE_SIZE_32;
 
-    impl SIMDOps<f32, __m256, __m256, LANE_SIZE> for AVX2IgnoreNaN {
+    impl SIMDOps<f32, __m256, __m256, LANE_SIZE> for AVX2<FloatIgnoreNaN> {
         const INITIAL_INDEX: __m256 = unsafe {
             std::mem::transmute([
                 0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32,
@@ -73,16 +77,18 @@ mod avx_ignore_nan {
         unsafe fn _mm_blendv(a: __m256, b: __m256, mask: __m256) -> __m256 {
             _mm256_blendv_ps(a, b, mask)
         }
-    }
 
-    impl SIMDSetOps<f32, __m256> for AVX2IgnoreNaN {
+        // --- Necessary for impl_SIMDInit_FloatIgnoreNaN
+
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> __m256 {
             _mm256_set1_ps(a)
         }
     }
 
-    impl SIMDArgMinMaxIgnoreNaN<f32, __m256, __m256, LANE_SIZE> for AVX2IgnoreNaN {
+    impl_SIMDInit_FloatIgnoreNaN!(f32, __m256, __m256, LANE_SIZE, AVX2<FloatIgnoreNaN>);
+
+    impl SIMDArgMinMax<f32, __m256, __m256, LANE_SIZE, SCALARIgnoreNaN> for AVX2<FloatIgnoreNaN> {
         #[target_feature(enable = "avx")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -94,12 +100,12 @@ mod avx_ignore_nan {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse_ignore_nan {
-    use super::super::config::{SSEIgnoreNaN, SSE};
+    use super::super::config::SSE;
     use super::*;
 
-    const LANE_SIZE: usize = SSE::LANE_SIZE_32;
+    const LANE_SIZE: usize = SSE::<FloatIgnoreNaN>::LANE_SIZE_32;
 
-    impl SIMDOps<f32, __m128, __m128, LANE_SIZE> for SSEIgnoreNaN {
+    impl SIMDOps<f32, __m128, __m128, LANE_SIZE> for SSE<FloatIgnoreNaN> {
         const INITIAL_INDEX: __m128 =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
         const INDEX_INCREMENT: __m128 =
@@ -135,16 +141,18 @@ mod sse_ignore_nan {
         unsafe fn _mm_blendv(a: __m128, b: __m128, mask: __m128) -> __m128 {
             _mm_blendv_ps(a, b, mask)
         }
-    }
 
-    impl SIMDSetOps<f32, __m128> for SSEIgnoreNaN {
+        // --- Necessary for impl_SIMDInit_FloatIgnoreNaN!
+
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> __m128 {
             _mm_set1_ps(a)
         }
     }
 
-    impl SIMDArgMinMaxIgnoreNaN<f32, __m128, __m128, LANE_SIZE> for SSEIgnoreNaN {
+    impl_SIMDInit_FloatIgnoreNaN!(f32, __m128, __m128, LANE_SIZE, SSE<FloatIgnoreNaN>);
+
+    impl SIMDArgMinMax<f32, __m128, __m128, LANE_SIZE, SCALARIgnoreNaN> for SSE<FloatIgnoreNaN> {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -156,12 +164,12 @@ mod sse_ignore_nan {
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512_ignore_nan {
-    use super::super::config::{AVX512IgnoreNaN, AVX512};
+    use super::super::config::AVX512;
     use super::*;
 
-    const LANE_SIZE: usize = AVX512::LANE_SIZE_32;
+    const LANE_SIZE: usize = AVX512::<FloatIgnoreNaN>::LANE_SIZE_32;
 
-    impl SIMDOps<f32, __m512, u16, LANE_SIZE> for AVX512IgnoreNaN {
+    impl SIMDOps<f32, __m512, u16, LANE_SIZE> for AVX512<FloatIgnoreNaN> {
         const INITIAL_INDEX: __m512 = unsafe {
             std::mem::transmute([
                 0.0f32, 1.0f32, 2.0f32, 3.0f32, 4.0f32, 5.0f32, 6.0f32, 7.0f32, 8.0f32, 9.0f32,
@@ -201,16 +209,18 @@ mod avx512_ignore_nan {
         unsafe fn _mm_blendv(a: __m512, b: __m512, mask: u16) -> __m512 {
             _mm512_mask_blend_ps(mask, a, b)
         }
-    }
 
-    impl SIMDSetOps<f32, __m512> for AVX512IgnoreNaN {
+        // --- Necessary for impl_SIMDInit_FloatIgnoreNaN
+
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> __m512 {
             _mm512_set1_ps(a)
         }
     }
 
-    impl SIMDArgMinMaxIgnoreNaN<f32, __m512, u16, LANE_SIZE> for AVX512IgnoreNaN {
+    impl_SIMDInit_FloatIgnoreNaN!(f32, __m512, u16, LANE_SIZE, AVX512<FloatIgnoreNaN>);
+
+    impl SIMDArgMinMax<f32, __m512, u16, LANE_SIZE, SCALARIgnoreNaN> for AVX512<FloatIgnoreNaN> {
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -222,12 +232,12 @@ mod avx512_ignore_nan {
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon_ignore_nan {
-    use super::super::config::{NEONIgnoreNaN, NEON};
+    use super::super::config::NEON;
     use super::*;
 
-    const LANE_SIZE: usize = NEON::LANE_SIZE_32;
+    const LANE_SIZE: usize = NEON::<FloatIgnoreNaN>::LANE_SIZE_32;
 
-    impl SIMDOps<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONIgnoreNaN {
+    impl SIMDOps<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEON<FloatIgnoreNaN> {
         const INITIAL_INDEX: float32x4_t =
             unsafe { std::mem::transmute([0.0f32, 1.0f32, 2.0f32, 3.0f32]) };
         const INDEX_INCREMENT: float32x4_t =
@@ -263,16 +273,26 @@ mod neon_ignore_nan {
         unsafe fn _mm_blendv(a: float32x4_t, b: float32x4_t, mask: uint32x4_t) -> float32x4_t {
             vbslq_f32(mask, b, a)
         }
-    }
 
-    impl SIMDSetOps<f32, float32x4_t> for NEONIgnoreNaN {
+        // --- Necessary for impl_SIMDInit_FloatIgnoreNaN
+
         #[inline(always)]
         unsafe fn _mm_set1(a: f32) -> float32x4_t {
             vdupq_n_f32(a)
         }
     }
 
-    impl SIMDArgMinMaxIgnoreNaN<f32, float32x4_t, uint32x4_t, LANE_SIZE> for NEONIgnoreNaN {
+    impl_SIMDInit_FloatIgnoreNaN!(
+        f32,
+        float32x4_t,
+        uint32x4_t,
+        LANE_SIZE,
+        NEON<FloatIgnoreNaN>
+    );
+
+    impl SIMDArgMinMax<f32, float32x4_t, uint32x4_t, LANE_SIZE, SCALARIgnoreNaN>
+        for NEON<FloatIgnoreNaN>
+    {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -295,10 +315,10 @@ mod tests {
 
     use crate::scalar::generic::scalar_argminmax_ignore_nans as scalar_argminmax;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-    use crate::simd::config::NEONIgnoreNaN;
+    use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    use crate::simd::config::{AVX2IgnoreNaN, AVX512IgnoreNaN, SSEIgnoreNaN};
-    use crate::SIMDArgMinMaxIgnoreNaN; // TODO use type-state pattern
+    use crate::simd::config::{AVX2, AVX512, SSE};
+    use crate::{FloatIgnoreNaN, SCALARIgnoreNaN, SIMDArgMinMax};
 
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_long_array_argminmax,
@@ -318,9 +338,10 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[template]
     #[rstest]
-    #[case::sse(SSEIgnoreNaN, is_x86_feature_detected!("sse4.1"))]
-    #[case::avx2(AVX2IgnoreNaN, is_x86_feature_detected!("avx"))]
-    #[case::avx512(AVX512IgnoreNaN, is_x86_feature_detected!("avx512f"))]
+    #[case::sse(SSE {_dtype_strategy: FloatIgnoreNaN}, is_x86_feature_detected!("sse4.1"))]
+    #[case::avx2(AVX2 {_dtype_strategy: FloatIgnoreNaN}, is_x86_feature_detected!("avx"))]
+    #[case::avx512(AVX512 {_dtype_strategy: FloatIgnoreNaN}, is_x86_feature_detected!("avx512f"))]
+
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
         #[case] simd_available: bool,
@@ -332,7 +353,7 @@ mod tests {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     #[template]
     #[rstest]
-    #[case::neon(NEONIgnoreNaN, true)]
+    #[case::neon(NEON {_dtype_strategy: FloatIgnoreNaN}, true)]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
         #[case] simd_available: bool,
@@ -351,7 +372,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMaxIgnoreNaN<f32, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -366,7 +387,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMaxIgnoreNaN<f32, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -382,7 +403,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMaxIgnoreNaN<f32, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -397,7 +418,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMaxIgnoreNaN<f32, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -412,7 +433,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMaxIgnoreNaN<f32, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
         SIMDV: Copy,
         SIMDM: Copy,
     {

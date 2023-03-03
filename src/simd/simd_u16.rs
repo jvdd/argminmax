@@ -11,7 +11,8 @@
 /// values.
 ///
 use super::config::SIMDInstructionSet;
-use super::generic::{SIMDArgMinMax, SIMDOps};
+use super::generic::{impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDOps};
+use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -20,6 +21,9 @@ use std::arch::arm::*;
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
+
+/// The dtype-strategy for performing operations on u16 data: (default) Int
+use super::super::dtype_strategy::Int;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const XOR_VALUE: i16 = -0x8000; // i16::MIN
@@ -40,7 +44,7 @@ mod avx2 {
     use super::super::config::AVX2;
     use super::*;
 
-    const LANE_SIZE: usize = AVX2::LANE_SIZE_16;
+    const LANE_SIZE: usize = AVX2::<Int>::LANE_SIZE_16;
     const XOR_MASK: __m256i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
@@ -55,7 +59,7 @@ mod avx2 {
         std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<u16, __m256i, __m256i, LANE_SIZE> for AVX2 {
+    impl SIMDOps<u16, __m256i, __m256i, LANE_SIZE> for AVX2<Int> {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -160,7 +164,9 @@ mod avx2 {
         }
     }
 
-    impl SIMDArgMinMax<u16, __m256i, __m256i, LANE_SIZE> for AVX2 {
+    impl_SIMDInit_Int!(u16, __m256i, __m256i, LANE_SIZE, AVX2<Int>);
+
+    impl SIMDArgMinMax<u16, __m256i, __m256i, LANE_SIZE, SCALAR> for AVX2<Int> {
         #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: &[u16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -175,7 +181,7 @@ mod sse {
     use super::super::config::SSE;
     use super::*;
 
-    const LANE_SIZE: usize = SSE::LANE_SIZE_16;
+    const LANE_SIZE: usize = SSE::<Int>::LANE_SIZE_16;
     const XOR_MASK: __m128i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
@@ -190,7 +196,7 @@ mod sse {
         std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<u16, __m128i, __m128i, LANE_SIZE> for SSE {
+    impl SIMDOps<u16, __m128i, __m128i, LANE_SIZE> for SSE<Int> {
         const INITIAL_INDEX: __m128i =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: __m128i =
@@ -287,7 +293,9 @@ mod sse {
         }
     }
 
-    impl SIMDArgMinMax<u16, __m128i, __m128i, LANE_SIZE> for SSE {
+    impl_SIMDInit_Int!(u16, __m128i, __m128i, LANE_SIZE, SSE<Int>);
+
+    impl SIMDArgMinMax<u16, __m128i, __m128i, LANE_SIZE, SCALAR> for SSE<Int> {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[u16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -302,7 +310,7 @@ mod avx512 {
     use super::super::config::AVX512;
     use super::*;
 
-    const LANE_SIZE: usize = AVX512::LANE_SIZE_16;
+    const LANE_SIZE: usize = AVX512::<Int>::LANE_SIZE_16;
     const XOR_MASK: __m512i = unsafe { std::mem::transmute([XOR_VALUE; LANE_SIZE]) };
 
     #[inline(always)]
@@ -317,7 +325,7 @@ mod avx512 {
         std::mem::transmute::<__m512i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<u16, __m512i, u32, LANE_SIZE> for AVX512 {
+    impl SIMDOps<u16, __m512i, u32, LANE_SIZE> for AVX512<Int> {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -427,7 +435,9 @@ mod avx512 {
         }
     }
 
-    impl SIMDArgMinMax<u16, __m512i, u32, LANE_SIZE> for AVX512 {
+    impl_SIMDInit_Int!(u16, __m512i, u32, LANE_SIZE, AVX512<Int>);
+
+    impl SIMDArgMinMax<u16, __m512i, u32, LANE_SIZE, SCALAR> for AVX512<Int> {
         #[target_feature(enable = "avx512bw")]
         unsafe fn argminmax(data: &[u16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -442,9 +452,9 @@ mod neon {
     use super::super::config::NEON;
     use super::*;
 
-    const LANE_SIZE: usize = NEON::LANE_SIZE_16;
+    const LANE_SIZE: usize = NEON::<Int>::LANE_SIZE_16;
 
-    impl SIMDOps<u16, uint16x8_t, uint16x8_t, LANE_SIZE> for NEON {
+    impl SIMDOps<u16, uint16x8_t, uint16x8_t, LANE_SIZE> for NEON<Int> {
         const INITIAL_INDEX: uint16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: uint16x8_t =
@@ -538,7 +548,9 @@ mod neon {
         }
     }
 
-    impl SIMDArgMinMax<u16, uint16x8_t, uint16x8_t, LANE_SIZE> for NEON {
+    impl_SIMDInit_Int!(u16, uint16x8_t, uint16x8_t, LANE_SIZE, NEON<Int>);
+
+    impl SIMDArgMinMax<u16, uint16x8_t, uint16x8_t, LANE_SIZE, SCALAR> for NEON<Int> {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[u16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -564,7 +576,7 @@ mod tests {
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, AVX512, SSE};
-    use crate::SIMDArgMinMax;
+    use crate::{Int, SIMDArgMinMax, SCALAR};
 
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_long_array_argminmax,
@@ -582,9 +594,9 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[template]
     #[rstest]
-    #[case::sse(SSE, is_x86_feature_detected!("sse4.1"))]
-    #[case::avx2(AVX2, is_x86_feature_detected!("avx2"))]
-    #[case::avx512(AVX512, is_x86_feature_detected!("avx512bw"))]
+    #[case::sse(SSE {_dtype_strategy: Int}, is_x86_feature_detected!("sse4.1"))]
+    #[case::avx2(AVX2 {_dtype_strategy: Int}, is_x86_feature_detected!("avx2"))]
+    #[case::avx512(AVX512 {_dtype_strategy: Int}, is_x86_feature_detected!("avx512bw"))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
         #[case] simd_available: bool,
@@ -596,7 +608,7 @@ mod tests {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     #[template]
     #[rstest]
-    #[case::neon(NEON, true)]
+    #[case::neon(NEON {_dtype_strategy: Int}, true)]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
         #[case] simd_available: bool,
@@ -615,7 +627,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<u16, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<u16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -630,7 +642,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<u16, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<u16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -646,7 +658,7 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<u16, SIMDV, SIMDM, LANE_SIZE>,
+        T: SIMDArgMinMax<u16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
