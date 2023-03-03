@@ -5,7 +5,7 @@ use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use argminmax::{AVX2IgnoreNaN, AVX512IgnoreNaN, SIMDArgMinMaxIgnoreNaN, SSEIgnoreNaN};
+use argminmax::{FloatIgnoreNaN, SIMDArgMinMax, AVX2, AVX512, SSE};
 use argminmax::{SCALARIgnoreNaN, ScalarArgMinMax};
 
 // _in stands for "ignore nan"
@@ -19,19 +19,19 @@ fn argminmax_in_f64_random_array_long(c: &mut Criterion) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {
         c.bench_function("sse_f64_argminmax_in", |b| {
-            b.iter(|| unsafe { SSEIgnoreNaN::argminmax(black_box(data)) })
+            b.iter(|| unsafe { SSE::<FloatIgnoreNaN>::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx") {
         c.bench_function("avx_f64_argminmax_in", |b| {
-            b.iter(|| unsafe { AVX2IgnoreNaN::argminmax(black_box(data)) })
+            b.iter(|| unsafe { AVX2::<FloatIgnoreNaN>::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("avx512f") {
         c.bench_function("avx512_f64_argminmax_in", |b| {
-            b.iter(|| unsafe { AVX512IgnoreNaN::argminmax(black_box(data)) })
+            b.iter(|| unsafe { AVX512::<FloatIgnoreNaN>::argminmax(black_box(data)) })
         });
     }
     c.bench_function("impl_f64_argminmax_in", |b| {

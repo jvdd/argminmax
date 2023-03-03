@@ -14,8 +14,8 @@ mod dtype_strategy;
 mod scalar;
 mod simd;
 
-pub(crate) use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN, Int};
-pub use scalar::{SCALARIgnoreNaN, ScalarArgMinMax, SCALAR};
+pub use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN, Int};
+pub use scalar::{SCALARIgnoreNaN, ScalarArgMinMax, SCALAR}; // TODO: use typestate pattern
 pub use simd::{SIMDArgMinMax, AVX2, AVX512, NEON, SSE};
 
 #[cfg(feature = "half")]
