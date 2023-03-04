@@ -40,7 +40,7 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
 /// See the impl_scalar! macro below for the implementation of the ScalarArgMinMax trait
 ///
 pub struct SCALAR<DTypeStrategy> {
-    _phantom: std::marker::PhantomData<DTypeStrategy>,
+    pub(crate) _dtype_strategy: std::marker::PhantomData<DTypeStrategy>,
 }
 
 /// ------- Implement the SCALARInit trait for the different DTypeStrategy -------
