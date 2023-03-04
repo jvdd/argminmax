@@ -4,23 +4,29 @@
 // #[cfg(feature = "half")]
 // use super::config::SIMDInstructionSet;
 #[cfg(feature = "half")]
-use super::generic::{unimpl_SIMDArgMinMaxIgnoreNaN, unimpl_SIMDOps};
+use super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDInit, unimpl_SIMDOps};
 #[cfg(feature = "half")]
-use super::generic::{SIMDArgMinMaxIgnoreNaN, SIMDOps, SIMDSetOps};
+use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
+#[cfg(feature = "half")]
+use crate::SCALAR;
 
 #[cfg(feature = "half")]
 use half::f16;
+
+/// The dtype-strategy for performing operations on f16 data: ignore NaN values
+use super::super::dtype_strategy::FloatIgnoreNaN;
 
 // --------------------------------------- AVX2 ----------------------------------------
 
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2_ignore_nan {
-    use super::super::config::AVX2IgnoreNaN;
+    use super::super::config::AVX2;
     use super::*;
 
-    unimpl_SIMDOps!(f16, usize, AVX2IgnoreNaN);
-    unimpl_SIMDArgMinMaxIgnoreNaN!(f16, usize, AVX2IgnoreNaN);
+    unimpl_SIMDOps!(f16, usize, AVX2<FloatIgnoreNaN>);
+    unimpl_SIMDInit!(f16, usize, AVX2<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, AVX2<FloatIgnoreNaN>);
 }
 
 // ---------------------------------------- SSE ----------------------------------------
@@ -28,11 +34,12 @@ mod avx2_ignore_nan {
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse_ignore_nan {
-    use super::super::config::SSEIgnoreNaN;
+    use super::super::config::SSE;
     use super::*;
 
-    unimpl_SIMDOps!(f16, usize, SSEIgnoreNaN);
-    unimpl_SIMDArgMinMaxIgnoreNaN!(f16, usize, SSEIgnoreNaN);
+    unimpl_SIMDOps!(f16, usize, SSE<FloatIgnoreNaN>);
+    unimpl_SIMDInit!(f16, usize, SSE<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, SSE<FloatIgnoreNaN>);
 }
 
 // -------------------------------------- AVX512 ---------------------------------------
@@ -40,11 +47,12 @@ mod sse_ignore_nan {
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512_ignore_nan {
-    use super::super::config::AVX512IgnoreNaN;
+    use super::super::config::AVX512;
     use super::*;
 
-    unimpl_SIMDOps!(f16, usize, AVX512IgnoreNaN);
-    unimpl_SIMDArgMinMaxIgnoreNaN!(f16, usize, AVX512IgnoreNaN);
+    unimpl_SIMDOps!(f16, usize, AVX512<FloatIgnoreNaN>);
+    unimpl_SIMDInit!(f16, usize, AVX512<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, AVX512<FloatIgnoreNaN>);
 }
 
 // --------------------------------------- NEON ----------------------------------------
@@ -52,9 +60,10 @@ mod avx512_ignore_nan {
 #[cfg(feature = "half")]
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon_ignore_nan {
-    use super::super::config::NEONIgnoreNaN;
+    use super::super::config::NEON;
     use super::*;
 
-    unimpl_SIMDOps!(f16, usize, NEONIgnoreNaN);
-    unimpl_SIMDArgMinMaxIgnoreNaN!(f16, usize, NEONIgnoreNaN);
+    unimpl_SIMDOps!(f16, usize, NEON<FloatIgnoreNaN>);
+    unimpl_SIMDInit!(f16, usize, NEON<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, NEON<FloatIgnoreNaN>);
 }

@@ -1,4 +1,4 @@
-pub(crate) mod generic;
-pub use generic::*;
+mod generic;
+pub use generic::{ScalarArgMinMax, SCALAR};
 // Data type specific modules
-pub(crate) mod scalar_f16;
+mod scalar_f16;

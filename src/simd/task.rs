@@ -5,8 +5,9 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: &[T],
     lane_size: usize,
     core_argminmax: unsafe fn(&[T]) -> (usize, T, usize, T),
-    ignore_nan: bool, // if false, NaNs will be returned
     scalar_argminmax: fn(&[T]) -> (usize, usize),
+    nan_check: fn(T) -> bool, // returns true if value is NaN
+    ignore_nan: bool,         // if false, NaNs will be returned
 ) -> (usize, usize) {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
     match split_array(arr, lane_size) {
@@ -26,18 +27,24 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
             let (min_index, min_value) = find_final_index_min(
                 (simd_result.0, simd_result.1),
                 (rem_result.0, rem_result.1),
+                nan_check,
                 ignore_nan,
             );
             let (max_index, max_value) = find_final_index_max(
                 (simd_result.2, simd_result.3),
                 (rem_result.2, rem_result.3),
+                nan_check,
                 ignore_nan,
             );
-            get_correct_argminmax_result(min_index, min_value, max_index, max_value, ignore_nan)
+            get_correct_argminmax_result(
+                min_index, min_value, max_index, max_value, nan_check, ignore_nan,
+            )
         }
         (Some(simd_arr), None) => {
             let (min_index, min_value, max_index, max_value) = unsafe { core_argminmax(simd_arr) };
-            get_correct_argminmax_result(min_index, min_value, max_index, max_value, ignore_nan)
+            get_correct_argminmax_result(
+                min_index, min_value, max_index, max_value, nan_check, ignore_nan,
+            )
         }
         (None, Some(rem)) => {
             let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
@@ -80,6 +87,7 @@ fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[
 fn find_final_index_min<T: Copy + PartialOrd>(
     simd_result: (usize, T),
     remainder_result: (usize, T),
+    nan_check: fn(T) -> bool,
     ignore_nan: bool,
 ) -> (usize, T) {
     let (min_index, min_value) = match simd_result.1.partial_cmp(&remainder_result.1) {
@@ -89,21 +97,18 @@ fn find_final_index_min<T: Copy + PartialOrd>(
         None => {
             if !ignore_nan {
                 // --- Return NaNs
-                // Should prefer the simd result over the remainder result if both are
-                // NaN
-                if simd_result.1 != simd_result.1 {
-                    // because NaN != NaN
+                // Should prefer simd result over remainder result if both are NaN
+                if nan_check(simd_result.1) {
                     simd_result
                 } else {
                     remainder_result
                 }
             } else {
                 // --- Ignore NaNs
-                // If both are NaN raise panic, otherwise return the index of the
-                // non-NaN value
-                if simd_result.1 != simd_result.1 && remainder_result.1 != remainder_result.1 {
+                // If both are NaN raise panic, else return index of the non-NaN value
+                if nan_check(simd_result.1) && nan_check(remainder_result.1) {
                     panic!("Data contains only NaNs (or +/- inf)")
-                } else if remainder_result.1 != remainder_result.1 {
+                } else if nan_check(remainder_result.1) {
                     simd_result
                 } else {
                     remainder_result
@@ -128,6 +133,7 @@ fn find_final_index_min<T: Copy + PartialOrd>(
 fn find_final_index_max<T: Copy + PartialOrd>(
     simd_result: (usize, T),
     remainder_result: (usize, T),
+    nan_check: fn(T) -> bool,
     ignore_nan: bool,
 ) -> (usize, T) {
     let (max_index, max_value) = match simd_result.1.partial_cmp(&remainder_result.1) {
@@ -137,21 +143,18 @@ fn find_final_index_max<T: Copy + PartialOrd>(
         None => {
             if !ignore_nan {
                 // --- Return NaNs
-                // Should prefer the simd result over the remainder result if both are
-                // NaN
-                if simd_result.1 != simd_result.1 {
-                    // because NaN != NaN
+                // Should prefer simd result over remainder result if both are NaN
+                if nan_check(simd_result.1) {
                     simd_result
                 } else {
                     remainder_result
                 }
             } else {
                 // --- Ignore NaNs
-                // If both are NaN raise panic, otherwise return the index of the
-                // non-NaN value
-                if simd_result.1 != simd_result.1 && remainder_result.1 != remainder_result.1 {
+                // If both are NaN raise panic, else return index of the non-NaN value
+                if nan_check(simd_result.1) && nan_check(remainder_result.1) {
                     panic!("Data contains only NaNs (or +/- inf)")
-                } else if remainder_result.1 != remainder_result.1 {
+                } else if nan_check(remainder_result.1) {
                     simd_result
                 } else {
                     remainder_result
@@ -173,16 +176,17 @@ fn get_correct_argminmax_result<T: Copy + PartialOrd>(
     min_value: T,
     max_index: usize,
     max_value: T,
+    nan_check: fn(T) -> bool,
     ignore_nan: bool,
 ) -> (usize, usize) {
-    if !ignore_nan && (min_value != min_value || max_value != max_value) {
+    if !ignore_nan && (nan_check(min_value) || nan_check(max_value)) {
         // --- Return NaNs
         // -> at least one of the values is NaN
-        if min_value != min_value && max_value != max_value {
+        if nan_check(min_value) && nan_check(max_value) {
             // If both are NaN, return lowest index
             let lowest_index = std::cmp::min(min_index, max_index);
             return (lowest_index, lowest_index);
-        } else if min_value != min_value {
+        } else if nan_check(min_value) {
             // If min is the only NaN, return min index
             return (min_index, min_index);
         } else {
