@@ -1,6 +1,5 @@
 #![feature(stdsimd)]
 
-#[cfg(feature = "half")]
 use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
@@ -11,10 +10,8 @@ use argminmax::{FloatReturnNaN, SIMDArgMinMax, AVX2, AVX512, SSE};
 use argminmax::{FloatReturnNaN, SIMDArgMinMax, NEON};
 use argminmax::{ScalarArgMinMax, SCALAR};
 
-#[cfg(feature = "half")]
 use half::f16;
 
-#[cfg(feature = "half")]
 fn get_random_f16_array(n: usize) -> Vec<f16> {
     let data = utils::get_random_array::<u16>(n, u16::MIN, u16::MAX);
     let data: Vec<f16> = data.iter().map(|&x| f16::from_bits(x)).collect();
@@ -34,7 +31,6 @@ fn get_random_f16_array(n: usize) -> Vec<f16> {
 
 // _rn stands for "return nan"
 
-#[cfg(feature = "half")]
 fn argminmax_rn_f16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data: &[f16] = &get_random_f16_array(n);
@@ -76,7 +72,5 @@ fn argminmax_rn_f16_random_array_long(c: &mut Criterion) {
     });
 }
 
-#[cfg(feature = "half")]
 criterion_group!(benches, argminmax_rn_f16_random_array_long,);
-#[cfg(feature = "half")]
 criterion_main!(benches);

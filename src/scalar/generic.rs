@@ -1,9 +1,5 @@
-use num_traits::{Float, PrimInt};
-
-#[cfg(feature = "half")]
-use super::scalar_f16::scalar_argminmax_f16_return_nan;
-#[cfg(feature = "half")]
-use half::f16;
+use num_traits::float::FloatCore;
+use num_traits::PrimInt;
 
 /// The DTypeStrategy for which we implement the ScalarArgMinMax trait
 use crate::{FloatIgnoreNaN, FloatReturnNaN, Int};
@@ -67,7 +63,7 @@ where
 
 impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatReturnNaN>
 where
-    ScalarDType: Float,
+    ScalarDType: FloatCore,
 {
     #[inline(always)]
     fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
@@ -87,7 +83,7 @@ where
 
 impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatIgnoreNaN>
 where
-    ScalarDType: Float,
+    ScalarDType: FloatCore,
 {
     #[inline(always)]
     fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
@@ -155,6 +151,11 @@ impl_scalar!(FloatReturnNaN, f32, f64);
 impl_scalar!(FloatIgnoreNaN, f32, f64);
 
 // --- Optional data types
+
+#[cfg(feature = "half")]
+use super::scalar_f16::scalar_argminmax_f16_return_nan;
+#[cfg(feature = "half")]
+use half::f16;
 
 #[cfg(feature = "half")]
 impl ScalarArgMinMax<f16> for SCALAR<FloatReturnNaN> {
