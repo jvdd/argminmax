@@ -1,16 +1,10 @@
 /// Currently not supported. Should give this some more thought.
 ///
-
-// #[cfg(feature = "half")]
 // use super::config::SIMDInstructionSet;
-#[cfg(feature = "half")]
 use super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDInit, unimpl_SIMDOps};
-#[cfg(feature = "half")]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
-#[cfg(feature = "half")]
 use crate::SCALAR;
 
-#[cfg(feature = "half")]
 use half::f16;
 
 /// The dtype-strategy for performing operations on f16 data: ignore NaN values
@@ -18,7 +12,6 @@ use super::super::dtype_strategy::FloatIgnoreNaN;
 
 // --------------------------------------- AVX2 ----------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2_ignore_nan {
     use super::super::config::AVX2;
@@ -31,7 +24,6 @@ mod avx2_ignore_nan {
 
 // ---------------------------------------- SSE ----------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse_ignore_nan {
     use super::super::config::SSE;
@@ -44,7 +36,6 @@ mod sse_ignore_nan {
 
 // -------------------------------------- AVX512 ---------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512_ignore_nan {
     use super::super::config::AVX512;
@@ -57,7 +48,6 @@ mod avx512_ignore_nan {
 
 // --------------------------------------- NEON ----------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon_ignore_nan {
     use super::super::config::NEON;

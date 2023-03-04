@@ -27,52 +27,37 @@
 /// SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
 /// necessarily the index of the first NaN value.
 ///
-
-#[cfg(feature = "half")]
 use super::config::SIMDInstructionSet;
-#[cfg(feature = "half")]
 use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMDOps};
-#[cfg(feature = "half")]
 use crate::SCALAR;
 
-#[cfg(feature = "half")]
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
-#[cfg(feature = "half")]
 #[cfg(target_arch = "arm")]
 use std::arch::arm::*;
-#[cfg(feature = "half")]
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
-#[cfg(feature = "half")]
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[cfg(feature = "half")]
 use half::f16;
 
 /// The dtype-strategy for performing operations on f16 data: return NaN index
-#[cfg(feature = "half")]
 use super::super::dtype_strategy::FloatReturnNaN;
 
-#[cfg(feature = "half")]
 const BIT_SHIFT: i32 = 15;
-#[cfg(feature = "half")]
 const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - masks everything but the sign bit
 
-#[cfg(feature = "half")]
 #[inline(always)]
 fn _i16ord_to_f16(ord_i16: i16) -> f16 {
     let v = ((ord_i16 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i16;
     f16::from_bits(v as u16)
 }
 
-#[cfg(feature = "half")]
 const MAX_INDEX: usize = i16::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx2 {
     use super::super::config::AVX2;
@@ -218,7 +203,6 @@ mod avx2 {
 
 // ---------------------------------------- SSE ----------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod sse {
     use super::super::config::SSE;
@@ -351,7 +335,6 @@ mod sse {
 
 // -------------------------------------- AVX512 ---------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod avx512 {
     use super::super::config::AVX512;
@@ -497,7 +480,6 @@ mod avx512 {
 
 // --------------------------------------- NEON ----------------------------------------
 
-#[cfg(feature = "half")]
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon {
     use super::super::config::NEON;
@@ -632,7 +614,6 @@ mod neon {
 
 // ======================================= TESTS =======================================
 
-#[cfg(feature = "half")]
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

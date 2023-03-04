@@ -4,11 +4,8 @@
 /// implementation of argminmax operations on f16 arrays through transforming the f16
 /// values to i16ord. (more details in simd/simd_f16_return_nan.rs)
 ///
-
-#[cfg(feature = "half")]
 use half::f16;
 
-#[cfg(feature = "half")]
 #[inline(always)]
 fn f16_to_i16ord(x: f16) -> i16 {
     let x = unsafe { std::mem::transmute::<f16, i16>(x) };
@@ -19,7 +16,6 @@ fn f16_to_i16ord(x: f16) -> i16 {
 
 // TODO: commented this (see the TODO below)
 // #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[cfg(feature = "half")]
 // #[inline(never)]
 pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
     // f16 is transformed to i16ord
@@ -54,7 +50,6 @@ pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
 // TODO: previously we had dedicated non x86_64 code for f16 (see below)
 
 // #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-// #[cfg(feature = "half")]
 // // #[inline(never)]
 // pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
 //     // f16 is transformed to i16ord
@@ -83,7 +78,8 @@ pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
 //     (minmax_tuple.0, minmax_tuple.2)
 // }
 
-#[cfg(feature = "half")]
+// ======================================= TESTS =======================================
+
 #[cfg(test)]
 mod tests {
     use super::scalar_argminmax_f16_return_nan;

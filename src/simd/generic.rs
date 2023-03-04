@@ -476,7 +476,7 @@ where
 // TODO: temporarily removed the target_arch specification bc we currently do not
 // ArgMinMax for f16 ignore nan
 
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64", feature = "half"))]
 macro_rules! unimpl_SIMDOps {
     ($scalar_type:ty, $reg:ty, $simd_struct:ty) => {
         impl SIMDOps<$scalar_type, $reg, $reg, 0> for $simd_struct {
@@ -511,7 +511,7 @@ macro_rules! unimpl_SIMDOps {
     };
 }
 
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64", feature = "half"))]
 macro_rules! unimpl_SIMDInit {
     ($scalar_type:ty, $reg:ty, $simd_struct:ty) => {
         impl SIMDInit<$scalar_type, $reg, $reg, 0> for $simd_struct {
@@ -520,7 +520,7 @@ macro_rules! unimpl_SIMDInit {
     };
 }
 
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64", feature = "half"))]
 macro_rules! unimpl_SIMDArgMinMax {
     ($scalar_type:ty, $reg:ty, $scalar:ty, $simd_struct:ty) => {
         impl SIMDArgMinMax<$scalar_type, $reg, $reg, 0, $scalar> for $simd_struct {
@@ -533,11 +533,11 @@ macro_rules! unimpl_SIMDArgMinMax {
 
 // TODO: temporarily removed the target_arch until we implement f16_ignore_nans
 
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64", feature = "half"))]
 pub(crate) use unimpl_SIMDArgMinMax; // Now classic paths Just Work™
 
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64", feature = "half"))]
 pub(crate) use unimpl_SIMDInit; // Now classic paths Just Work™
 
-// #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "arm", target_arch = "aarch64", feature = "half"))]
 pub(crate) use unimpl_SIMDOps; // Now classic paths Just Work™
