@@ -5,6 +5,7 @@
 /// More info on SIMD:
 /// https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#target-features
 ///
+use std::marker::PhantomData;
 
 /// SIMD instruction set trait - used to store the register size and get the lane size
 /// for a given datatype
@@ -31,7 +32,7 @@ pub trait SIMDInstructionSet {
 /// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
 /// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct SSE<DTypeStrategy> {
-    pub(crate) _dtype_strategy: DTypeStrategy,
+    pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
 impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
@@ -48,7 +49,7 @@ impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
 ///     ! important remark: AVX is enough for f32 and f64, but we need AVX2 for f16
 ///     -> f16 is currently not yet implemented (TODO)
 pub struct AVX2<DTypeStrategy> {
-    pub(crate) _dtype_strategy: DTypeStrategy,
+    pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
 impl<DTypeStrategy> SIMDInstructionSet for AVX2<DTypeStrategy> {
@@ -64,7 +65,7 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX2<DTypeStrategy> {
 /// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
 /// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct AVX512<DTypeStrategy> {
-    pub(crate) _dtype_strategy: DTypeStrategy,
+    pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
 impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
@@ -84,7 +85,7 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
 /// Note: there are no NEON instructions for 64-bit numbers, so for 64-bit numbers we
 /// fall back to the scalar implementation.
 pub struct NEON<DTypeStrategy> {
-    pub(crate) _dtype_strategy: DTypeStrategy,
+    pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
 impl<DTypeStrategy> SIMDInstructionSet for NEON<DTypeStrategy> {

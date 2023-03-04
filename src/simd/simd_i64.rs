@@ -213,6 +213,7 @@ mod neon {
 mod tests {
     use rstest::rstest;
     use rstest_reuse::{self, *};
+    use std::marker::PhantomData;
 
     use crate::simd::config::{AVX2, AVX512, SSE};
     use crate::{Int, SIMDArgMinMax, ScalarArgMinMax, SCALAR};
@@ -232,9 +233,9 @@ mod tests {
 
     #[template]
     #[rstest]
-    #[case::sse(SSE {_dtype_strategy: Int}, is_x86_feature_detected!("sse4.2"))]
-    #[case::avx2(AVX2 {_dtype_strategy: Int}, is_x86_feature_detected!("avx2"))]
-    #[case::avx512(AVX512 {_dtype_strategy: Int}, is_x86_feature_detected!("avx512f"))]
+    #[case::sse(SSE {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("sse4.2"))]
+    #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx2"))]
+    #[case::avx512(AVX512 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx512f"))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
         #[case] simd_available: bool,

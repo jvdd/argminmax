@@ -378,6 +378,7 @@ mod neon {
 mod tests {
     use rstest::rstest;
     use rstest_reuse::{self, *};
+    use std::marker::PhantomData;
 
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     use crate::simd::config::NEON;
@@ -401,9 +402,9 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[template]
     #[rstest]
-    #[case::sse(SSE {_dtype_strategy: Int}, is_x86_feature_detected!("sse4.1"))]
-    #[case::avx2(AVX2 {_dtype_strategy: Int}, is_x86_feature_detected!("avx2"))]
-    #[case::avx512(AVX512 {_dtype_strategy: Int}, is_x86_feature_detected!("avx512f"))]
+    #[case::sse(SSE {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("sse4.1"))]
+    #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx2"))]
+    #[case::avx512(AVX512 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx512f"))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
         #[case] simd_available: bool,
@@ -415,7 +416,7 @@ mod tests {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     #[template]
     #[rstest]
-    #[case::neon(NEON {_dtype_strategy: Int}, true)]
+    #[case::neon(NEON {_dtype_strategy: PhantomData::<Int>}, true)]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] _simd: T,
         #[case] simd_available: bool,
