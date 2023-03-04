@@ -43,6 +43,7 @@ println!("arr[min]: {}, arr[max]: {}", arr[min], arr[max]);
 ## Features
 - **"half"**: support `f16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
 - **"ndarray"**: add `ArgMinMax` trait to [`ndarray`](https://docs.rs/ndarray/latest/ndarray) its `Array1` & `ArrayView1`.
+- **"arrow"**: add `ArgMinMax` trait to [`arrow`](https://docs.rs/arrow/latest/arrow) its `PrimitiveArray`.
 
 ## Benchmarks
 
@@ -66,7 +67,23 @@ cargo test --message-format=short --all-features
 
 ## Limitations
 
-❗ Does not support NaNs.
+The library handles NaNs! 🚀 
+
+<!-- For NaN-handling there are two variants:
+- **Ignore NaN**: NaNs are ignored and the index of the highest / lowest non-NaN value is returned.
+- **Return NaN**: the first NaN value is returned. -->
+
+❗ Some (minor) caveats for the NaN-handling:
+- **Ignore NaN**: in some cases (when the array contains exclusively NaNs and/or +/-Inf) the function will return 0.
+- **Return NaN**: the first NaN value is only returned *iff* all NaN values have the same bit representation.   
+   => when NaN values have different bit representations then the index of the highest / lowest `ord_transform` is returned.
+
+Tip 💡: if you know that there are no NaNs in your the array, we advise you to use the `IgnoreNaN` variant, as this is 5-30% faster than the `ReturnNaN` variant.
+
+
+❗ The "half" feature (f16 support) is not yet fully supported:
+- [x] `ReturnNaN` variant
+- [ ] `IgnoreNaN` variant -> currently defaults to the `ReturnNaN` variant
 
 ---
 
