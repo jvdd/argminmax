@@ -4,9 +4,9 @@ use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
+use argminmax::{FloatReturnNaN, ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use argminmax::{FloatReturnNaN, SIMDArgMinMax, AVX2, AVX512, SSE};
-use argminmax::{ScalarArgMinMax, SCALAR};
+use argminmax::{SIMDArgMinMax, AVX2, AVX512, SSE};
 
 // _rn stands for "return nan"
 
