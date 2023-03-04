@@ -193,6 +193,7 @@ pub(crate) use impl_SIMDInit_Int; // Now classic paths Just Work™
 
 // --------------- Float Return NaNs
 
+#[cfg(any(feature = "float", feature = "half"))]
 macro_rules! impl_SIMDInit_FloatReturnNaN {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
         impl SIMDInit<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size>
@@ -214,10 +215,12 @@ macro_rules! impl_SIMDInit_FloatReturnNaN {
     };
 }
 
+#[cfg(any(feature = "float", feature = "half"))]
 pub(crate) use impl_SIMDInit_FloatReturnNaN; // Now classic paths Just Work™
 
 // --------------- Float Ignore NaNs
 
+#[cfg(any(feature = "float", feature = "half"))]
 macro_rules! impl_SIMDInit_FloatIgnoreNaN {
     ($($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty),*) => {
         $(
@@ -270,6 +273,7 @@ macro_rules! impl_SIMDInit_FloatIgnoreNaN {
     };
 }
 
+#[cfg(any(feature = "float", feature = "half"))]
 pub(crate) use impl_SIMDInit_FloatIgnoreNaN; // Now classic paths Just Work™
 
 // ---------------------------------- SIMD algorithm -----------------------------------

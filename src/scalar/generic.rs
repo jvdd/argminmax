@@ -1,8 +1,11 @@
+#[cfg(any(feature = "float", feature = "half"))]
 use num_traits::float::FloatCore;
 use num_traits::PrimInt;
 
+use crate::Int;
 /// The DTypeStrategy for which we implement the ScalarArgMinMax trait
-use crate::{FloatIgnoreNaN, FloatReturnNaN, Int};
+#[cfg(any(feature = "float", feature = "half"))]
+use crate::{FloatIgnoreNaN, FloatReturnNaN};
 
 /// Helper trait to initialize the min and max values & check if we should return
 /// This will be implemented for all:
@@ -61,6 +64,7 @@ where
     }
 }
 
+#[cfg(feature = "float")]
 impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatReturnNaN>
 where
     ScalarDType: FloatCore,
@@ -81,6 +85,7 @@ where
     }
 }
 
+#[cfg(feature = "float")]
 impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatIgnoreNaN>
 where
     ScalarDType: FloatCore,
@@ -147,7 +152,9 @@ macro_rules! impl_scalar {
 }
 
 impl_scalar!(Int, i8, i16, i32, i64, u8, u16, u32, u64);
+#[cfg(feature = "float")]
 impl_scalar!(FloatReturnNaN, f32, f64);
+#[cfg(feature = "float")]
 impl_scalar!(FloatIgnoreNaN, f32, f64);
 
 // --- Optional data types

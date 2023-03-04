@@ -3,18 +3,33 @@ use argminmax::ArgMinMax;
 use rstest::rstest;
 use rstest_reuse::{self, *};
 
+use num_traits::{AsPrimitive, FromPrimitive};
+
 use dev_utils::utils;
 use rand;
 
 const ARRAY_LENGTH: usize = 100_000;
 
-use num_traits::{AsPrimitive, FromPrimitive};
-
+#[cfg(feature = "float")]
 #[template]
 #[rstest]
 // #[case::float16(f16::MIN, f16::MAX)] // TODO
 #[case::float32(f32::MIN, f32::MAX)]
 #[case::float64(f64::MIN, f64::MAX)]
+#[case::int8(i8::MIN, i8::MAX)]
+#[case::int16(i16::MIN, i16::MAX)]
+#[case::int32(i32::MIN, i32::MAX)]
+#[case::int64(i64::MIN, i64::MAX)]
+#[case::uint8(u8::MIN, u8::MAX)]
+#[case::uint16(u16::MIN, u16::MAX)]
+#[case::uint32(u32::MIN, u32::MAX)]
+#[case::uint64(u64::MIN, u64::MAX)]
+fn dtypes<T>(#[case] min: T, #[case] max: T) {}
+
+#[cfg(not(feature = "float"))]
+#[template]
+#[rstest]
+// #[case::float16(f16::MIN, f16::MAX)] // TODO
 #[case::int8(i8::MIN, i8::MAX)]
 #[case::int16(i16::MIN, i16::MAX)]
 #[case::int32(i32::MIN, i32::MAX)]
