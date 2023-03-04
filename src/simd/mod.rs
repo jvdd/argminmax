@@ -10,9 +10,13 @@ pub use generic::*;
 mod simd_f16_ignore_nan; // TODO: not supported yet
 #[cfg(feature = "half")]
 mod simd_f16_return_nan;
+#[cfg(feature = "float")]
 mod simd_f32_ignore_nan;
+#[cfg(feature = "float")]
 mod simd_f32_return_nan;
+#[cfg(feature = "float")]
 mod simd_f64_ignore_nan;
+#[cfg(feature = "float")]
 mod simd_f64_return_nan;
 // SIGNED INT
 mod simd_i16;

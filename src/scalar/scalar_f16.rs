@@ -80,6 +80,7 @@ pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
 
 // ======================================= TESTS =======================================
 
+#[cfg(all(feature = "float", feature = "half"))]
 #[cfg(test)]
 mod tests {
     use super::scalar_argminmax_f16_return_nan;

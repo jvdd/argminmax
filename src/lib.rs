@@ -68,6 +68,7 @@ macro_rules! impl_nb_bits {
 }
 
 impl_nb_bits!(i8 i16 i32 i64 u8 u16 u32 u64);
+#[cfg(feature = "float")]
 impl_nb_bits!(f32 f64);
 #[cfg(feature = "half")]
 impl_nb_bits!(f16);
@@ -75,7 +76,7 @@ impl_nb_bits!(f16);
 // ------------------------------ &[T] ------------------------------
 
 /// Macro for implementing ArgMinMax for signed and unsigned integers
-macro_rules! impl_argminmax_non_float {
+macro_rules! impl_argminmax_int {
     // $int_type is the integer data type of the array (e.g. i32)
     // you can pass multiple types (separated by commas) to this macro
     ($($int_type:ty),*) => {
@@ -131,6 +132,7 @@ macro_rules! impl_argminmax_non_float {
 }
 
 /// Macro for implementing ArgMinMax for floats
+#[cfg(any(feature = "float", feature = "half"))]
 macro_rules! impl_argminmax_float {
     // $float_type is the float data type of the array (e.g. f32)
     // you can pass multiple types (separated by commas) to this macro
@@ -213,7 +215,8 @@ macro_rules! impl_argminmax_float {
 }
 
 // Implement ArgMinMax for the rust primitive types
-impl_argminmax_non_float!(i8, i16, i32, i64, u8, u16, u32, u64);
+impl_argminmax_int!(i8, i16, i32, i64, u8, u16, u32, u64);
+#[cfg(feature = "float")]
 impl_argminmax_float!(f32, f64);
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
