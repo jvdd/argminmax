@@ -156,7 +156,7 @@ mod sse_ignore_nan {
     impl SIMDArgMinMax<f64, __m128d, __m128d, LANE_SIZE, SCALAR<FloatIgnoreNaN>>
         for SSE<FloatIgnoreNaN>
     {
-        #[target_feature(enable = "sse4.1")] // TODO: check if this is correct
+        #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
         }

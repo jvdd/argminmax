@@ -162,7 +162,17 @@ where
         unsafe { *arr.get_unchecked(0) }
     }
 
+    /// Checks
+
+    /// Return case for the algorithm
+    #[inline(always)]
     fn _return_check(_v: ScalarDType) -> bool {
+        false
+    }
+
+    /// Check if the value is NaN
+    #[inline(always)]
+    fn _nan_check(_v: ScalarDType) -> bool {
         false
     }
 }
@@ -190,8 +200,14 @@ macro_rules! impl_SIMDInit_FloatReturnNaN {
         {
             // Use all initialization methods from the default implementation
 
+            /// Return when a NaN is found
             #[inline(always)]
             fn _return_check(v: $scalar_dtype) -> bool {
+                v.is_nan()
+            }
+
+            #[inline(always)]
+            fn _nan_check(v: $scalar_dtype) -> bool {
                 v.is_nan()
             }
         }
@@ -243,6 +259,11 @@ macro_rules! impl_SIMDInit_FloatIgnoreNaN {
                 #[inline(always)]
                 fn _initialize_max_value(_: &[$scalar_dtype]) -> $scalar_dtype {
                     <$scalar_dtype>::NEG_INFINITY
+                }
+
+                #[inline(always)]
+                fn _nan_check(v: $scalar_dtype) -> bool {
+                    v.is_nan()
                 }
             }
         )*
@@ -442,9 +463,10 @@ where
         argminmax_generic(
             data,
             LANE_SIZE,
-            Self::_overflow_safe_core_argminmax,
-            Self::IGNORE_NAN, // TODO: can perhaps cleaner - idk
-            SCALAR::argminmax,
+            Self::_overflow_safe_core_argminmax, // SIMD operation
+            SCALAR::argminmax,                   // Scalar operation
+            Self::_nan_check,                    // NaN check - true if value is NaN
+            Self::IGNORE_NAN,                    // Ignore NaNs - if false -> return NaN
         )
     }
 }
