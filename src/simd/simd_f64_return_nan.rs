@@ -39,7 +39,6 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on f64 data: return NaN index
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::super::dtype_strategy::FloatReturnNaN;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

@@ -233,7 +233,7 @@ mod avx512_ignore_nan {
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 mod neon_ignore_nan {
-    use super::super::config::NEONIgnoreNaN;
+    use super::super::config::NEON;
     use super::super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDInit, unimpl_SIMDOps};
     use super::*;
 
@@ -243,7 +243,7 @@ mod neon_ignore_nan {
     // > 64 bit data types.
     unimpl_SIMDOps!(f64, usize, NEON<FloatIgnoreNaN>);
     unimpl_SIMDInit!(f64, usize, NEON<FloatIgnoreNaN>);
-    unimpl_SIMDArgMinMax!(f64, usize, SCALAR, NEON<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f64, usize, SCALARIgnoreNaN, NEON<FloatIgnoreNaN>);
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

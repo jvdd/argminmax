@@ -384,7 +384,7 @@ mod neon {
 
     const LANE_SIZE: usize = NEON::<Int>::LANE_SIZE_16;
 
-    impl SIMDOps<i16, int16x8_t, uint16x8_t, LANE_SIZE, SCALAR> for NEON<Int> {
+    impl SIMDOps<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON<Int> {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: int16x8_t =
@@ -480,7 +480,7 @@ mod neon {
 
     impl_SIMDInit_Int!(i16, int16x8_t, uint16x8_t, LANE_SIZE, NEON<Int>);
 
-    impl SIMDArgMinMax<i16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON<Int> {
+    impl SIMDArgMinMax<i16, int16x8_t, uint16x8_t, LANE_SIZE, SCALAR> for NEON<Int> {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[i16]) -> (usize, usize) {
             Self::_argminmax(data)
