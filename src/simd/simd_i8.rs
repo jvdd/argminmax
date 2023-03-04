@@ -533,11 +533,11 @@ mod tests {
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, AVX512, SSE};
-    use crate::{Int, SIMDArgMinMax, ScalarArgMinMax, SCALAR};
+    use crate::{Int, SIMDArgMinMax, SCALAR};
 
     use super::super::test_utils::{
-        test_first_index_identical_values_argminmax, test_long_array_argminmax,
-        test_no_overflow_argminmax, test_random_runs_argminmax,
+        test_first_index_identical_values_argminmax, test_no_overflow_argminmax,
+        test_return_same_result_argminmax,
     };
 
     use dev_utils::utils;
@@ -545,6 +545,11 @@ mod tests {
     fn get_array_i8(n: usize) -> Vec<i8> {
         utils::get_random_array(n, i8::MIN, i8::MAX)
     }
+
+    // The scalar implementation
+    const SCALAR_STRATEGY: SCALAR<Int> = SCALAR {
+        _dtype_strategy: PhantomData::<Int>,
+    };
 
     // ------------ Template for x86 / x86_64 -------------
 
@@ -555,7 +560,7 @@ mod tests {
     #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx2"))]
     #[case::avx512(AVX512 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx512bw"))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
-        #[case] _simd: T,
+        #[case] simd: T,
         #[case] simd_available: bool,
     ) {
     }
@@ -567,7 +572,7 @@ mod tests {
     #[rstest]
     #[case::neon(NEON {_dtype_strategy: PhantomData::<Int>}, true)]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
-        #[case] _simd: T,
+        #[case] simd: T,
         #[case] simd_available: bool,
     ) {
     }
@@ -581,7 +586,7 @@ mod tests {
         SIMDM,
         const LANE_SIZE: usize,
     >(
-        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd: T,
         #[case] simd_available: bool,
     ) where
         T: SIMDArgMinMax<i8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
@@ -591,12 +596,12 @@ mod tests {
         if !simd_available {
             return;
         }
-        test_first_index_identical_values_argminmax(SCALAR::<Int>::argminmax, T::argminmax);
+        test_first_index_identical_values_argminmax(SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
     fn test_return_same_result<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
-        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd: T,
         #[case] simd_available: bool,
     ) where
         T: SIMDArgMinMax<i8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
@@ -606,13 +611,12 @@ mod tests {
         if !simd_available {
             return;
         }
-        test_long_array_argminmax(get_array_i8, SCALAR::<Int>::argminmax, T::argminmax);
-        test_random_runs_argminmax(get_array_i8, SCALAR::<Int>::argminmax, T::argminmax);
+        test_return_same_result_argminmax(get_array_i8, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
     fn test_no_overflow<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
-        #[case] _simd: T, // This is just to make sure the template is applied
+        #[case] simd: T,
         #[case] simd_available: bool,
     ) where
         T: SIMDArgMinMax<i8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
@@ -622,6 +626,6 @@ mod tests {
         if !simd_available {
             return;
         }
-        test_no_overflow_argminmax(get_array_i8, SCALAR::<Int>::argminmax, T::argminmax, None);
+        test_no_overflow_argminmax(get_array_i8, SCALAR_STRATEGY, simd, None);
     }
 }
