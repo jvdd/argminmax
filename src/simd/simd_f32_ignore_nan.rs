@@ -13,7 +13,7 @@
 ///
 use super::config::SIMDInstructionSet;
 use super::generic::{impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps};
-use crate::SCALARIgnoreNaN;
+use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
@@ -88,7 +88,9 @@ mod avx_ignore_nan {
 
     impl_SIMDInit_FloatIgnoreNaN!(f32, __m256, __m256, LANE_SIZE, AVX2<FloatIgnoreNaN>);
 
-    impl SIMDArgMinMax<f32, __m256, __m256, LANE_SIZE, SCALARIgnoreNaN> for AVX2<FloatIgnoreNaN> {
+    impl SIMDArgMinMax<f32, __m256, __m256, LANE_SIZE, SCALAR<FloatIgnoreNaN>>
+        for AVX2<FloatIgnoreNaN>
+    {
         #[target_feature(enable = "avx")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -152,7 +154,7 @@ mod sse_ignore_nan {
 
     impl_SIMDInit_FloatIgnoreNaN!(f32, __m128, __m128, LANE_SIZE, SSE<FloatIgnoreNaN>);
 
-    impl SIMDArgMinMax<f32, __m128, __m128, LANE_SIZE, SCALARIgnoreNaN> for SSE<FloatIgnoreNaN> {
+    impl SIMDArgMinMax<f32, __m128, __m128, LANE_SIZE, SCALAR<FloatIgnoreNaN>> for SSE<FloatIgnoreNaN> {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -220,7 +222,7 @@ mod avx512_ignore_nan {
 
     impl_SIMDInit_FloatIgnoreNaN!(f32, __m512, u16, LANE_SIZE, AVX512<FloatIgnoreNaN>);
 
-    impl SIMDArgMinMax<f32, __m512, u16, LANE_SIZE, SCALARIgnoreNaN> for AVX512<FloatIgnoreNaN> {
+    impl SIMDArgMinMax<f32, __m512, u16, LANE_SIZE, SCALAR<FloatIgnoreNaN>> for AVX512<FloatIgnoreNaN> {
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -290,7 +292,7 @@ mod neon_ignore_nan {
         NEON<FloatIgnoreNaN>
     );
 
-    impl SIMDArgMinMax<f32, float32x4_t, uint32x4_t, LANE_SIZE, SCALARIgnoreNaN>
+    impl SIMDArgMinMax<f32, float32x4_t, uint32x4_t, LANE_SIZE, SCALAR<FloatIgnoreNaN>>
         for NEON<FloatIgnoreNaN>
     {
         #[target_feature(enable = "neon")]
@@ -313,12 +315,11 @@ mod tests {
     use rstest::rstest;
     use rstest_reuse::{self, *};
 
-    use crate::scalar::generic::scalar_argminmax_ignore_nans as scalar_argminmax;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, AVX512, SSE};
-    use crate::{FloatIgnoreNaN, SCALARIgnoreNaN, SIMDArgMinMax};
+    use crate::{FloatIgnoreNaN, SIMDArgMinMax, ScalarArgMinMax, SCALAR};
 
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_long_array_argminmax,
@@ -372,14 +373,17 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_first_index_identical_values_argminmax(scalar_argminmax, T::argminmax);
+        test_first_index_identical_values_argminmax(
+            SCALAR::<FloatIgnoreNaN>::argminmax,
+            T::argminmax,
+        );
     }
 
     #[apply(simd_implementations)]
@@ -387,15 +391,23 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_long_array_argminmax(get_array_f32, scalar_argminmax, T::argminmax);
-        test_random_runs_argminmax(get_array_f32, scalar_argminmax, T::argminmax);
+        test_long_array_argminmax(
+            get_array_f32,
+            SCALAR::<FloatIgnoreNaN>::argminmax,
+            T::argminmax,
+        );
+        test_random_runs_argminmax(
+            get_array_f32,
+            SCALAR::<FloatIgnoreNaN>::argminmax,
+            T::argminmax,
+        );
     }
 
     #[apply(simd_implementations)]
@@ -403,14 +415,19 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_no_overflow_argminmax(get_array_f32, scalar_argminmax, T::argminmax, Some(1 << 25));
+        test_no_overflow_argminmax(
+            get_array_f32,
+            SCALAR::<FloatIgnoreNaN>::argminmax,
+            T::argminmax,
+            Some(1 << 25),
+        );
     }
 
     #[apply(simd_implementations)]
@@ -418,14 +435,18 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_return_infs_argminmax(get_array_f32, scalar_argminmax, T::argminmax);
+        test_return_infs_argminmax(
+            get_array_f32,
+            SCALAR::<FloatIgnoreNaN>::argminmax,
+            T::argminmax,
+        );
     }
 
     #[apply(simd_implementations)]
@@ -433,13 +454,17 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALARIgnoreNaN>,
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_ignore_nans_argminmax(get_array_f32, scalar_argminmax, T::argminmax);
+        test_ignore_nans_argminmax(
+            get_array_f32,
+            SCALAR::<FloatIgnoreNaN>::argminmax,
+            T::argminmax,
+        );
     }
 }

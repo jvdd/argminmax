@@ -1,3 +1,10 @@
+/// Implementation of the scalar argminmax operations for f16.
+///
+/// As f16 is not hardware supported on most x86 CPUs, we aim to facilitate efficient
+/// implementation of argminmax operations on f16 arrays through transforming the f16
+/// values to i16ord. (more details in simd/simd_f16_return_nan.rs)
+///
+
 #[cfg(feature = "half")]
 use half::f16;
 
@@ -8,11 +15,13 @@ fn f16_to_i16ord(x: f16) -> i16 {
     ((x >> 15) & 0x7FFF) ^ x
 }
 
+// ------- Float Return NaN -------
+
 // TODO: commented this (see the TODO below)
 // #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[cfg(feature = "half")]
 // #[inline(never)]
-pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
+pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
     // f16 is transformed to i16ord
     //   benchmarks  show:
     //     1. this is 7-10x faster than using raw f16
@@ -77,24 +86,31 @@ pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
 #[cfg(feature = "half")]
 #[cfg(test)]
 mod tests {
-    use super::scalar_argminmax_f16;
-    use crate::scalar::generic::scalar_argminmax;
+    use super::scalar_argminmax_f16_return_nan;
+    use crate::{FloatReturnNaN, ScalarArgMinMax, SCALAR};
 
     use half::f16;
 
     use dev_utils::utils;
 
-    fn get_array_f16(len: usize) -> Vec<f16> {
-        let v = utils::get_random_array(len, i16::MIN, i16::MAX);
-        v.iter().map(|x| f16::from_f32(*x as f32)).collect()
+    const ARR_LEN: usize = 1025;
+
+    fn get_arrays(len: usize) -> (Vec<f32>, Vec<f16>) {
+        // we use i8 its to make sure we have correct representation in float
+        let v = utils::get_random_array(len, i8::MIN, i8::MAX);
+        let vec_f32: Vec<f32> = v.iter().map(|x| *x as f32).collect();
+        let vec_f16: Vec<f16> = vec_f32.iter().map(|x| f16::from_f32(*x)).collect();
+        (vec_f32, vec_f16)
     }
 
     #[test]
     fn test_generic_and_specific_impl_return_the_same_results() {
         for _ in 0..100 {
-            let data: &[f16] = &get_array_f16(1025);
-            let (argmin_index, argmax_index) = scalar_argminmax(data);
-            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16(data);
+            let (vec_f32, vec_f16) = get_arrays(ARR_LEN);
+            let data_f32: &[f32] = &vec_f32;
+            let data_f16: &[f16] = &vec_f16;
+            let (argmin_index, argmax_index) = SCALAR::<FloatReturnNaN>::argminmax(data_f32);
+            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_return_nan(data_f16);
             assert_eq!(argmin_index, argmin_index_f16);
             assert_eq!(argmax_index, argmax_index_f16);
         }
@@ -102,28 +118,28 @@ mod tests {
 
     #[test]
     fn test_generic_and_specific_impl_return_nans() {
-        let arr_len: usize = 1025;
-
         // first, middle, last element
-        let nan_pos: [usize; 3] = [0, arr_len / 2, arr_len - 1];
+        let nan_pos: [usize; 3] = [0, ARR_LEN / 2, ARR_LEN - 1];
         for pos in nan_pos.iter() {
-            let mut data: Vec<f16> = get_array_f16(arr_len);
-            data[*pos] = f16::NAN;
-            let (argmin_index, argmax_index) = scalar_argminmax(&data);
-            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16(&data);
+            let (vec_f32, vec_f16) = get_arrays(ARR_LEN);
+            let mut data_f32: Vec<f32> = vec_f32;
+            let mut data_f16: Vec<f16> = vec_f16;
+            data_f32[*pos] = f32::NAN;
+            data_f16[*pos] = f16::NAN;
+            let (argmin_index, argmax_index) = SCALAR::<FloatReturnNaN>::argminmax(&data_f32);
+            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_return_nan(&data_f16);
             assert_eq!(argmin_index, argmin_index_f16);
             assert_eq!(argmax_index, argmax_index_f16);
-            assert_eq!(argmin_index, *pos);
-            assert_eq!(argmax_index, *pos);
         }
 
-        // All elements are NaN
-        let mut data: Vec<f16> = get_array_f16(arr_len);
-        for i in 0..arr_len {
-            data[i] = f16::NAN;
-        }
-        let (argmin_index, argmax_index) = scalar_argminmax(&data);
-        let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16(&data);
+        // all elements are NaN
+        let (mut vec_f32, mut vec_f16) = get_arrays(ARR_LEN);
+        vec_f32.iter_mut().for_each(|x| *x = f32::NAN);
+        vec_f16.iter_mut().for_each(|x| *x = f16::NAN);
+        let data_f32: &[f32] = &vec_f32;
+        let data_f16: &[f16] = &vec_f16;
+        let (argmin_index, argmax_index) = SCALAR::<FloatReturnNaN>::argminmax(data_f32);
+        let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_return_nan(data_f16);
         assert_eq!(argmin_index, argmin_index_f16);
         assert_eq!(argmax_index, argmax_index_f16);
         assert_eq!(argmin_index, 0);

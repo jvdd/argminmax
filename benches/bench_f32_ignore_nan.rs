@@ -8,7 +8,7 @@ use dev_utils::{config, utils};
 use argminmax::{FloatIgnoreNaN, SIMDArgMinMax, AVX2, AVX512, SSE};
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 use argminmax::{FloatIgnoreNaN, SIMDArgMinMax, NEON};
-use argminmax::{SCALARIgnoreNaN, ScalarArgMinMax};
+use argminmax::{ScalarArgMinMax, SCALAR};
 
 // _in stands for "ignore nan"
 
@@ -16,7 +16,7 @@ fn argminmax_in_f32_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data: &[f32] = &utils::get_random_array::<f32>(n, f32::MIN, f32::MAX);
     c.bench_function("scalar_f32_argminmax_in", |b| {
-        b.iter(|| SCALARIgnoreNaN::argminmax(black_box(data)))
+        b.iter(|| SCALAR::<FloatIgnoreNaN>::argminmax(black_box(data)))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {

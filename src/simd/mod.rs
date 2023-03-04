@@ -6,7 +6,7 @@ pub use config::*;
 mod generic;
 pub use generic::*;
 // FLOAT
-#[cfg(feature = "half")] // TODOL can I remove all #[cfg(feature = "half")] in this file?
+#[cfg(feature = "half")] // TODO: can I remove all #[cfg(feature = "half")] in this file?
 mod simd_f16_ignore_nan; // TODO: not supported yet
 #[cfg(feature = "half")]
 mod simd_f16_return_nan;

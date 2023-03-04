@@ -171,7 +171,7 @@ mod avx2 {
 
     impl_SIMDInit_Int!(u8, __m256i, __m256i, LANE_SIZE, AVX2<Int>);
 
-    impl SIMDArgMinMax<u8, __m256i, __m256i, LANE_SIZE, SCALAR> for AVX2<Int> {
+    impl SIMDArgMinMax<u8, __m256i, __m256i, LANE_SIZE, SCALAR<Int>> for AVX2<Int> {
         #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -308,7 +308,7 @@ mod sse {
 
     impl_SIMDInit_Int!(u8, __m128i, __m128i, LANE_SIZE, SSE<Int>);
 
-    impl SIMDArgMinMax<u8, __m128i, __m128i, LANE_SIZE, SCALAR> for SSE<Int> {
+    impl SIMDArgMinMax<u8, __m128i, __m128i, LANE_SIZE, SCALAR<Int>> for SSE<Int> {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -456,7 +456,7 @@ mod avx512 {
 
     impl_SIMDInit_Int!(u8, __m512i, u64, LANE_SIZE, AVX512<Int>);
 
-    impl SIMDArgMinMax<u8, __m512i, u64, LANE_SIZE, SCALAR> for AVX512<Int> {
+    impl SIMDArgMinMax<u8, __m512i, u64, LANE_SIZE, SCALAR<Int>> for AVX512<Int> {
         #[target_feature(enable = "avx512bw")]
         unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -577,7 +577,7 @@ mod neon {
 
     impl_SIMDInit_Int!(u8, uint8x16_t, uint8x16_t, LANE_SIZE, NEON<Int>);
 
-    impl SIMDArgMinMax<u8, uint8x16_t, uint8x16_t, LANE_SIZE, SCALAR> for NEON<Int> {
+    impl SIMDArgMinMax<u8, uint8x16_t, uint8x16_t, LANE_SIZE, SCALAR<Int>> for NEON<Int> {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[u8]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -598,12 +598,11 @@ mod tests {
     use rstest::rstest;
     use rstest_reuse::{self, *};
 
-    use crate::scalar::generic::scalar_argminmax;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, AVX512, SSE};
-    use crate::{Int, SIMDArgMinMax, SCALAR};
+    use crate::{Int, SIMDArgMinMax, ScalarArgMinMax, SCALAR};
 
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_long_array_argminmax,
@@ -654,14 +653,14 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_first_index_identical_values_argminmax(scalar_argminmax, T::argminmax);
+        test_first_index_identical_values_argminmax(SCALAR::<Int>::argminmax, T::argminmax);
     }
 
     #[apply(simd_implementations)]
@@ -669,15 +668,15 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_long_array_argminmax(get_array_u8, scalar_argminmax, T::argminmax);
-        test_random_runs_argminmax(get_array_u8, scalar_argminmax, T::argminmax);
+        test_long_array_argminmax(get_array_u8, SCALAR::<Int>::argminmax, T::argminmax);
+        test_random_runs_argminmax(get_array_u8, SCALAR::<Int>::argminmax, T::argminmax);
     }
 
     #[apply(simd_implementations)]
@@ -685,13 +684,13 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<u8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_no_overflow_argminmax(get_array_u8, scalar_argminmax, T::argminmax, None);
+        test_no_overflow_argminmax(get_array_u8, SCALAR::<Int>::argminmax, T::argminmax, None);
     }
 }

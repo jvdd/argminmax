@@ -1,176 +1,174 @@
-use num_traits::float::FloatCore;
+use num_traits::{Float, PrimInt};
 
 #[cfg(feature = "half")]
-use super::scalar_f16::scalar_argminmax_f16;
+use super::scalar_f16::scalar_argminmax_f16_return_nan;
 #[cfg(feature = "half")]
 use half::f16;
 
+/// The DTypeStrategy for which we implement the ScalarArgMinMax trait
+use crate::{FloatIgnoreNaN, FloatReturnNaN, Int};
+
+/// Helper trait to initialize the min and max values & check if we should return
+/// This will be implemented for all:
+/// - ints - Int DTypeStrategy (see 1st impl block below)
+/// - uints - Int DTypeStrategy (see 1st impl block below)
+/// - floats: returning NaNs - FloatReturnNan DTypeStrategy (see 2nd impl block below)
+/// - floats: ignoring NaNs - FloatIgnoreNaN DTypeStrategy (see 3rd impl block below)
+///
+trait SCALARInit<ScalarDType: Copy + PartialOrd> {
+    /// Initialize the initial value for the min and max values
+
+    fn _init_min(arr: &[ScalarDType]) -> ScalarDType;
+
+    fn _init_max(arr: &[ScalarDType]) -> ScalarDType;
+
+    /// Check if we should return at the current value
+
+    fn _return_check(v: ScalarDType) -> bool;
+}
+
+/// The ScalarArgMinMax trait that should be implemented for the different DTypeStrategy
+/// This trait contains the argminmax operations.
+///
 pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
     fn argminmax(data: &[ScalarDType]) -> (usize, usize);
 }
 
-pub struct SCALAR;
-
-pub struct SCALARIgnoreNaN;
-
-// #[inline(always)] leads to poor performance on aarch64
-
-/// Default scalar implementation of the argminmax function.
-/// This implementation returns the index of the first NaN value if any are present,
-/// otherwise it returns the index of the minimum and maximum values.
-// #[inline(never)]
-pub fn scalar_argminmax<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
-    assert!(!arr.is_empty());
-    let mut low_index: usize = 0;
-    let mut high_index: usize = 0;
-    // It is remarkably faster to iterate over the index and use get_unchecked
-    // than using .iter().enumerate() (with a fold).
-    let mut low: T = unsafe { *arr.get_unchecked(low_index) };
-    let mut high: T = unsafe { *arr.get_unchecked(high_index) };
-    for i in 0..arr.len() {
-        let v: T = unsafe { *arr.get_unchecked(i) };
-        if v != v {
-            // Because NaN != NaN - compiled identically to v.is_nan(): https://godbolt.org/z/Y6xh51ePb
-            // Return the index of the first NaN value
-            return (i, i);
-        }
-        if v < low {
-            low = v;
-            low_index = i;
-        } else if v > high {
-            high = v;
-            high_index = i;
-        }
-    }
-    (low_index, high_index)
+/// SCALAR struct that will implement the ScalarArgMinMax trait for the
+/// different DTypeStrategy
+///
+/// See the impl_scalar! macro below for the implementation of the ScalarArgMinMax trait
+///
+pub struct SCALAR<DTypeStrategy> {
+    _phantom: std::marker::PhantomData<DTypeStrategy>,
 }
 
-/// Scalar implementation of the argminmax function that ignores NaN values.
-/// This implementation returns the index of the minimum and maximum values.
-/// Note that this function only works for floating point types.
-pub fn scalar_argminmax_ignore_nans<T: FloatCore>(arr: &[T]) -> (usize, usize) {
-    assert!(!arr.is_empty());
-    let mut low_index: usize = 0;
-    let mut high_index: usize = 0;
-    // It is remarkably faster to iterate over the index and use get_unchecked
-    // than using .iter().enumerate() (with a fold).
-    let start_value: T = unsafe { *arr.get_unchecked(0) };
-    let mut low: T = start_value;
-    let mut high: T = start_value;
-    if start_value.is_nan() {
-        low = T::infinity();
-        high = T::neg_infinity();
+/// ------- Implement the SCALARInit trait for the different DTypeStrategy -------
+
+impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<Int>
+where
+    ScalarDType: PrimInt,
+{
+    #[inline(always)]
+    fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
+        unsafe { *arr.get_unchecked(0) }
     }
-    for i in 0..arr.len() {
-        let v: T = unsafe { *arr.get_unchecked(i) };
-        if v < low {
-            low = v;
-            low_index = i;
-        } else if v > high {
-            high = v;
-            high_index = i;
-        }
+
+    #[inline(always)]
+    fn _init_max(arr: &[ScalarDType]) -> ScalarDType {
+        unsafe { *arr.get_unchecked(0) }
     }
-    (low_index, high_index)
+
+    #[inline(always)]
+    fn _return_check(_v: ScalarDType) -> bool {
+        false
+    }
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-// #[inline(never)]
-pub fn scalar_argminmax_fold<T: Copy + PartialOrd>(arr: &[T]) -> (usize, usize) {
-    let minmax_tuple: (usize, T, usize, T) = arr.iter().enumerate().fold(
-        (0usize, arr[0], 0usize, arr[0]),
-        |(min_idx, min, max_idx, max), (idx, &item)| {
-            if item < min {
-                (idx, item, max_idx, max)
-            } else if item > max {
-                (min_idx, min, idx, item)
-            } else {
-                (min_idx, min, max_idx, max)
-            }
-        },
-    );
-    (minmax_tuple.0, minmax_tuple.2)
+impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatReturnNaN>
+where
+    ScalarDType: Float,
+{
+    #[inline(always)]
+    fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
+        unsafe { *arr.get_unchecked(0) }
+    }
+
+    #[inline(always)]
+    fn _init_max(arr: &[ScalarDType]) -> ScalarDType {
+        unsafe { *arr.get_unchecked(0) }
+    }
+
+    #[inline(always)]
+    fn _return_check(v: ScalarDType) -> bool {
+        v.is_nan()
+    }
 }
+
+impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatIgnoreNaN>
+where
+    ScalarDType: Float,
+{
+    #[inline(always)]
+    fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
+        let start_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+        if start_value.is_nan() {
+            ScalarDType::infinity()
+        } else {
+            start_value
+        }
+    }
+
+    #[inline(always)]
+    fn _init_max(arr: &[ScalarDType]) -> ScalarDType {
+        let start_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+        if start_value.is_nan() {
+            ScalarDType::neg_infinity()
+        } else {
+            start_value
+        }
+    }
+
+    #[inline(always)]
+    fn _return_check(_v: ScalarDType) -> bool {
+        false
+    }
+}
+
+/// ------- Implement the ScalarArgMinMax trait for the different DTypeStrategy -------
 
 macro_rules! impl_scalar {
-    ($func:ident, $($t:ty),*) =>
-    {
+    ($dtype_strategy:ty, $($dtype:ty),*) => {
         $(
-            impl ScalarArgMinMax<$t> for SCALAR {
-                fn argminmax(data: &[$t]) -> (usize, usize) {
-                    $func(data)
-                }
-            }
-        )*
-    };
-}
-macro_rules! impl_scalar_ignore_nans {
-    ($($t:ty),*) => // ty can only be float types
-    {
-        $(
-            impl ScalarArgMinMax<$t> for SCALARIgnoreNaN {
-                fn argminmax(data: &[$t]) -> (usize, usize) {
-                    scalar_argminmax_ignore_nans(data)
+            impl ScalarArgMinMax<$dtype> for SCALAR<$dtype_strategy> {
+                #[inline(always)]
+                fn argminmax(arr: &[$dtype]) -> (usize, usize) {
+                    assert!(!arr.is_empty());
+                    let mut low_index: usize = 0;
+                    let mut high_index: usize = 0;
+                    // It is remarkably faster to iterate over the index and use get_unchecked
+                    // than using .iter().enumerate() (with a fold).
+                    let mut low: $dtype = Self::_init_min(arr);
+                    let mut high: $dtype = Self::_init_max(arr);
+                    for i in 0..arr.len() {
+                        let v: $dtype = unsafe { *arr.get_unchecked(i) };
+                        if Self::_return_check(v) {
+                            return (i, i);
+                        }
+                        if v < low {
+                            low = v;
+                            low_index = i;
+                        } else if v > high {
+                            high = v;
+                            high_index = i;
+                        }
+                    }
+                    (low_index, high_index)
                 }
             }
         )*
     };
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-mod scalar_x86 {
-    use super::*;
-    impl_scalar!(
-        scalar_argminmax,
-        i8,
-        i16,
-        i32,
-        i64,
-        u8,
-        u16,
-        u32,
-        u64,
-        f32,
-        f64
-    );
-}
-#[cfg(target_arch = "aarch64")]
-mod scalar_aarch64 {
-    use super::*;
-    impl_scalar!(scalar_argminmax_fold, i8, i16, i32, i64, u8, u16, u32, u64);
-    impl_scalar!(scalar_argminmax, f32, f64);
-}
-#[cfg(target_arch = "arm")]
-mod scalar_arm {
-    use super::*;
-    impl_scalar!(scalar_argminmax_fold, i16, i64, u8, u16, u64, f64);
-    impl_scalar!(scalar_argminmax, i8, u32, f32, i32);
-}
-#[cfg(not(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    target_arch = "aarch64",
-    target_arch = "arm"
-)))]
-mod scalar_generic {
-    use super::*;
-    impl_scalar!(
-        scalar_argminmax,
-        i8,
-        i16,
-        i32,
-        i64,
-        u8,
-        u16,
-        u32,
-        u64,
-        f32,
-        f64
-    );
-}
-impl_scalar_ignore_nans!(f32, f64);
+impl_scalar!(Int, i8, i16, i32, i64, u8, u16, u32, u64);
+impl_scalar!(FloatReturnNaN, f32, f64);
+impl_scalar!(FloatIgnoreNaN, f32, f64);
+
+// --- Optional data types
 
 #[cfg(feature = "half")]
-impl_scalar!(scalar_argminmax_f16, f16);
+impl ScalarArgMinMax<f16> for SCALAR<FloatReturnNaN> {
+    #[inline(always)]
+    fn argminmax(arr: &[f16]) -> (usize, usize) {
+        scalar_argminmax_f16_return_nan(arr)
+    }
+}
+
 #[cfg(feature = "half")]
-impl_scalar_ignore_nans!(f16); // TODO: use correct implementation (not sure if this is correct atm)
+impl ScalarArgMinMax<f16> for SCALAR<FloatIgnoreNaN> {
+    // TODO: implement this correctly
+    #[inline(always)]
+    fn argminmax(arr: &[f16]) -> (usize, usize) {
+        scalar_argminmax_f16_return_nan(arr)
+    }
+}

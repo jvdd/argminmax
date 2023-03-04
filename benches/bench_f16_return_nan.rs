@@ -39,7 +39,7 @@ fn argminmax_rn_f16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data: &[f16] = &get_random_f16_array(n);
     c.bench_function("scalar_f16_argminmax_rn", |b| {
-        b.iter(|| SCALAR::argminmax(black_box(data)))
+        b.iter(|| SCALAR::<FloatReturnNaN>::argminmax(black_box(data)))
     });
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     if is_x86_feature_detected!("sse4.1") {

@@ -8,7 +8,7 @@ use super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDInit, unimpl_SIMDOps};
 #[cfg(feature = "half")]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(feature = "half")]
-use crate::SCALARIgnoreNaN;
+use crate::SCALAR;
 
 #[cfg(feature = "half")]
 use half::f16;
@@ -26,7 +26,7 @@ mod avx2_ignore_nan {
 
     unimpl_SIMDOps!(f16, usize, AVX2<FloatIgnoreNaN>);
     unimpl_SIMDInit!(f16, usize, AVX2<FloatIgnoreNaN>);
-    unimpl_SIMDArgMinMax!(f16, usize, SCALARIgnoreNaN, AVX2<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, AVX2<FloatIgnoreNaN>);
 }
 
 // ---------------------------------------- SSE ----------------------------------------
@@ -39,7 +39,7 @@ mod sse_ignore_nan {
 
     unimpl_SIMDOps!(f16, usize, SSE<FloatIgnoreNaN>);
     unimpl_SIMDInit!(f16, usize, SSE<FloatIgnoreNaN>);
-    unimpl_SIMDArgMinMax!(f16, usize, SCALARIgnoreNaN, SSE<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, SSE<FloatIgnoreNaN>);
 }
 
 // -------------------------------------- AVX512 ---------------------------------------
@@ -52,7 +52,7 @@ mod avx512_ignore_nan {
 
     unimpl_SIMDOps!(f16, usize, AVX512<FloatIgnoreNaN>);
     unimpl_SIMDInit!(f16, usize, AVX512<FloatIgnoreNaN>);
-    unimpl_SIMDArgMinMax!(f16, usize, SCALARIgnoreNaN, AVX512<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, AVX512<FloatIgnoreNaN>);
 }
 
 // --------------------------------------- NEON ----------------------------------------
@@ -65,5 +65,5 @@ mod neon_ignore_nan {
 
     unimpl_SIMDOps!(f16, usize, NEON<FloatIgnoreNaN>);
     unimpl_SIMDInit!(f16, usize, NEON<FloatIgnoreNaN>);
-    unimpl_SIMDArgMinMax!(f16, usize, SCALARIgnoreNaN, NEON<FloatIgnoreNaN>);
+    unimpl_SIMDArgMinMax!(f16, usize, SCALAR<FloatIgnoreNaN>, NEON<FloatIgnoreNaN>);
 }

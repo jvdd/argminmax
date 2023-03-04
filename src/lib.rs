@@ -15,7 +15,7 @@ mod scalar;
 mod simd;
 
 pub use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN, Int};
-pub use scalar::{SCALARIgnoreNaN, ScalarArgMinMax, SCALAR}; // TODO: use typestate pattern
+pub use scalar::{ScalarArgMinMax, SCALAR};
 pub use simd::{SIMDArgMinMax, AVX2, AVX512, NEON, SSE};
 
 #[cfg(feature = "half")]
@@ -118,7 +118,7 @@ macro_rules! impl_argminmax_non_float {
                             return unsafe { NEON::<Int>::argminmax(self) }
                         }
                     }
-                    SCALAR::argminmax(self)
+                    SCALAR::<Int>::argminmax(self)
                 }
 
                 // As there are no NaNs when NOT using floats -> just use argminmax
@@ -172,7 +172,7 @@ macro_rules! impl_argminmax_float {
                             return unsafe { NEON::<FloatReturnNaN>::argminmax(self) }
                         }
                     }
-                    SCALAR::argminmax(self)
+                    SCALAR::<FloatReturnNaN>::argminmax(self)
                 }
                 fn argminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -205,7 +205,7 @@ macro_rules! impl_argminmax_float {
                             return unsafe { NEON::<FloatIgnoreNaN>::argminmax(self) }
                         }
                     }
-                    SCALARIgnoreNaN::argminmax(self)
+                    SCALAR::<FloatIgnoreNaN>::argminmax(self)
                 }
             }
         )*

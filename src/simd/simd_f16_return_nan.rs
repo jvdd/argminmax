@@ -2,7 +2,7 @@
 /// This implementation returns the index of the first* NaN value if any are present,
 /// otherwise it returns the index of the minimum and maximum values.
 ///
-/// To serve this functionality we transform the f16 values to ordinal i32 values:
+/// To serve this functionality we transform the f16 values to ordinal i16 values:
 ///     ord_i16 = ((v >> 15) & 0x7FFFFFFF) ^ v
 ///
 /// This transformation is a bijection, i.e. it is reversible:
@@ -206,7 +206,9 @@ mod avx2 {
 
     impl_SIMDInit_FloatReturnNaN!(f16, __m256i, __m256i, LANE_SIZE, AVX2<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, __m256i, __m256i, LANE_SIZE, SCALAR> for AVX2<FloatReturnNaN> {
+    impl SIMDArgMinMax<f16, __m256i, __m256i, LANE_SIZE, SCALAR<FloatReturnNaN>>
+        for AVX2<FloatReturnNaN>
+    {
         #[target_feature(enable = "avx2")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -337,7 +339,9 @@ mod sse {
 
     impl_SIMDInit_FloatReturnNaN!(f16, __m128i, __m128i, LANE_SIZE, SSE<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, __m128i, __m128i, LANE_SIZE, SCALAR> for SSE<FloatReturnNaN> {
+    impl SIMDArgMinMax<f16, __m128i, __m128i, LANE_SIZE, SCALAR<FloatReturnNaN>>
+        for SSE<FloatReturnNaN>
+    {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -481,7 +485,9 @@ mod avx512 {
 
     impl_SIMDInit_FloatReturnNaN!(f16, __m512i, u32, LANE_SIZE, AVX512<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, __m512i, u32, LANE_SIZE, SCALAR> for AVX512<FloatReturnNaN> {
+    impl SIMDArgMinMax<f16, __m512i, u32, LANE_SIZE, SCALAR<FloatReturnNaN>>
+        for AVX512<FloatReturnNaN>
+    {
         #[target_feature(enable = "avx512bw")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -614,7 +620,9 @@ mod neon {
 
     impl_SIMDInit_FloatReturnNaN!(f16, int16x8_t, uint16x8_t, LANE_SIZE, NEON<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, int16x8_t, uint16x8_t, LANE_SIZE, SCALAR> for NEON<FloatReturnNaN> {
+    impl SIMDArgMinMax<f16, int16x8_t, uint16x8_t, LANE_SIZE, SCALAR<FloatReturnNaN>>
+        for NEON<FloatReturnNaN>
+    {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
             Self::_argminmax(data)
@@ -638,12 +646,11 @@ mod tests {
 
     use half::f16;
 
-    use crate::scalar::generic::scalar_argminmax;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, AVX512, SSE};
-    use crate::{FloatReturnNaN, SIMDArgMinMax, SCALAR};
+    use crate::{FloatReturnNaN, SIMDArgMinMax, ScalarArgMinMax, SCALAR};
 
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_long_array_argminmax,
@@ -697,14 +704,17 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_first_index_identical_values_argminmax(scalar_argminmax, T::argminmax);
+        test_first_index_identical_values_argminmax(
+            SCALAR::<FloatReturnNaN>::argminmax,
+            T::argminmax,
+        );
     }
 
     #[apply(simd_implementations)]
@@ -712,15 +722,23 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_long_array_argminmax(get_array_f16, scalar_argminmax, T::argminmax);
-        test_random_runs_argminmax(get_array_f16, scalar_argminmax, T::argminmax);
+        test_long_array_argminmax(
+            get_array_f16,
+            SCALAR::<FloatReturnNaN>::argminmax,
+            T::argminmax,
+        );
+        test_random_runs_argminmax(
+            get_array_f16,
+            SCALAR::<FloatReturnNaN>::argminmax,
+            T::argminmax,
+        );
     }
 
     #[apply(simd_implementations)]
@@ -728,14 +746,19 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_no_overflow_argminmax(get_array_f16, scalar_argminmax, T::argminmax, None);
+        test_no_overflow_argminmax(
+            get_array_f16,
+            SCALAR::<FloatReturnNaN>::argminmax,
+            T::argminmax,
+            None,
+        );
     }
 
     #[apply(simd_implementations)]
@@ -743,14 +766,18 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_return_infs_argminmax(get_array_f16, scalar_argminmax, T::argminmax);
+        test_return_infs_argminmax(
+            get_array_f16,
+            SCALAR::<FloatReturnNaN>::argminmax,
+            T::argminmax,
+        );
     }
 
     #[apply(simd_implementations)]
@@ -758,13 +785,17 @@ mod tests {
         #[case] _simd: T, // This is just to make sure the template is applied
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR>,
+        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_return_nans_argminmax(get_array_f16, scalar_argminmax, T::argminmax);
+        test_return_nans_argminmax(
+            get_array_f16,
+            SCALAR::<FloatReturnNaN>::argminmax,
+            T::argminmax,
+        );
     }
 }
