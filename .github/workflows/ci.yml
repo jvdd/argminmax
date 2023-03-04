@@ -66,9 +66,13 @@ jobs:
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v1
       
-      - name: Run tests (debug)
+      - name: Run tests (debug) - no default features
+        run: cargo test --verbose --no-default-features
+      - name: Run tests (debug) - default features
+        run: cargo test --verbose
+      - name: Run tests (debug) - all features
         run: cargo test --verbose --all-features
-      - name: Run tests (release)
+      - name: Run tests (release) - all features
         run: cargo test --verbose --all-features --release
   
   Bench:
