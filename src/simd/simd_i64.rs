@@ -203,7 +203,7 @@ mod neon {
     // > 64 bit data types.
     unimpl_SIMDOps!(i64, usize, NEON<Int>);
     unimpl_SIMDInit!(i64, usize, NEON<Int>);
-    unimpl_SIMDArgMinMax!(i64, usize, SCALAR<FloatReturnNaN>, NEON<Int>);
+    unimpl_SIMDArgMinMax!(i64, usize, SCALAR<Int>, NEON<Int>);
 }
 
 // ======================================= TESTS =======================================
