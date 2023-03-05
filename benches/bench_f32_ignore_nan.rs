@@ -4,11 +4,12 @@ use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
+use argminmax::dtype_strategy::FloatIgnoreNaN;
+use argminmax::scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use argminmax::{FloatIgnoreNaN, SIMDArgMinMax, AVX2, AVX512, SSE};
+use argminmax::simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-use argminmax::{FloatIgnoreNaN, SIMDArgMinMax, NEON};
-use argminmax::{ScalarArgMinMax, SCALAR};
+use argminmax::simd::{SIMDArgMinMax, NEON};
 
 // _in stands for "ignore nan"
 

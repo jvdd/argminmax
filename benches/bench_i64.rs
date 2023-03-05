@@ -4,9 +4,9 @@ use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 
+use argminmax::scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use argminmax::{SIMDArgMinMax, AVX2, AVX512, SSE};
-use argminmax::{ScalarArgMinMax, SCALAR};
+use argminmax::simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
 
 fn argminmax_i64_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
