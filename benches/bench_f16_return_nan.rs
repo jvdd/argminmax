@@ -1,6 +1,6 @@
 #![feature(stdsimd)]
 
-use argminmax::ArgMinMax;
+use argminmax::NaNArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
 

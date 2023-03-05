@@ -1,5 +1,7 @@
+#[cfg(any(feature = "float", feature = "half"))]
+use num_traits::float::FloatCore;
 use num_traits::AsPrimitive;
-use num_traits::{Bounded, Float, One};
+use num_traits::{Bounded, One};
 
 use crate::{SIMDArgMinMax, ScalarArgMinMax};
 
@@ -147,18 +149,20 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 
 // ------- Float tests for argminmax
 
+#[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
 const FLOAT_ARR_LEN: usize = 1024 + 3;
 
 /// Test whether infinities are handled correctly.
 /// -> infinities should be returned as the argmin/argmax
+#[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
 pub(crate) fn test_return_infs_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
     get_data: fn(usize) -> Vec<DType>,
     _scalar: SCALAR, // necessary to use SCALAR
     _simd: SIMD,     // necessary to use SIMD
 ) where
-    DType: Float + AsPrimitive<usize>,
+    DType: FloatCore + AsPrimitive<usize>,
     SV: Copy, // SIMD vector type
     SM: Copy, // SIMD mask type
     SCALAR: ScalarArgMinMax<DType>,
@@ -206,13 +210,14 @@ pub(crate) fn test_return_infs_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 }
 
 /// Test whether NaNs are handled correctly - in this case, they should be ignored.
+#[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
 pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
     get_data: fn(usize) -> Vec<DType>,
     _scalar: SCALAR, // necessary to use SCALAR
     _simd: SIMD,     // necessary to use SIMD
 ) where
-    DType: Float + AsPrimitive<usize>,
+    DType: FloatCore + AsPrimitive<usize>,
     SV: Copy, // SIMD vector type
     SM: Copy, // SIMD mask type
     SCALAR: ScalarArgMinMax<DType>,
@@ -302,13 +307,14 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 
 /// Test whether NaNs are handled correctly - in this case, the index of the first NaN
 /// should be returned.
+#[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
 pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
     get_data: fn(usize) -> Vec<DType>,
     _scalar: SCALAR, // necessary to use SCALAR
     _simd: SIMD,     // necessary to use SIMD
 ) where
-    DType: Float + AsPrimitive<usize>,
+    DType: FloatCore + AsPrimitive<usize>,
     SV: Copy, // SIMD vector type
     SM: Copy, // SIMD mask type
     SCALAR: ScalarArgMinMax<DType>,

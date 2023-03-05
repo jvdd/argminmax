@@ -1,14 +1,48 @@
 use argminmax::ArgMinMax;
+#[cfg(any(feature = "float", feature = "half"))]
+use argminmax::NaNArgMinMax;
+
+#[cfg(feature = "half")]
+use half::f16;
+use num_traits::{AsPrimitive, FromPrimitive};
 
 use rstest::rstest;
 use rstest_reuse::{self, *};
-
-use num_traits::{AsPrimitive, FromPrimitive};
 
 use dev_utils::utils;
 use rand;
 
 const ARRAY_LENGTH: usize = 100_000;
+
+// ----- dtypes_with_nan template -----
+
+// Float and half
+#[cfg(all(feature = "float", feature = "half"))]
+#[template]
+#[rstest]
+// https://stackoverflow.com/a/3793950
+#[case::float16(f16::MIN, f16::from_usize(1 << f16::MANTISSA_DIGITS).unwrap())]
+#[case::float32(f32::MIN, f32::MAX)]
+#[case::float64(f64::MIN, f64::MAX)]
+fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
+
+// Float and not half
+#[cfg(all(feature = "float", not(feature = "half")))]
+#[template]
+#[rstest]
+#[case::float32(f32::MIN, f32::MAX)]
+#[case::float64(f64::MIN, f64::MAX)]
+fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
+
+// Not float and half
+#[cfg(all(not(feature = "float"), feature = "half"))]
+#[template]
+#[rstest]
+// https://stackoverflow.com/a/3793950
+#[case::float16(f16::MIN, f16::from_usize(1 << f16::MANTISSA_DIGITS).unwrap())]
+fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
+
+// ----- dtypes template -----
 
 #[cfg(feature = "float")]
 #[template]
@@ -40,6 +74,8 @@ fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 #[case::uint64(u64::MIN, u64::MAX)]
 fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 
+// ----- Helpers -----
+
 /// Returns a monotonic array of type T with length ARRAY_LENGTH and step size 1
 /// The values are within the range of T and are cyclic if the range of T is smaller
 /// than ARRAY_LENGTH
@@ -55,6 +91,8 @@ where
         .map(|x| T::from_usize(x % max_index).unwrap())
         .collect::<Vec<T>>()
 }
+
+// ======================================= TESTS =======================================
 
 /// Test the ArgMinMax trait for the default implementations: slice and vec
 #[cfg(test)]
@@ -76,6 +114,26 @@ mod default_test {
         assert_eq!(max, max_index - 1);
         // Borrowed slice
         let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
+    #[cfg(any(feature = "float", feature = "half"))]
+    #[apply(dtypes_with_nan)]
+    fn test_argminmax_slice_nan<T>(#[case] _min: T, #[case] max: T)
+    where
+        T: Copy + FromPrimitive + AsPrimitive<usize>,
+        for<'a> &'a [T]: NaNArgMinMax,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+        let data: &[T] = &get_monotonic_array(ARRAY_LENGTH, max_index);
+        // Test slice (aka the base implementation)
+        let (min, max) = data.nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Borrowed slice
+        let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
         assert_eq!(max, max_index - 1);
     }
@@ -105,6 +163,26 @@ mod default_test {
         assert_eq!(max, max_index - 1);
         // Test borrowed vec
         let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
+    #[cfg(any(feature = "float", feature = "half"))]
+    #[apply(dtypes_with_nan)]
+    fn test_argminmax_vec_nan<T>(#[case] _min: T, #[case] max: T)
+    where
+        T: Copy + FromPrimitive + AsPrimitive<usize>,
+        for<'a> &'a [T]: NaNArgMinMax,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+        let data: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
+        // Test owned vec
+        let (min, max) = data.nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed vec
+        let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
         assert_eq!(max, max_index - 1);
     }
@@ -167,6 +245,36 @@ mod ndarray_tests {
         assert_eq!(max, max_index - 1);
     }
 
+    #[cfg(any(feature = "float", feature = "half"))]
+    #[apply(dtypes_with_nan)]
+    fn test_argminmax_ndarray_nan<T>(#[case] _min: T, #[case] max: T)
+    where
+        T: Copy + FromPrimitive + AsPrimitive<usize>,
+        for<'a> &'a [T]: NaNArgMinMax,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+        let data: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
+        // --- Array1
+        // Test owned Array1
+        let (min, max) = data.nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed Array1
+        let (min, max) = (&data).nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // --- ArrayView1
+        // Test owened ArrayView1
+        let (min, max) = data.view().nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed ArrayView1
+        let (min, max) = (&data.view()).nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
     #[apply(dtypes)]
     fn test_argminmax_many_random_runs_ndarray<T>(#[case] min: T, #[case] max: T)
     where
@@ -201,10 +309,40 @@ mod arrow_tests {
     use arrow::array::PrimitiveArray;
     use arrow::datatypes::*;
 
+    #[cfg(feature = "float")]
     #[template]
     #[rstest]
     #[case::float32(Float32Type {}, f32::MIN, f32::MAX)]
     #[case::float64(Float64Type {}, f64::MIN, f64::MAX)]
+    fn dtypes_arrow_with_nan<T, ArrowDataType>(
+        #[case] _arrow_type: ArrowDataType,
+        #[case] min: T,
+        #[case] max: T,
+    ) {
+    }
+
+    #[cfg(feature = "float")]
+    #[template]
+    #[rstest]
+    #[case::float32(Float32Type {}, f32::MIN, f32::MAX)]
+    #[case::float64(Float64Type {}, f64::MIN, f64::MAX)]
+    #[case::int8(Int8Type {}, i8::MIN, i8::MAX)]
+    #[case::int16(Int16Type {}, i16::MIN, i16::MAX)]
+    #[case::int32(Int32Type {}, i32::MIN, i32::MAX)]
+    #[case::int64(Int64Type {}, i64::MIN, i64::MAX)]
+    #[case::uint8(UInt8Type {}, u8::MIN, u8::MAX)]
+    #[case::uint16(UInt16Type {}, u16::MIN, u16::MAX)]
+    #[case::uint32(UInt32Type {}, u32::MIN, u32::MAX)]
+    #[case::uint64(UInt64Type {}, u64::MIN, u64::MAX)]
+    fn dtypes_arrow<T, ArrowDataType>(
+        #[case] _arrow_type: ArrowDataType,
+        #[case] min: T,
+        #[case] max: T,
+    ) {
+    }
+
+    #[cfg(not(feature = "float"))]
+    #[template]
     #[case::int8(Int8Type {}, i8::MIN, i8::MAX)]
     #[case::int16(Int16Type {}, i16::MIN, i16::MAX)]
     #[case::int32(Int32Type {}, i32::MIN, i32::MAX)]
@@ -241,6 +379,32 @@ mod arrow_tests {
         assert_eq!(max, max_index - 1);
         // Test borrowed PrimitiveArray
         let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
+    #[cfg(feature = "float")]
+    #[apply(dtypes_arrow_with_nan)]
+    fn test_argminmax_arrow_nan<T, ArrowDataType>(
+        #[case] _dtype: ArrowDataType, // used to infer the arrow data type
+        #[case] _min: T,
+        #[case] max: T,
+    ) where
+        T: Copy + FromPrimitive + AsPrimitive<usize>,
+        for<'a> &'a [T]: NaNArgMinMax,
+        ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
+        PrimitiveArray<ArrowDataType>: From<Vec<T>>,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+        let data: PrimitiveArray<ArrowDataType> =
+            PrimitiveArray::from(get_monotonic_array(ARRAY_LENGTH, max_index));
+        // Test owned PrimitiveArray
+        let (min, max) = data.nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed PrimitiveArray
+        let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
         assert_eq!(max, max_index - 1);
     }
