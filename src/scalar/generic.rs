@@ -139,7 +139,8 @@ macro_rules! impl_scalar {
                         if v < low {
                             low = v;
                             low_index = i;
-                        } else if v > high {
+                        }
+                        if v > high {
                             high = v;
                             high_index = i;
                         }
