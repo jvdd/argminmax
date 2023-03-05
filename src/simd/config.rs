@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 
 /// SIMD instruction set trait - used to store the register size and get the lane size
 /// for a given datatype
-pub trait SIMDInstructionSet {
+pub(crate) trait SIMDInstructionSet {
     /// The size of the register in bits
     const REGISTER_SIZE: usize;
 
@@ -26,11 +26,17 @@ pub trait SIMDInstructionSet {
 
 // ----------------------------------- x86_64 / x86 ------------------------------------
 
-/// SSE instruction set - this will be implemented for all:
-/// - ints (see simd_i*.rs files) - Int DTypeStrategy
-/// - uints (see simd_u*.rs files) - Int DTypeStrategy
-/// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-/// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+/// [SSE](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions) instruction set.
+///
+/// Type that implements the [SIMDArgMinMax](crate::SIMDArgMinMax) trait.
+///
+/// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
+///
+// This will be implemented for all:
+// - ints (see simd_i*.rs files) - Int DTypeStrategy
+// - uints (see simd_u*.rs files) - Int DTypeStrategy
+// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct SSE<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
@@ -41,13 +47,21 @@ impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
     const REGISTER_SIZE: usize = 128;
 }
 
-/// AVX2 instruction set - this will be implemented for all:
-/// - ints (see simd_i*.rs files) - Int DTypeStrategy
-/// - uints (see simd_u*.rs files) - Int DTypeStrategy
-/// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-/// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
-///     ! important remark: AVX is enough for f32 and f64, but we need AVX2 for f16
-///     -> f16 is currently not yet implemented (TODO)
+/// [AVX2](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions_2) instruction set.
+///
+/// Type that implements the [SIMDArgMinMax](crate::SIMDArgMinMax) trait.
+///
+/// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
+///
+/// Note that [AVX](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions) is enough for f32 and f64, but we need AVX2 for all other data types.
+///
+// This will be implemented for all:
+// - ints (see simd_i*.rs files) - Int DTypeStrategy
+// - uints (see simd_u*.rs files) - Int DTypeStrategy
+// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+//     ! important remark: AVX is enough for f32 and f64, but we need AVX2 for f16
+//     -> f16 is currently not yet implemented (TODO)
 pub struct AVX2<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
@@ -59,11 +73,17 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX2<DTypeStrategy> {
     const REGISTER_SIZE: usize = 256;
 }
 
-/// AVX512 instruction set - this will be implemented for all:
-/// - ints (see simd_i*.rs files) - Int DTypeStrategy
-/// - uints (see simd_u*.rs files) - Int DTypeStrategy
-/// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-/// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+/// [AVX512](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#AVX-512) instruction set.
+///
+/// Type that implements the [SIMDArgMinMax](crate::SIMDArgMinMax) trait.
+///
+/// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
+///
+// This will be implemented for all:
+// - ints (see simd_i*.rs files) - Int DTypeStrategy
+// - uints (see simd_u*.rs files) - Int DTypeStrategy
+// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct AVX512<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
@@ -76,14 +96,20 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
 
 // ----------------------------------- aarch64 / arm -----------------------------------
 
-/// NEON instruction set - this will be implemented for all:
-/// - ints (see simd_i*.rs files) - Int DTypeStrategy
-/// - uints (see simd_u*.rs files) - Int DTypeStrategy
-/// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-/// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+/// [NEON](https://en.wikipedia.org/wiki/ARM_architecture#Advanced_SIMD_(Neon)) instruction set.
+///
+/// Type that implements the [SIMDArgMinMax](crate::SIMDArgMinMax) trait.
+///
+/// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
 ///
 /// Note: there are no NEON instructions for 64-bit numbers, so for 64-bit numbers we
 /// fall back to the scalar implementation.
+///
+// This will be implemented for all:
+// - ints (see simd_i*.rs files) - Int DTypeStrategy
+// - uints (see simd_u*.rs files) - Int DTypeStrategy
+// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct NEON<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }

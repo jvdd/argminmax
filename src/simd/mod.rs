@@ -1,10 +1,15 @@
-// Helper mod
-mod task;
-// Generic mods
+//! SIMD implementations of the argminmax functions.
+
+// --- Generic implementations ---
 mod config;
 pub use config::*;
 mod generic;
 pub use generic::*;
+// Helper mod
+mod task;
+
+// --- SIMD implementations ---
+
 // FLOAT
 #[cfg(feature = "half")]
 mod simd_f16_ignore_nan; // TODO: not supported yet

@@ -1,3 +1,71 @@
+//! A crate for finding the index of the minimum and maximum values in an array.
+//!
+//! These operations are optimized for speed using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) instructions (when available).  
+//! The SIMD implementation is branchless, ensuring that there is no best case / worst case.
+//! Furthermore, runtime CPU feature detection is used to choose the fastest implementation for the current CPU (with a scalar fallback).
+//!
+//! The SIMD implementation is enabled for the following architectures:
+//! - `x86` / `x86_64`: [`SSE`](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions), [`AVX2`](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions_2), [`AVX512`](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#AVX-512)
+//! - `arm` / `aarch64`: [`NEON`](https://en.wikipedia.org/wiki/ARM_architecture#Advanced_SIMD_(Neon))
+//!
+//! # Description
+//!
+//! This crate provides two traits: [`ArgMinMax`](trait.ArgMinMax.html) and [`NaNArgMinMax`](trait.NaNArgMinMax.html).
+//!
+//! These traits are implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html) and [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html).  
+//! - For [`ArgMinMax`](trait.ArgMinMax.html) the supported data types are
+//!   - ints: `i8`, `i16`, `i32`, `i64`
+//!   - uints: `u8`, `u16`, `u32`, `u64`
+//!   - floats: `f16`, `f32`, `f64` (see [Features](#features))
+//! - For [`NaNArgMinMax`](trait.NaNArgMinMax.html) the supported data types are
+//!   - floats: `f16`, `f32`, `f64` (see [Features](#features))
+//!
+//! Both traits differ in how they handle NaNs:
+//! - [`ArgMinMax`](trait.ArgMinMax.html) ignores NaNs and returns the index of the minimum and maximum values in an array.
+//! - [`NaNArgMinMax`](trait.NaNArgMinMax.html) returns the index of the first NaN in an array if there is one, otherwise it returns the index of the minimum and maximum values in an array.
+//!
+//! ### Caution
+//! When dealing with floats and you are sure that there are no NaNs in the array, you should use [`ArgMinMax`](trait.ArgMinMax.html) instead of [`NaNArgMinMax`](trait.NaNArgMinMax.html) for performance reasons. The former is 5%-30% faster than the latter.
+//!
+//!
+//! # Features
+//! This crate has several features.
+//!
+//! - **`float`** *(default)* - enables the traits for floats (`f32` and `f64`).
+//! - **`half`** - enables the traits for `f16` (requires the [`half`](https://crates.io/crates/half) crate).
+//! - **`ndarray`** - adds the traits to [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html) (requires the `ndarray` crate).
+//! - **`arrow`** - adds the traits to [`arrow::array::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html) (requires the `arrow` crate).
+//!
+//!
+//! # Examples
+//!
+//! Two examples are provided below.
+//!
+//! ## Example with integers
+//! ```
+//! use argminmax::ArgMinMax;
+//!
+//! let a: Vec<i32> = vec![0, 1, 2, 3, 4, 5];
+//! let (imin, imax) = a.argminmax();
+//! assert_eq!(imin, 0);
+//! assert_eq!(imax, 5);
+//! ```
+//!
+//! ## Example with NaNs (default `float` feature)
+//! ```ignore
+//! use argminmax::ArgMinMax; // argminmax ignores NaNs
+//! use argminmax::NaNArgMinMax; // nanargminmax returns index of first NaN
+//!
+//! let a: Vec<f32> = vec![f32::NAN, 1.0, f32::NAN, 3.0, 4.0, 5.0];
+//! let (imin, imax) = a.argminmax(); // ArgMinMax::argminmax
+//! assert_eq!(imin, 1);
+//! assert_eq!(imax, 5);
+//! let (imin, imax) = a.nanargminmax(); // NaNArgMinMax::nanargminmax
+//! assert_eq!(imin, 0);
+//! assert_eq!(imax, 0);
+//!```
+//!
+
 #![feature(stdsimd)]
 #![feature(avx512_target_feature)]
 #![feature(arm_target_feature)]
@@ -10,29 +78,27 @@ use rstest_reuse;
 // #[macro_use]
 // extern crate lazy_static;
 
-mod dtype_strategy;
-mod scalar;
-mod simd;
+pub mod dtype_strategy;
+pub mod scalar;
+pub mod simd;
 
-pub use dtype_strategy::Int;
+pub(crate) use dtype_strategy::Int;
 #[cfg(any(feature = "float", feature = "half"))]
-pub use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
-pub use scalar::{ScalarArgMinMax, SCALAR};
+pub(crate) use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
+pub(crate) use scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-pub use simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
+pub(crate) use simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-pub use simd::{SIMDArgMinMax, NEON};
+pub(crate) use simd::{SIMDArgMinMax, NEON};
 
 #[cfg(feature = "half")]
 use half::f16;
 
-/// Trait for finding the minimum and maximum values in an array.
-/// This trait is implemented for slices (or other array-like) of integers and floats*.
+/// Trait for finding the minimum and maximum values in an array. For floats, NaNs are ignored.  
 ///
-/// *Note that the trait is only implemented for floats when the default "float" feature
-/// is enabled.
-/// If you want to use the `argminmax` function with f16, you need to enable the "half"
-/// feature.
+/// This trait is implemented for slices (or other array-like) of integers and floats.
+///  
+/// See the [feature documentation](index.html#features) for more information on the supported data types and array types.
 ///
 pub trait ArgMinMax {
     // TODO: future work implement these other functions?
@@ -45,36 +111,44 @@ pub trait ArgMinMax {
 
     /// Get the index of the minimum and maximum values in the array.
     ///
-    /// When dealing with floats, NaNs are ignored.
+    /// When dealing with floats, NaNs are ignored.  
     /// Note that this differs from numpy, where the `argmin` and `argmax` functions
     /// return the index of the first NaN (which is the behavior of our nanargminmax
     /// function).
     ///
+    /// # Returns
+    /// A tuple of the index of the minimum and maximum values in the array
+    /// `(min_index, max_index)`.
+    ///
     /// # Caution
-    ///  When a float array contains *only* NaNs and / or infinities unexpected behavior
-    ///  may occur (in which case index 0 is returned for both).
+    /// When a float array contains *only* NaNs and / or infinities unexpected behavior
+    /// may occur (in which case index 0 is returned for both).
     ///
     fn argminmax(&self) -> (usize, usize);
 }
 
-/// Trait for finding the minimum and maximum values in an array.
-/// This trait is implemented for slices (or other array-like) of floats*.
+/// Trait for finding the minimum and maximum values in an array. For floats, NaNs are propagated - index of the first NaN is returned.  
 ///
-/// *Note that the trait is only implemented for floats when the default "float" feature
-/// is enabled.
+/// This trait is implemented for slices (or other array-like) of floats.
+///  
+/// See the [feature documentation](index.html#features) for more information on the supported data types and array types.
 ///
 #[cfg(any(feature = "float", feature = "half"))]
 pub trait NaNArgMinMax {
     /// Get the index of the minimum and maximum values in the array.
     ///
-    /// When dealing with floats, NaNs are propagated (i.e. returned) - in other words,
-    /// the index of the first NaN is returned.
+    /// When dealing with floats, NaNs are propagated - index of the first NaN is
+    /// returned.  
     /// Note that this differs from numpy, where the `nanargmin` and `nanargmax`
     /// functions ignore NaNs (which is the behavior of our argminmax function).
     ///
+    /// # Returns
+    /// A tuple of the index of the minimum and maximum values in the array
+    /// `(min_index, max_index)`.
+    ///
     /// # Caution
-    ///  When multiple bit-representations for NaNs are used, no guarantee is made
-    ///  that the first NaN is returned.
+    /// When multiple bit-representations for NaNs are used, no guarantee is made
+    /// that the first NaN is returned.
     ///
     fn nanargminmax(&self) -> (usize, usize);
 }
