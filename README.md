@@ -41,6 +41,33 @@ println!("min: {}, max: {}", min, max);
 println!("arr[min]: {}, arr[max]: {}", arr[min], arr[max]);
 ```
 
+## Traits
+
+### `ArgMinMax`
+
+Implemented for `ints`, `uints`, and `floats` (if `"float"` feature enabled).
+
+Provides the following functions:
+- `argminmax`: returns the index of the minimum and maximum element in the array.
+<!-- - `argmin`: returns the index of the minimum element in the array. -->
+<!-- - `argmax`: returns the index of the maximum element in the array. -->
+
+When dealing with NaNs, `ArgMinMax` its functions ignore NaNs. For more info see [Limitations](#limitations).
+
+### `NaNArgMinMax`
+
+Implemented for `floats` (if `"float"` feature enabled).
+
+Provides the following functions:
+- `nanargminmax`: returns the index of the minimum and maximum element in the array.
+<!-- - `nanargmin`: returns the index of the minimum element in the array. -->
+<!-- - `nanargmax`: returns the index of the maximum element in the array. -->
+
+When dealing with NaNs, `NaNArgMinMax` its functions return the first NaN its index. For more info see [Limitations](#limitations).
+
+> Tip 💡: if you know that there are no NaNs in your the array, we advise you to use `ArgMinMax` as this should be 5-30% faster than `NaNArgMinMax`.
+
+
 ## Features
 - [default] **"float"**: support `f32` and `f64` argminmax (uses NaN-handling - [see below](#limitations)).
 - **"half"**: support `f16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
@@ -75,13 +102,11 @@ The library handles NaNs! 🚀
 - **Ignore NaN**: NaNs are ignored and the index of the highest / lowest non-NaN value is returned.
 - **Return NaN**: the first NaN value is returned. -->
 
-❗ Some (minor) caveats for the NaN-handling:
-- **Ignore NaN**: in some cases (when the array contains exclusively NaNs and/or +/-Inf) the function will return 0.
-- **Return NaN**: the first NaN value is only returned *iff* all NaN values have the same bit representation.   
-   => when NaN values have different bit representations then the index of the highest / lowest `ord_transform` is returned.
-
-Tip 💡: if you know that there are no NaNs in your the array, we advise you to use the `IgnoreNaN` variant, as this is 5-30% faster than the `ReturnNaN` variant.
-
+Some (minor) limitations:
+- `ArgMinMax` its functions ignores NaN values.
+  - ❗ When the array contains exclusively NaNs and/or infinities unexpected behaviour can occur (index 0 is returned).
+- `NaNArgMinMax` its functions returns the first NaN its index (if any present).
+  - ❗ When multiple bit-representations for NaNs are used, no guarantee is made that the first NaN is returned.
 
 ❗ The "half" feature (f16 support) is not yet fully supported:
 - [x] `ReturnNaN` variant

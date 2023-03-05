@@ -108,11 +108,18 @@ mod tests {
     use half::f16;
 
     // The DTypeStrategy should not influence the lane size
+    #[cfg(any(feature = "float", feature = "half"))]
     #[template]
     #[rstest]
     #[case::int(Int)]
     #[case::float_return_nan(FloatIgnoreNaN)]
     #[case::float_ignore_nan(FloatReturnNaN)]
+    fn dtype_strategies<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {}
+
+    #[cfg(not(any(feature = "float", feature = "half")))]
+    #[template]
+    #[rstest]
+    #[case::int(Int)]
     fn dtype_strategies<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {}
 
     #[cfg(feature = "half")]

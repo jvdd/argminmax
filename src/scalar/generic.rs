@@ -1,11 +1,11 @@
-#[cfg(any(feature = "float", feature = "half"))]
+#[cfg(feature = "float")]
 use num_traits::float::FloatCore;
 use num_traits::PrimInt;
 
-use crate::Int;
+use super::super::dtype_strategy::Int;
 /// The DTypeStrategy for which we implement the ScalarArgMinMax trait
 #[cfg(any(feature = "float", feature = "half"))]
-use crate::{FloatIgnoreNaN, FloatReturnNaN};
+use super::super::dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
 
 /// Helper trait to initialize the min and max values & check if we should return
 /// This will be implemented for all:

@@ -14,13 +14,26 @@ mod dtype_strategy;
 mod scalar;
 mod simd;
 
-pub use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN, Int};
+pub use dtype_strategy::Int;
+#[cfg(any(feature = "float", feature = "half"))]
+pub use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
 pub use scalar::{ScalarArgMinMax, SCALAR};
-pub use simd::{SIMDArgMinMax, AVX2, AVX512, NEON, SSE};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub use simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+pub use simd::{SIMDArgMinMax, NEON};
 
 #[cfg(feature = "half")]
 use half::f16;
 
+/// Trait for finding the minimum and maximum values in an array.
+/// This trait is implemented for slices (or other array-like) of integers and floats*.
+///
+/// *Note that the trait is only implemented for floats when the default "float" feature
+/// is enabled.
+/// If you want to use the `argminmax` function with f16, you need to enable the "half"
+/// feature.
+///
 pub trait ArgMinMax {
     // TODO: future work implement these other functions?
     // fn min(self) -> Self::Item;
@@ -30,25 +43,41 @@ pub trait ArgMinMax {
     // fn argmin(self) -> usize;
     // fn argmax(self) -> usize;
 
-    /// Get the index of the minimum and maximum values in the array, ignoring NaNs.
-    /// This will only result in unexpected behavior if the array contains *only* NaNs
-    /// and infinities (in which case index 0 is returned for both).
+    /// Get the index of the minimum and maximum values in the array.
+    ///
+    /// When dealing with floats, NaNs are ignored.
     /// Note that this differs from numpy, where the `argmin` and `argmax` functions
     /// return the index of the first NaN (which is the behavior of our nanargminmax
     /// function).
+    ///
+    /// # Caution
+    ///  When a float array contains *only* NaNs and / or infinities unexpected behavior
+    ///  may occur (in which case index 0 is returned for both).
+    ///
     fn argminmax(&self) -> (usize, usize);
-
-    /// Get the index of the minimum and maximum values in the array.
-    /// If the array contains NaNs, the index of the first NaN is returned.
-    /// Note that this differs from numpy, where the `nanargmin` and `nanargmax`
-    /// functions ignore NaNs (which is the behavior of our argminmax function).
-    fn nanargminmax(&self) -> (usize, usize);
 }
 
-// TODO: split this up
-// pub trait NaNArgMinMax {
-//     fn nanargminmax(&self) -> (usize, usize);
-// }
+/// Trait for finding the minimum and maximum values in an array.
+/// This trait is implemented for slices (or other array-like) of floats*.
+///
+/// *Note that the trait is only implemented for floats when the default "float" feature
+/// is enabled.
+///
+#[cfg(any(feature = "float", feature = "half"))]
+pub trait NaNArgMinMax {
+    /// Get the index of the minimum and maximum values in the array.
+    ///
+    /// When dealing with floats, NaNs are propagated (i.e. returned) - in other words,
+    /// the index of the first NaN is returned.
+    /// Note that this differs from numpy, where the `nanargmin` and `nanargmax`
+    /// functions ignore NaNs (which is the behavior of our argminmax function).
+    ///
+    /// # Caution
+    ///  When multiple bit-representations for NaNs are used, no guarantee is made
+    ///  that the first NaN is returned.
+    ///
+    fn nanargminmax(&self) -> (usize, usize);
+}
 
 // ---- Helper macros ----
 
@@ -121,11 +150,6 @@ macro_rules! impl_argminmax_int {
                     }
                     SCALAR::<Int>::argminmax(self)
                 }
-
-                // As there are no NaNs when NOT using floats -> just use argminmax
-                fn nanargminmax(&self) -> (usize, usize) {
-                    self.argminmax()
-                }
             }
         )*
     };
@@ -139,6 +163,41 @@ macro_rules! impl_argminmax_float {
     ($($float_type:ty),*) => {
         $(
             impl ArgMinMax for &[$float_type] {
+                fn argminmax(&self) -> (usize, usize) {
+                    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+                    {
+                        if <$float_type>::NB_BITS <= 16 {
+                            // TODO: f16 IgnoreNaN is not yet SIMD-optimized
+                            // do nothing (defaults to scalar)
+                        } else if is_x86_feature_detected!("avx512f") {
+                            return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx") {
+                            // f32 and f64 do not require avx2
+                            return unsafe { AVX2::<FloatIgnoreNaN>::argminmax(self) }
+                        } else if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS < 64) {
+                            // Scalar is faster for 64-bit numbers
+                            return unsafe { SSE::<FloatIgnoreNaN>::argminmax(self) }
+                        }
+                    }
+                    #[cfg(target_arch = "aarch64")]
+                    {
+                        if std::arch::is_aarch64_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
+                            // We miss some NEON instructions for 64-bit numbers
+                            return unsafe { NEON::<FloatIgnoreNaN>::argminmax(self) }
+                        }
+                    }
+                    #[cfg(target_arch = "arm")]
+                    {
+                        if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
+                            // TODO: requires v7?
+                            // We miss some NEON instructions for 64-bit numbers
+                            return unsafe { NEON::<FloatIgnoreNaN>::argminmax(self) }
+                        }
+                    }
+                    SCALAR::<FloatIgnoreNaN>::argminmax(self)
+                }
+            }
+            impl NaNArgMinMax for &[$float_type] {
                 fn nanargminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
@@ -176,39 +235,6 @@ macro_rules! impl_argminmax_float {
                     }
                     SCALAR::<FloatReturnNaN>::argminmax(self)
                 }
-                fn argminmax(&self) -> (usize, usize) {
-                    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-                    {
-                        if <$float_type>::NB_BITS <= 16 {
-                            // TODO: f16 IgnoreNaN is not yet SIMD-optimized
-                            // do nothing (defaults to scalar)
-                        } else if is_x86_feature_detected!("avx512f") {
-                            return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx") {
-                            // f32 and f64 do not require avx2
-                            return unsafe { AVX2::<FloatIgnoreNaN>::argminmax(self) }
-                        } else if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS < 64) {
-                            // Scalar is faster for 64-bit numbers
-                            return unsafe { SSE::<FloatIgnoreNaN>::argminmax(self) }
-                        }
-                    }
-                    #[cfg(target_arch = "aarch64")]
-                    {
-                        if std::arch::is_aarch64_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // We miss some NEON instructions for 64-bit numbers
-                            return unsafe { NEON::<FloatIgnoreNaN>::argminmax(self) }
-                        }
-                    }
-                    #[cfg(target_arch = "arm")]
-                    {
-                        if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
-                            // We miss some NEON instructions for 64-bit numbers
-                            return unsafe { NEON::<FloatIgnoreNaN>::argminmax(self) }
-                        }
-                    }
-                    SCALAR::<FloatIgnoreNaN>::argminmax(self)
-                }
             }
         )*
     };
@@ -242,6 +268,13 @@ where
     fn argminmax(&self) -> (usize, usize) {
         self.as_slice().argminmax()
     }
+}
+
+#[cfg(any(feature = "float", feature = "half"))]
+impl<T> NaNArgMinMax for Vec<T>
+where
+    for<'a> &'a [T]: NaNArgMinMax,
+{
     fn nanargminmax(&self) -> (usize, usize) {
         self.as_slice().nanargminmax()
     }
@@ -265,6 +298,14 @@ mod ndarray_impl {
         fn argminmax(&self) -> (usize, usize) {
             self.as_slice().unwrap().argminmax()
         }
+    }
+
+    #[cfg(any(feature = "float", feature = "half"))]
+    impl<S> NaNArgMinMax for ArrayBase<S, Ix1>
+    where
+        S: Data,
+        for<'a> &'a [S::Elem]: NaNArgMinMax,
+    {
         fn nanargminmax(&self) -> (usize, usize) {
             self.as_slice().unwrap().nanargminmax()
         }
@@ -288,6 +329,14 @@ mod arrow_impl {
         fn argminmax(&self) -> (usize, usize) {
             self.values().argminmax()
         }
+    }
+
+    #[cfg(any(feature = "float", feature = "half"))]
+    impl<T> NaNArgMinMax for PrimitiveArray<T>
+    where
+        T: arrow::datatypes::ArrowNumericType,
+        for<'a> &'a [T::Native]: NaNArgMinMax,
+    {
         fn nanargminmax(&self) -> (usize, usize) {
             self.values().nanargminmax()
         }
