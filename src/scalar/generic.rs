@@ -15,6 +15,8 @@ use super::super::dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
 /// - floats: ignoring NaNs - FloatIgnoreNaN DTypeStrategy (see 3rd impl block below)
 ///
 trait SCALARInit<ScalarDType: Copy + PartialOrd> {
+    const _RETURN_AT_NAN: bool;
+
     /// Initialize the initial value for the min and max values
 
     fn _init_min(start_value: ScalarDType) -> ScalarDType;
@@ -24,10 +26,6 @@ trait SCALARInit<ScalarDType: Copy + PartialOrd> {
     /// Check if we should allow the initial double update
 
     fn _allow_initial_double_update(start_value: ScalarDType) -> bool;
-
-    /// Check if we should return at the current value
-
-    fn _return_check(v: ScalarDType) -> bool;
 
     /// Nan check
 
@@ -56,6 +54,8 @@ impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<Int>
 where
     ScalarDType: PrimInt,
 {
+    const _RETURN_AT_NAN: bool = false;
+
     #[inline(always)]
     fn _init_min(start_value: ScalarDType) -> ScalarDType {
         start_value
@@ -68,11 +68,6 @@ where
 
     #[inline(always)]
     fn _allow_initial_double_update(_start_value: ScalarDType) -> bool {
-        false
-    }
-
-    #[inline(always)]
-    fn _return_check(_v: ScalarDType) -> bool {
         false
     }
 
@@ -87,6 +82,8 @@ impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatReturnNaN>
 where
     ScalarDType: FloatCore,
 {
+    const _RETURN_AT_NAN: bool = true;
+
     #[inline(always)]
     fn _init_min(start_value: ScalarDType) -> ScalarDType {
         start_value
@@ -103,13 +100,8 @@ where
     }
 
     #[inline(always)]
-    fn _return_check(v: ScalarDType) -> bool {
+    fn _nan_check(v: ScalarDType) -> bool {
         v.is_nan()
-    }
-
-    #[inline(always)]
-    fn _nan_check(_v: ScalarDType) -> bool {
-        false
     }
 }
 
@@ -118,6 +110,8 @@ impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<FloatIgnoreNaN>
 where
     ScalarDType: FloatCore,
 {
+    const _RETURN_AT_NAN: bool = false;
+
     #[inline(always)]
     fn _init_min(start_value: ScalarDType) -> ScalarDType {
         if start_value.is_nan() {
@@ -142,11 +136,6 @@ where
     }
 
     #[inline(always)]
-    fn _return_check(_v: ScalarDType) -> bool {
-        false
-    }
-
-    #[inline(always)]
     fn _nan_check(v: ScalarDType) -> bool {
         v.is_nan()
     }
@@ -157,7 +146,8 @@ where
 macro_rules! impl_scalar {
     ($dtype_strategy:ty, $($dtype:ty),*) => {
         $(
-            impl ScalarArgMinMax<$dtype> for SCALAR<$dtype_strategy> {
+            impl ScalarArgMinMax<$dtype> for SCALAR<$dtype_strategy>
+            {
                 #[inline(always)]
                 fn argminmax(arr: &[$dtype]) -> (usize, usize) {
                     assert!(!arr.is_empty());
@@ -171,15 +161,19 @@ macro_rules! impl_scalar {
                     let mut allow_double_update: bool = Self::_allow_initial_double_update(start_value);
                     for i in 0..arr.len() {
                         let v: $dtype = unsafe { *arr.get_unchecked(i) };
-                        if Self::_return_check(v) {
-                            return (i, i);
+                        if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
+                            // When _RETURN_AT_NAN is true and we encounter a NaN
+                            return (i, i); // -> return the index
                         }
                         if allow_double_update {
-                            if !Self::_nan_check(v) {
+                            // If we allow the double update (only for FloatIgnoreNaN)
+                            if !Self::_nan_check(v) { // If the value is not a NaN
+                                // Update the low and high
                                 low = v;
                                 low_index = i;
                                 high = v;
                                 high_index = i;
+                                // And disable the double update
                                 allow_double_update = false;
                             }
                         } else if v < low {
