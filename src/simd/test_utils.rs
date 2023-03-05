@@ -238,6 +238,51 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     assert_eq!(argmin_index, argmin_simd_index);
     assert_eq!(argmax_index, argmax_simd_index);
 
+    // Case 1.1 - NaN is the first element, other values are all the same
+    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+    data[0] = DType::nan();
+    for i in 1..data.len() {
+        data[i] = DType::from(1.0).unwrap();
+    }
+
+    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+    assert_eq!(argmin_index, 1);
+    assert_eq!(argmax_index, 1);
+
+    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+    assert_eq!(argmin_simd_index, 1);
+    assert_eq!(argmax_simd_index, 1);
+
+    // Case 1.2 - NaN is the first element, other values are monotonic increasing
+    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+    data[0] = DType::nan();
+    for i in 1..data.len() {
+        data[i] = DType::from(i as f64).unwrap();
+    }
+
+    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+    assert_eq!(argmin_index, 1);
+    assert_eq!(argmax_index, FLOAT_ARR_LEN - 1);
+
+    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+    assert_eq!(argmin_simd_index, 1);
+    assert_eq!(argmax_simd_index, FLOAT_ARR_LEN - 1);
+
+    // Case 1.3 - NaN is the first element, other values are monotonic decreasing
+    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+    data[0] = DType::nan();
+    for i in 1..data.len() {
+        data[i] = DType::from((FLOAT_ARR_LEN - i) as f64).unwrap();
+    }
+
+    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+    assert_eq!(argmin_index, FLOAT_ARR_LEN - 1);
+    assert_eq!(argmax_index, 1);
+
+    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+    assert_eq!(argmin_simd_index, FLOAT_ARR_LEN - 1);
+    assert_eq!(argmax_simd_index, 1);
+
     // Case 2: first 100 elements are NaN
     for i in 0..100 {
         data[i] = DType::nan();
