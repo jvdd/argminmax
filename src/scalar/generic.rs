@@ -32,18 +32,27 @@ trait SCALARInit<ScalarDType: Copy + PartialOrd> {
     fn _nan_check(v: ScalarDType) -> bool;
 }
 
-/// The ScalarArgMinMax trait that should be implemented for the different DTypeStrategy
-/// This trait contains the argminmax operations.
+/// A trait providing the scalar implementation of the argminmax operations.
 ///
+// This trait will be implemented for the different DTypeStrategy
 pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
+    /// Get the index of the minimum and maximum values in the slice.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    ///
+    /// # Returns
+    /// A tuple of the index of the minimum and maximum values in the slice
+    /// `(min_index, max_index)`.
+    ///
     fn argminmax(data: &[ScalarDType]) -> (usize, usize);
 }
 
-/// SCALAR struct that will implement the ScalarArgMinMax trait for the
-/// different DTypeStrategy
+/// Type that implements the [ScalarArgMinMax](crate::ScalarArgMinMax) trait.
 ///
-/// See the impl_scalar! macro below for the implementation of the ScalarArgMinMax trait
+/// This struct implements the ScalarArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
 ///
+// See the impl_scalar! macro below for the implementation of the ScalarArgMinMax trait
 pub struct SCALAR<DTypeStrategy> {
     pub(crate) _dtype_strategy: std::marker::PhantomData<DTypeStrategy>,
 }

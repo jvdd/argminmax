@@ -17,6 +17,7 @@ use crate::scalar::ScalarArgMinMax;
 ///   ord_transform to view the floating point data as ordinal integer data).
 ///   (see the `simd_f*_return_nan.rs` files)
 ///
+#[doc(hidden)]
 pub trait SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
 where
     ScalarDType: Copy + PartialOrd + AsPrimitive<usize>,
@@ -123,6 +124,7 @@ where
 /// `impl_SIMDInit_FloatIgnoreNaN!` macro below for more details. Note that for this
 /// case, the SIMDOps should implement the `_mm_set1` method.
 ///
+#[doc(hidden)]
 pub trait SIMDInit<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
 where
@@ -283,6 +285,8 @@ pub(crate) use impl_SIMDInit_FloatIgnoreNaN; // Now classic paths Just Work™
 ///
 /// This trait is auto-implemented below for all structs - iff the SIMDOps and the
 /// SIMDInit traits are implemented for the struct
+///
+#[doc(hidden)]
 pub trait SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>:
     SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
     + SIMDInit<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -435,17 +439,16 @@ where
 
 // -------------------------------- ArgMinMax SIMD TRAIT -------------------------------
 
-/// Trait for SIMD argminmax operations
+/// A trait providing the SIMD implementation of the argminmax operations.
 ///
-/// This trait its `argminmax` method should be implemented for all structs that
-/// implement `SIMDOps` for the same generics.
-/// This trait is implemented for:
-/// - ints (see the simd_i*.rs files)
-/// - uints (see the simd_u*.rs files)
-/// - floats: returning NaNs (see the simd_f*_return_nan.rs files)
-/// - floats: ignoring NaNs (see the simd_f*_ignore_nan.rs files)
-///
-#[allow(clippy::missing_safety_doc)] // TODO: add safety docs?
+// This trait its `argminmax` method should be implemented for all structs that
+// implement `SIMDOps` for the same generics.
+// This trait is implemented for:
+// - ints (see the simd_i*.rs files)
+// - uints (see the simd_u*.rs files)
+// - floats: returning NaNs (see the simd_f*_return_nan.rs files)
+// - floats: ignoring NaNs (see the simd_f*_ignore_nan.rs files)
+//
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize, SCALAR>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
 where
@@ -454,11 +457,28 @@ where
     SIMDMaskDtype: Copy,
     SCALAR: ScalarArgMinMax<ScalarDType>,
 {
-    /// Returns the index of the minimum and maximum value in the array
+    /// Get the index of the minimum and maximum values in the slice.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    ///
+    /// # Returns
+    /// A tuple of the index of the minimum and maximum values in the slice
+    /// `(min_index, max_index)`.
+    ///
+    /// # Safety
+    /// This function is unsafe because unsafe SIMD operations are used.  
+    /// See SIMD operations for more information:
+    /// - [`x86` SIMD docs](https://doc.rust-lang.org/core/arch/x86/index.html)
+    /// - [`x86_64` SIMD docs](https://doc.rust-lang.org/core/arch/x86_64/index.html)
+    /// - [`arm` SIMD docs](https://doc.rust-lang.org/core/arch/arm/index.html)
+    /// - [`aarch64` SIMD docs](https://doc.rust-lang.org/core/arch/aarch64/index.html)
+    ///
     unsafe fn argminmax(data: &[ScalarDType]) -> (usize, usize);
 
     // Is necessary to have a separate function for this so we can call it in the
     // argminmax function when we add the target feature to the function.
+    #[doc(hidden)]
     #[inline(always)]
     unsafe fn _argminmax(data: &[ScalarDType]) -> (usize, usize)
     where

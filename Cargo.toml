@@ -9,6 +9,8 @@ repository = "https://github.com/jvdd/argminmax"
 description = "ArgMinMax (argmin & argmax in 1 function) with SIMD for floats and integers"
 keywords = ["argminmax", "simd", "ndarray"]
 categories = ["algorithms", "mathematics", "science"]
+documentation = "https://docs.rs/argminmax"
+exclude = [".git*", "dev_utils/**/*", "benches/**/*", "tests/**/*"]
 
 
 [dependencies]
