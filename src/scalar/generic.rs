@@ -17,13 +17,21 @@ use super::super::dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
 trait SCALARInit<ScalarDType: Copy + PartialOrd> {
     /// Initialize the initial value for the min and max values
 
-    fn _init_min(arr: &[ScalarDType]) -> ScalarDType;
+    fn _init_min(start_value: ScalarDType) -> ScalarDType;
 
-    fn _init_max(arr: &[ScalarDType]) -> ScalarDType;
+    fn _init_max(start_value: ScalarDType) -> ScalarDType;
+
+    /// Check if we should allow the initial double update
+
+    fn _allow_initial_double_update(start_value: ScalarDType) -> bool;
 
     /// Check if we should return at the current value
 
     fn _return_check(v: ScalarDType) -> bool;
+
+    /// Nan check
+
+    fn _nan_check(v: ScalarDType) -> bool;
 }
 
 /// The ScalarArgMinMax trait that should be implemented for the different DTypeStrategy
@@ -49,17 +57,27 @@ where
     ScalarDType: PrimInt,
 {
     #[inline(always)]
-    fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
-        unsafe { *arr.get_unchecked(0) }
+    fn _init_min(start_value: ScalarDType) -> ScalarDType {
+        start_value
     }
 
     #[inline(always)]
-    fn _init_max(arr: &[ScalarDType]) -> ScalarDType {
-        unsafe { *arr.get_unchecked(0) }
+    fn _init_max(start_value: ScalarDType) -> ScalarDType {
+        start_value
+    }
+
+    #[inline(always)]
+    fn _allow_initial_double_update(_start_value: ScalarDType) -> bool {
+        false
     }
 
     #[inline(always)]
     fn _return_check(_v: ScalarDType) -> bool {
+        false
+    }
+
+    #[inline(always)]
+    fn _nan_check(_v: ScalarDType) -> bool {
         false
     }
 }
@@ -70,18 +88,28 @@ where
     ScalarDType: FloatCore,
 {
     #[inline(always)]
-    fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
-        unsafe { *arr.get_unchecked(0) }
+    fn _init_min(start_value: ScalarDType) -> ScalarDType {
+        start_value
     }
 
     #[inline(always)]
-    fn _init_max(arr: &[ScalarDType]) -> ScalarDType {
-        unsafe { *arr.get_unchecked(0) }
+    fn _init_max(start_value: ScalarDType) -> ScalarDType {
+        start_value
+    }
+
+    #[inline(always)]
+    fn _allow_initial_double_update(_start_value: ScalarDType) -> bool {
+        false
     }
 
     #[inline(always)]
     fn _return_check(v: ScalarDType) -> bool {
         v.is_nan()
+    }
+
+    #[inline(always)]
+    fn _nan_check(_v: ScalarDType) -> bool {
+        false
     }
 }
 
@@ -91,8 +119,7 @@ where
     ScalarDType: FloatCore,
 {
     #[inline(always)]
-    fn _init_min(arr: &[ScalarDType]) -> ScalarDType {
-        let start_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+    fn _init_min(start_value: ScalarDType) -> ScalarDType {
         if start_value.is_nan() {
             ScalarDType::infinity()
         } else {
@@ -101,8 +128,7 @@ where
     }
 
     #[inline(always)]
-    fn _init_max(arr: &[ScalarDType]) -> ScalarDType {
-        let start_value: ScalarDType = unsafe { *arr.get_unchecked(0) };
+    fn _init_max(start_value: ScalarDType) -> ScalarDType {
         if start_value.is_nan() {
             ScalarDType::neg_infinity()
         } else {
@@ -111,8 +137,18 @@ where
     }
 
     #[inline(always)]
+    fn _allow_initial_double_update(start_value: ScalarDType) -> bool {
+        start_value.is_nan()
+    }
+
+    #[inline(always)]
     fn _return_check(_v: ScalarDType) -> bool {
         false
+    }
+
+    #[inline(always)]
+    fn _nan_check(v: ScalarDType) -> bool {
+        v.is_nan()
     }
 }
 
@@ -129,18 +165,27 @@ macro_rules! impl_scalar {
                     let mut high_index: usize = 0;
                     // It is remarkably faster to iterate over the index and use get_unchecked
                     // than using .iter().enumerate() (with a fold).
-                    let mut low: $dtype = Self::_init_min(arr);
-                    let mut high: $dtype = Self::_init_max(arr);
+                    let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
+                    let mut low: $dtype = Self::_init_min(start_value);
+                    let mut high: $dtype = Self::_init_max(start_value);
+                    let mut allow_double_update: bool = Self::_allow_initial_double_update(start_value);
                     for i in 0..arr.len() {
                         let v: $dtype = unsafe { *arr.get_unchecked(i) };
                         if Self::_return_check(v) {
                             return (i, i);
                         }
-                        if v < low {
+                        if allow_double_update {
+                            if !Self::_nan_check(v) {
+                                low = v;
+                                low_index = i;
+                                high = v;
+                                high_index = i;
+                                allow_double_update = false;
+                            }
+                        } else if v < low {
                             low = v;
                             low_index = i;
-                        }
-                        if v > high {
+                        } else if v > high {
                             high = v;
                             high_index = i;
                         }
