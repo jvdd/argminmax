@@ -219,6 +219,38 @@ macro_rules! impl_scalar {
                     }
                     (low_index, high_index)
                 }
+
+                #[inline(always)]
+                fn argmax(arr: &[$dtype]) -> usize {
+                    assert!(!arr.is_empty());
+                    let mut high_index: usize = 0;
+                    // It is remarkably faster to iterate over the index and use get_unchecked
+                    // than using .iter().enumerate() (with a fold).
+                    let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
+                    let mut high: $dtype = Self::_init_max(start_value);
+                    let mut allow_double_update: bool = Self::_allow_initial_double_update(start_value);
+                    for i in 0..arr.len() {
+                        let v: $dtype = unsafe { *arr.get_unchecked(i) };
+                        if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
+                            // When _RETURN_AT_NAN is true and we encounter a NaN
+                            return i; // -> return the index
+                        }
+                        if allow_double_update {
+                            // If we allow the double update (only for FloatIgnoreNaN)
+                            if !Self::_nan_check(v) { // If the value is not a NaN
+                                // Update the high
+                                high = v;
+                                high_index = i;
+                                // And disable the double update
+                                allow_double_update = false;
+                            }
+                        } else if v > high {
+                            high = v;
+                            high_index = i;
+                        }
+                    }
+                    high_index
+                }
             }
         )*
     };
