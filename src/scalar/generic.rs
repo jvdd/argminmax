@@ -194,15 +194,17 @@ macro_rules! impl_scalar {
                             // When _RETURN_AT_NAN is true and we encounter a NaN
                             return (i, i); // -> return the index
                         }
-                        if first_non_nan_update && !Self::_nan_check(v) {
+                        if first_non_nan_update {
                             // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            // Update the low and high
-                            low = v;
-                            low_index = i;
-                            high = v;
-                            high_index = i;
-                            // And disable the first_non_nan_update update
-                            first_non_nan_update = false;
+                            if !Self::_nan_check(v) {
+                                // Update the low and high
+                                low = v;
+                                low_index = i;
+                                high = v;
+                                high_index = i;
+                                // And disable the first_non_nan_update update
+                                first_non_nan_update = false;
+                            }
                         } else if v < low {
                             low = v;
                             low_index = i;
@@ -229,13 +231,15 @@ macro_rules! impl_scalar {
                             // When _RETURN_AT_NAN is true and we encounter a NaN
                             return i; // -> return the index
                         }
-                        if first_non_nan_update && !Self::_nan_check(v) {
+                        if first_non_nan_update {
                             // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            // Update the low
-                            low = v;
-                            low_index = i;
-                            // And disable the first_non_nan_update update
-                            first_non_nan_update = false;
+                            if !Self::_nan_check(v) {
+                                // Update the low
+                                low = v;
+                                low_index = i;
+                                // And disable the first_non_nan_update update
+                                first_non_nan_update = false;
+                            }
                         } else if v < low {
                             low = v;
                             low_index = i;
@@ -259,13 +263,15 @@ macro_rules! impl_scalar {
                             // When _RETURN_AT_NAN is true and we encounter a NaN
                             return i; // -> return the index
                         }
-                        if first_non_nan_update && !Self::_nan_check(v) {
+                        if first_non_nan_update {
                             // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            // Update the high
-                            high = v;
-                            high_index = i;
-                            // And disable the first_non_nan_update update
-                            first_non_nan_update = false;
+                            if !Self::_nan_check(v) {
+                                // Update the high
+                                high = v;
+                                high_index = i;
+                                // And disable the first_non_nan_update update
+                                first_non_nan_update = false;
+                            }
                         } else if v > high {
                             high = v;
                             high_index = i;
