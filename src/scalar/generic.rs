@@ -68,7 +68,7 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
     /// The index of the maximum value in the slice.
     ///
     fn argmax(data: &[ScalarDType]) -> usize {
-        Self::argminmax(data).1 // TODO: seems already to be fairly optimized :exploding_head:
+        Self::argminmax(data).1 // TODO: is slower :/
     }
 }
 
