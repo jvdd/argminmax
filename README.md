@@ -25,7 +25,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-argminmax = "0.4"
+argminmax = "0.5"
 ```
 
 ## Example usage
