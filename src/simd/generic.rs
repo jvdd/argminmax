@@ -610,7 +610,9 @@ where
 // This trait its methods should be implemented for all structs that implement `SIMDOps`
 // for the same generics.
 // This trait is implemented in the `simd_*.rs` files calling the `impl_SIMDArgMinMax!`
-// macro.
+// macro. With the exception of the `simd_f*_return_nan.rs` files, which implement this
+// trait themselves (as these return .argminmax().0 and .argminmax().1 respectively
+// instead of .argmin() and .argmax()).
 //
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize, SCALAR>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
