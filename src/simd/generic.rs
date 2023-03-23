@@ -303,7 +303,7 @@ where
     /// - the array length is <= MAX_INDEX
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= MAX_INDEX. The `_overflow_safe_core_argminmax method` is overflow safe.
+    /// is <= MAX_INDEX. The `_overflow_safe_core_argminmax` method is overflow safe.
     ///
     #[inline(always)]
     unsafe fn _core_argminmax(arr: &[ScalarDType]) -> (usize, ScalarDType, usize, ScalarDType) {
@@ -356,6 +356,72 @@ where
         let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
         let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
         (min_index, min_value, max_index, max_value)
+    }
+
+    /// Core argmin algorithm - returns (argmin, min)
+    ///
+    /// This method asserts:
+    /// - the array length is a multiple of LANE_SIZE
+    /// This method assumes:
+    /// - the array length is <= MAX_INDEX
+    ///
+    /// Note that this method is not overflow safe, as it assumes that the array length
+    /// is <= MAX_INDEX. The `_overflow_safe_core_argmin` method is overflow safe.
+    ///
+    #[inline(always)]
+    unsafe fn _core_argmin(arr: &[ScalarDType]) -> (usize, ScalarDType) {
+        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
+        let mut new_index = Self::INITIAL_INDEX; // Index we will increment in the loop
+        let (mut index_low, mut values_low) = Self::_initialize_index_values_low(arr_ptr);
+
+        for _ in 0..arr.len() / LANE_SIZE - 1 {
+            // Increment the index
+            new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
+            // Load the next chunk of data
+            arr_ptr = arr_ptr.add(LANE_SIZE);
+            let new_values = Self::_mm_loadu(arr_ptr);
+
+            // Update the lowest values and index
+            let mask_low = Self::_mm_cmplt(new_values, values_low);
+            values_low = Self::_mm_blendv(values_low, new_values, mask_low);
+            index_low = Self::_mm_blendv(index_low, new_index, mask_low);
+        }
+
+        // Get the min index and corresponding value from the SIMD vectors and return
+        Self::_horiz_min(index_low, values_low)
+    }
+
+    /// Core argmax algorithm - returns (argmax, max)
+    ///
+    /// This method asserts:
+    /// - the array length is a multiple of LANE_SIZE
+    /// This method assumes:
+    /// - the array length is <= MAX_INDEX
+    ///
+    /// Note that this method is not overflow safe, as it assumes that the array length
+    /// is <= MAX_INDEX. The `_overflow_safe_core_argmax` method is overflow safe.
+    ///
+    #[inline(always)]
+    unsafe fn _core_argmax(arr: &[ScalarDType]) -> (usize, ScalarDType) {
+        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
+        let mut new_index = Self::INITIAL_INDEX; // Index we will increment in the loop
+        let (mut index_high, mut values_high) = Self::_initialize_index_values_high(arr_ptr);
+
+        for _ in 0..arr.len() / LANE_SIZE - 1 {
+            // Increment the index
+            new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
+            // Load the next chunk of data
+            arr_ptr = arr_ptr.add(LANE_SIZE);
+            let new_values = Self::_mm_loadu(arr_ptr);
+
+            // Update the highest values and index
+            let mask_high = Self::_mm_cmpgt(new_values, values_high);
+            values_high = Self::_mm_blendv(values_high, new_values, mask_high);
+            index_high = Self::_mm_blendv(index_high, new_index, mask_high);
+        }
+
+        // Get the max index and corresponding value from the SIMD vectors and return
+        Self::_horiz_max(index_high, values_high)
     }
 
     /// Overflow-safe core argminmax algorithm - returns (argmin, min, argmax, max)
@@ -422,6 +488,106 @@ where
         // 3. Return the min/max index and corresponding value
         (min_index, min_value, max_index, max_value)
     }
+
+    /// Overflow-safe core argmin algorithm - returns (argmin, min)
+    ///
+    /// This method asserts:
+    /// - the array is not empty
+    /// - the array length is a multiple of LANE_SIZE
+    ///
+    #[inline(always)]
+    unsafe fn _overflow_safe_core_argmin(arr: &[ScalarDType]) -> (usize, ScalarDType) {
+        assert!(!arr.is_empty());
+        assert_eq!(arr.len() % LANE_SIZE, 0);
+        // 0. Get the max value of the data type - which needs to be divided by LANE_SIZE
+        let dtype_max = Self::_get_overflow_lane_size_limit();
+
+        // 1. Determine the number of loops needed
+        let n_loops = arr.len() / dtype_max; // floor division
+
+        // 2. Perform overflow-safe _core_argminmax
+        let mut min_index: usize = 0;
+        let mut min_value: ScalarDType = Self::_initialize_min_value(arr);
+        let mut start: usize = 0;
+        // 2.0 Perform the full loops
+        for _ in 0..n_loops {
+            if Self::_return_check(min_value) {
+                // We can return immediately
+                return (min_index, min_value);
+            }
+            let (min_index_, min_value_) = Self::_core_argmin(&arr[start..start + dtype_max]);
+            if min_value_ < min_value || Self::_return_check(min_value_) {
+                min_index = start + min_index_;
+                min_value = min_value_;
+            }
+            start += dtype_max;
+        }
+        // 2.1 Handle the remainder
+        if start < arr.len() {
+            if Self::_return_check(min_value) {
+                // We can return immediately
+                return (min_index, min_value);
+            }
+            let (min_index_, min_value_) = Self::_core_argmin(&arr[start..]);
+            if min_value_ < min_value || Self::_return_check(min_value_) {
+                min_index = start + min_index_;
+                min_value = min_value_;
+            }
+        }
+
+        // 3. Return the min/max index and corresponding value
+        (min_index, min_value)
+    }
+
+    /// Overflow-safe core argmax algorithm - returns (argmax, max)
+    ///
+    /// This method asserts:
+    /// - the array is not empty
+    /// - the array length is a multiple of LANE_SIZE
+    ///
+    #[inline(always)]
+    unsafe fn _overflow_safe_core_argmax(arr: &[ScalarDType]) -> (usize, ScalarDType) {
+        assert!(!arr.is_empty());
+        assert_eq!(arr.len() % LANE_SIZE, 0);
+        // 0. Get the max value of the data type - which needs to be divided by LANE_SIZE
+        let dtype_max = Self::_get_overflow_lane_size_limit();
+
+        // 1. Determine the number of loops needed
+        let n_loops = arr.len() / dtype_max; // floor division
+
+        // 2. Perform overflow-safe _core_argminmax
+        let mut max_index: usize = 0;
+        let mut max_value: ScalarDType = Self::_initialize_max_value(arr);
+        let mut start: usize = 0;
+        // 2.0 Perform the full loops
+        for _ in 0..n_loops {
+            if Self::_return_check(max_value) {
+                // We can return immediately
+                return (max_index, max_value);
+            }
+            let (max_index_, max_value_) = Self::_core_argmax(&arr[start..start + dtype_max]);
+            if max_value_ > max_value || Self::_return_check(max_value_) {
+                max_index = start + max_index_;
+                max_value = max_value_;
+            }
+            start += dtype_max;
+        }
+        // 2.1 Handle the remainder
+        if start < arr.len() {
+            if Self::_return_check(max_value) {
+                // We can return immediately
+                return (max_index, max_value);
+            }
+            let (max_index_, max_value_) = Self::_core_argmax(&arr[start..]);
+            if max_value_ > max_value || Self::_return_check(max_value_) {
+                max_index = start + max_index_;
+                max_value = max_value_;
+            }
+        }
+
+        // 3. Return the min/max index and corresponding value
+        (max_index, max_value)
+    }
 }
 
 /// Implement SIMDCore where SIMDOps & SIMDInit are implemented
@@ -441,13 +607,12 @@ where
 
 /// A trait providing the SIMD implementation of the argminmax operations.
 ///
-// This trait its `argminmax` method should be implemented for all structs that
-// implement `SIMDOps` for the same generics.
-// This trait is implemented for:
-// - ints (see the simd_i*.rs files)
-// - uints (see the simd_u*.rs files)
-// - floats: returning NaNs (see the simd_f*_return_nan.rs files)
-// - floats: ignoring NaNs (see the simd_f*_ignore_nan.rs files)
+// This trait its methods should be implemented for all structs that implement `SIMDOps`
+// for the same generics.
+// This trait is implemented in the `simd_*.rs` files calling the `impl_SIMDArgMinMax!`
+// macro. With the exception of the `simd_f*_return_nan.rs` files, which implement this
+// trait themselves (as these return .argminmax().0 and .argminmax().1 respectively
+// instead of .argmin() and .argmax()).
 //
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize, SCALAR>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -493,7 +658,104 @@ where
             Self::IGNORE_NAN,                    // Ignore NaNs - if false -> return NaN
         )
     }
+
+    /// Get the index of the minimum value in the slice.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    ///
+    /// # Returns
+    /// The index of the minimum value in the slice.
+    ///
+    /// # Safety
+    /// This function is unsafe because unsafe SIMD operations are used.  
+    /// See SIMD operations for more information:
+    /// - [`x86` SIMD docs](https://doc.rust-lang.org/core/arch/x86/index.html)
+    /// - [`x86_64` SIMD docs](https://doc.rust-lang.org/core/arch/x86_64/index.html)
+    /// - [`arm` SIMD docs](https://doc.rust-lang.org/core/arch/arm/index.html)
+    /// - [`aarch64` SIMD docs](https://doc.rust-lang.org/core/arch/aarch64/index.html)
+    ///
+    unsafe fn argmin(data: &[ScalarDType]) -> usize;
+
+    // Is necessary to have a separate function for this so we can call it in the
+    // argmin function when we add the target feature to the function.
+    #[doc(hidden)]
+    #[inline(always)]
+    unsafe fn _argmin(data: &[ScalarDType]) -> usize
+    where
+        SCALAR: ScalarArgMinMax<ScalarDType>,
+    {
+        argmin_generic(
+            data,
+            LANE_SIZE,
+            Self::_overflow_safe_core_argmin, // SIMD operation
+            SCALAR::argmin,                   // Scalar operation
+            Self::_nan_check,                 // NaN check - true if value is NaN
+            Self::IGNORE_NAN,                 // Ignore NaNs - if false -> return NaN
+        )
+    }
+
+    /// Get the index of the maximum value in the slice.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    ///
+    /// # Returns
+    /// The index of the maximum value in the slice.
+    ///
+    /// # Safety
+    /// This function is unsafe because unsafe SIMD operations are used.  
+    /// See SIMD operations for more information:
+    /// - [`x86` SIMD docs](https://doc.rust-lang.org/core/arch/x86/index.html)
+    /// - [`x86_64` SIMD docs](https://doc.rust-lang.org/core/arch/x86_64/index.html)
+    /// - [`arm` SIMD docs](https://doc.rust-lang.org/core/arch/arm/index.html)
+    /// - [`aarch64` SIMD docs](https://doc.rust-lang.org/core/arch/aarch64/index.html)
+    ///
+    unsafe fn argmax(data: &[ScalarDType]) -> usize;
+
+    // Is necessary to have a separate function for this so we can call it in the
+    // argmax function when we add the target feature to the function.
+    #[doc(hidden)]
+    #[inline(always)]
+    unsafe fn _argmax(data: &[ScalarDType]) -> usize
+    where
+        SCALAR: ScalarArgMinMax<ScalarDType>,
+    {
+        argmax_generic(
+            data,
+            LANE_SIZE,
+            Self::_overflow_safe_core_argmax, // SIMD operation
+            SCALAR::argmax,                   // Scalar operation
+            Self::_nan_check,                 // NaN check - true if value is NaN
+            Self::IGNORE_NAN,                 // Ignore NaNs - if false -> return NaN
+        )
+    }
 }
+
+macro_rules! impl_SIMDArgMinMax {
+    ($($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $scalar_struct:ty, $simd_struct:ty, $target:expr),*) => {
+        $(
+            impl SIMDArgMinMax<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size, $scalar_struct> for $simd_struct {
+                #[target_feature(enable = $target)]
+                unsafe fn argminmax(data: &[$scalar_dtype]) -> (usize, usize) {
+                    Self::_argminmax(data)
+                }
+
+                #[target_feature(enable = $target)]
+                unsafe fn argmin(data: &[$scalar_dtype]) -> usize {
+                    Self::_argmin(data)
+                }
+
+                #[target_feature(enable = $target)]
+                unsafe fn argmax(data: &[$scalar_dtype]) -> usize {
+                    Self::_argmax(data)
+                }
+            }
+        )*
+    }
+}
+
+pub(crate) use impl_SIMDArgMinMax; // Now classic paths Just Work™
 
 // --------------------------------- Unimplement Macros --------------------------------
 
@@ -549,6 +811,14 @@ macro_rules! unimpl_SIMDArgMinMax {
     ($scalar_type:ty, $reg:ty, $scalar:ty, $simd_struct:ty) => {
         impl SIMDArgMinMax<$scalar_type, $reg, $reg, 0, $scalar> for $simd_struct {
             unsafe fn argminmax(_data: &[$scalar_type]) -> (usize, usize) {
+                unimplemented!()
+            }
+
+            unsafe fn argmin(_data: &[$scalar_type]) -> usize {
+                unimplemented!()
+            }
+
+            unsafe fn argmax(_data: &[$scalar_type]) -> usize {
                 unimplemented!()
             }
         }

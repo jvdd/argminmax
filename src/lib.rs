@@ -125,6 +125,40 @@ pub trait ArgMinMax {
     /// may occur (in which case index 0 is returned for both).
     ///
     fn argminmax(&self) -> (usize, usize);
+
+    /// Get the index of the minimum value in the array.
+    ///
+    /// When dealing with floats, NaNs are ignored.
+    /// Note that this differs from numpy, where the `argmin` function returns the index
+    /// of the first NaN (which is the behavior of our nanargmin function).
+    ///
+    /// # Returns
+    /// The index of the minimum value in the array.
+    ///
+    /// # Caution
+    /// When a float array contains *only* NaNs and / or infinities unexpected behavior
+    /// may occur (in which case index 0 is returned).
+    ///
+    fn argmin(&self) -> usize {
+        self.argminmax().0 // TODO: implement this in macro below
+    }
+
+    /// Get the index of the maximum value in the array.
+    ///
+    /// When dealing with floats, NaNs are ignored.
+    /// Note that this differs from numpy, where the `argmax` function returns the index
+    /// of the first NaN (which is the behavior of our nanargmax function).
+    ///
+    /// # Returns
+    /// The index of the maximum value in the array.
+    ///
+    /// # Caution
+    /// When a float array contains *only* NaNs and / or infinities unexpected behavior
+    /// may occur (in which case index 0 is returned).
+    ///
+    fn argmax(&self) -> usize {
+        self.argminmax().1 // TODO: implement this in macro below
+    }
 }
 
 /// Trait for finding the minimum and maximum values in an array. For floats, NaNs are propagated - index of the first NaN is returned.  
@@ -151,6 +185,42 @@ pub trait NaNArgMinMax {
     /// that the first NaN is returned.
     ///
     fn nanargminmax(&self) -> (usize, usize);
+
+    /// Get the index of the minimum value in the array.
+    ///
+    /// When dealing with floats, NaNs are propagated - index of the first NaN is
+    /// returned.
+    /// Note that this differs from numpy, where the `nanargmin` function ignores
+    /// NaNs (which is the behavior of our argmin function).
+    ///
+    /// # Returns
+    /// The index of the minimum value in the array.
+    ///
+    /// # Caution
+    /// When multiple bit-representations for NaNs are used, no guarantee is made
+    /// that the first NaN is returned.
+    ///
+    fn nanargmin(&self) -> usize {
+        self.nanargminmax().0 // TODO: implement this in macro below
+    }
+
+    /// Get the index of the maximum value in the array.
+    ///
+    /// When dealing with floats, NaNs are propagated - index of the first NaN is
+    /// returned.
+    /// Note that this differs from numpy, where the `nanargmax` function ignores
+    /// NaNs (which is the behavior of our argmax function).
+    ///
+    /// # Returns
+    /// The index of the maximum value in the array.
+    ///
+    /// # Caution
+    /// When multiple bit-representations for NaNs are used, no guarantee is made
+    /// that the first NaN is returned.
+    ///
+    fn nanargmax(&self) -> usize {
+        self.nanargminmax().1 // TODO: implement this in macro below
+    }
 }
 
 // ---- Helper macros ----

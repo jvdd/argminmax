@@ -11,7 +11,7 @@
 /// values.
 ///
 use super::config::SIMDInstructionSet;
-use super::generic::{impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDOps};
+use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDOps};
 use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
@@ -121,12 +121,15 @@ mod avx2 {
 
     impl_SIMDInit_Int!(u32, __m256i, __m256i, LANE_SIZE, AVX2<Int>);
 
-    impl SIMDArgMinMax<u32, __m256i, __m256i, LANE_SIZE, SCALAR<Int>> for AVX2<Int> {
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
+    impl_SIMDArgMinMax!(
+        u32,
+        __m256i,
+        __m256i,
+        LANE_SIZE,
+        SCALAR<Int>,
+        AVX2<Int>,
+        "avx2"
+    );
 }
 
 // ---------------------------------------- SSE ----------------------------------------
@@ -209,12 +212,15 @@ mod sse {
 
     impl_SIMDInit_Int!(u32, __m128i, __m128i, LANE_SIZE, SSE<Int>);
 
-    impl SIMDArgMinMax<u32, __m128i, __m128i, LANE_SIZE, SCALAR<Int>> for SSE<Int> {
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
+    impl_SIMDArgMinMax!(
+        u32,
+        __m128i,
+        __m128i,
+        LANE_SIZE,
+        SCALAR<Int>,
+        SSE<Int>,
+        "sse4.1"
+    );
 }
 
 // -------------------------------------- AVX512 ---------------------------------------
@@ -302,12 +308,15 @@ mod avx512 {
 
     impl_SIMDInit_Int!(u32, __m512i, u16, LANE_SIZE, AVX512<Int>);
 
-    impl SIMDArgMinMax<u32, __m512i, u16, LANE_SIZE, SCALAR<Int>> for AVX512<Int> {
-        #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
+    impl_SIMDArgMinMax!(
+        u32,
+        __m512i,
+        u16,
+        LANE_SIZE,
+        SCALAR<Int>,
+        AVX512<Int>,
+        "avx512f"
+    );
 }
 
 // --------------------------------------- NEON ----------------------------------------
@@ -358,12 +367,15 @@ mod neon {
 
     impl_SIMDInit_Int!(u32, uint32x4_t, uint32x4_t, LANE_SIZE, NEON<Int>);
 
-    impl SIMDArgMinMax<u32, uint32x4_t, uint32x4_t, LANE_SIZE, SCALAR<Int>> for NEON<Int> {
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[u32]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
+    impl_SIMDArgMinMax!(
+        u32,
+        uint32x4_t,
+        uint32x4_t,
+        LANE_SIZE,
+        SCALAR<Int>,
+        NEON<Int>,
+        "neon"
+    );
 }
 
 // ======================================= TESTS =======================================

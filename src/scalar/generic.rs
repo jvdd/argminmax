@@ -46,6 +46,30 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
     /// `(min_index, max_index)`.
     ///
     fn argminmax(data: &[ScalarDType]) -> (usize, usize);
+
+    /// Get the index of the minimum value in the slice.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    ///
+    /// # Returns
+    /// The index of the minimum value in the slice.
+    ///
+    fn argmin(data: &[ScalarDType]) -> usize {
+        Self::argminmax(data).0 // TODO: seems already to be fairly optimized :exploding_head:
+    }
+
+    /// Get the index of the maximum value in the slice.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    ///
+    /// # Returns
+    /// The index of the maximum value in the slice.
+    ///
+    fn argmax(data: &[ScalarDType]) -> usize {
+        Self::argminmax(data).1 // TODO: is slower :/
+    }
 }
 
 /// Type that implements the [ScalarArgMinMax](crate::ScalarArgMinMax) trait.

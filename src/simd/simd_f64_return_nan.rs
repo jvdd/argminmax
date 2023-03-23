@@ -154,6 +154,14 @@ mod avx2 {
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
         }
+
+        unsafe fn argmin(data: &[f64]) -> usize {
+            Self::argminmax(data).0
+        }
+
+        unsafe fn argmax(data: &[f64]) -> usize {
+            Self::argminmax(data).1
+        }
     }
 }
 
@@ -250,6 +258,14 @@ mod sse {
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
         }
+
+        unsafe fn argmin(data: &[f64]) -> usize {
+            Self::argminmax(data).0
+        }
+
+        unsafe fn argmax(data: &[f64]) -> usize {
+            Self::argminmax(data).1
+        }
     }
 }
 
@@ -333,12 +349,20 @@ mod avx512 {
         }
     }
 
-    impl_SIMDInit_FloatReturnNaN!(f64, __m512i, u8, LANE_SIZE, AVX512::<FloatReturnNaN>);
+    impl_SIMDInit_FloatReturnNaN!(f64, __m512i, u8, LANE_SIZE, AVX512<FloatReturnNaN>);
 
     impl SIMDArgMinMax<f64, __m512i, u8, LANE_SIZE, SCALAR<FloatReturnNaN>> for AVX512<FloatReturnNaN> {
         #[target_feature(enable = "avx512f")]
         unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
             Self::_argminmax(data)
+        }
+
+        unsafe fn argmin(data: &[f64]) -> usize {
+            Self::argminmax(data).0
+        }
+
+        unsafe fn argmax(data: &[f64]) -> usize {
+            Self::argminmax(data).1
         }
     }
 }

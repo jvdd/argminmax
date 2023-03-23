@@ -107,6 +107,7 @@ mod default_test {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: &[T] = &get_monotonic_array(ARRAY_LENGTH, max_index);
         // Test slice (aka the base implementation)
         let (min, max) = data.argminmax();
@@ -127,6 +128,7 @@ mod default_test {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: &[T] = &get_monotonic_array(ARRAY_LENGTH, max_index);
         // Test slice (aka the base implementation)
         let (min, max) = data.nanargminmax();
@@ -156,6 +158,7 @@ mod default_test {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
         // Test owned vec
         let (min, max) = data.argminmax();
@@ -163,6 +166,16 @@ mod default_test {
         assert_eq!(max, max_index - 1);
         // Test borrowed vec
         let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+
+        let mut data_mut: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
+        // Test owned mutable vec
+        let (min, max) = data_mut.argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed mutable vec
+        let (min, max) = (&mut data_mut).argminmax();
         assert_eq!(min, 0);
         assert_eq!(max, max_index - 1);
     }
@@ -176,6 +189,7 @@ mod default_test {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
         // Test owned vec
         let (min, max) = data.nanargminmax();
@@ -188,7 +202,7 @@ mod default_test {
     }
 
     #[apply(dtypes)]
-    fn test_argminmax_many_random_runs_ndarray<T>(#[case] min: T, #[case] max: T)
+    fn test_argminmax_many_random_runs<T>(#[case] min: T, #[case] max: T)
     where
         T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
         for<'a> &'a [T]: ArgMinMax,
@@ -224,6 +238,7 @@ mod ndarray_tests {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
         // --- Array1
         // Test owned Array1
@@ -243,6 +258,26 @@ mod ndarray_tests {
         let (min, max) = (&data.view()).argminmax();
         assert_eq!(min, 0);
         assert_eq!(max, max_index - 1);
+
+        let mut data_mut: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
+        // --- Array1
+        // Test owned mutable Array1
+        let (min, max) = data_mut.argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed mutable Array1
+        let (min, max) = (&mut data_mut).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // --- ArrayView1
+        // Test owned mutable ArrayView1
+        let (min, max) = data_mut.view_mut().argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed mutable ArrayView1
+        let (min, max) = (&mut data_mut.view_mut()).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
     }
 
     #[cfg(any(feature = "float", feature = "half"))]
@@ -254,6 +289,7 @@ mod ndarray_tests {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
         // --- Array1
         // Test owned Array1
@@ -271,6 +307,26 @@ mod ndarray_tests {
         assert_eq!(max, max_index - 1);
         // Test borrowed ArrayView1
         let (min, max) = (&data.view()).nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+
+        let mut data_mut: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
+        // --- Array1
+        // Test owned mutable Array1
+        let (min, max) = data_mut.nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed mutable Array1
+        let (min, max) = (&mut data_mut).nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // --- ArrayView1
+        // Test owned mutable ArrayView1
+        let (min, max) = data_mut.view_mut().nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed mutable ArrayView1
+        let (min, max) = (&mut data_mut.view_mut()).nanargminmax();
         assert_eq!(min, 0);
         assert_eq!(max, max_index - 1);
     }
@@ -371,6 +427,7 @@ mod arrow_tests {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: PrimitiveArray<ArrowDataType> =
             PrimitiveArray::from(get_monotonic_array(ARRAY_LENGTH, max_index));
         // Test owned PrimitiveArray
@@ -397,6 +454,7 @@ mod arrow_tests {
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
         let data: PrimitiveArray<ArrowDataType> =
             PrimitiveArray::from(get_monotonic_array(ARRAY_LENGTH, max_index));
         // Test owned PrimitiveArray

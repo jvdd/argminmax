@@ -15,7 +15,7 @@
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use super::generic::impl_SIMDInit_FloatIgnoreNaN;
+use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN};
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
 use crate::SCALAR;
 #[cfg(target_arch = "x86")]
@@ -88,14 +88,16 @@ mod avx_ignore_nan {
 
     impl_SIMDInit_FloatIgnoreNaN!(f64, __m256d, __m256d, LANE_SIZE, AVX2<FloatIgnoreNaN>);
 
-    impl SIMDArgMinMax<f64, __m256d, __m256d, LANE_SIZE, SCALAR<FloatIgnoreNaN>>
-        for AVX2<FloatIgnoreNaN>
-    {
-        #[target_feature(enable = "avx")]
-        unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
+    // Requires just AVX (and thus not necessarily AVX2)
+    impl_SIMDArgMinMax!(
+        f64,
+        __m256d,
+        __m256d,
+        LANE_SIZE,
+        SCALAR<FloatIgnoreNaN>,
+        AVX2<FloatIgnoreNaN>,
+        "avx"
+    );
 }
 
 // ---------------------------------------- SSE ----------------------------------------
@@ -153,14 +155,15 @@ mod sse_ignore_nan {
 
     impl_SIMDInit_FloatIgnoreNaN!(f64, __m128d, __m128d, LANE_SIZE, SSE<FloatIgnoreNaN>);
 
-    impl SIMDArgMinMax<f64, __m128d, __m128d, LANE_SIZE, SCALAR<FloatIgnoreNaN>>
-        for SSE<FloatIgnoreNaN>
-    {
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
+    impl_SIMDArgMinMax!(
+        f64,
+        __m128d,
+        __m128d,
+        LANE_SIZE,
+        SCALAR<FloatIgnoreNaN>,
+        SSE<FloatIgnoreNaN>,
+        "sse4.1"
+    );
 }
 
 // -------------------------------------- AVX512 ---------------------------------------
@@ -222,12 +225,15 @@ mod avx512_ignore_nan {
 
     impl_SIMDInit_FloatIgnoreNaN!(f64, __m512d, u8, LANE_SIZE, AVX512<FloatIgnoreNaN>);
 
-    impl SIMDArgMinMax<f64, __m512d, u8, LANE_SIZE, SCALAR<FloatIgnoreNaN>> for AVX512<FloatIgnoreNaN> {
-        #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-    }
+    impl_SIMDArgMinMax!(
+        f64,
+        __m512d,
+        u8,
+        LANE_SIZE,
+        SCALAR<FloatIgnoreNaN>,
+        AVX512<FloatIgnoreNaN>,
+        "avx512f"
+    );
 }
 
 // --------------------------------------- NEON ----------------------------------------

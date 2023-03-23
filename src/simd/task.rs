@@ -55,6 +55,68 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
 }
 
 #[inline(always)]
+pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
+    arr: &[T],
+    lane_size: usize,
+    core_argmin: unsafe fn(&[T]) -> (usize, T),
+    scalar_argmin: fn(&[T]) -> usize,
+    nan_check: fn(T) -> bool, // returns true if value is NaN
+    ignore_nan: bool,         // if false, NaNs will be returned
+) -> usize {
+    assert!(!arr.is_empty()); // split_array should never return (None, None)
+    match split_array(arr, lane_size) {
+        (Some(simd_arr), Some(rem)) => {
+            // Perform SIMD operation on the first part of the array
+            let simd_result = unsafe { core_argmin(simd_arr) };
+            // Perform scalar operation on the remainder of the array
+            let rem_min_index = scalar_argmin(rem);
+            let rem_result = (rem_min_index + simd_arr.len(), rem[rem_min_index]);
+            // Find the final min value
+            let (min_index, _) =
+                find_final_index_min(simd_result, rem_result, nan_check, ignore_nan);
+            min_index
+        }
+        (Some(simd_arr), None) => {
+            let (min_index, _) = unsafe { core_argmin(simd_arr) };
+            min_index
+        }
+        (None, Some(rem)) => scalar_argmin(rem),
+        (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    }
+}
+
+#[inline(always)]
+pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
+    arr: &[T],
+    lane_size: usize,
+    core_argmax: unsafe fn(&[T]) -> (usize, T),
+    scalar_argmax: fn(&[T]) -> usize,
+    nan_check: fn(T) -> bool, // returns true if value is NaN
+    ignore_nan: bool,         // if false, NaNs will be returned
+) -> usize {
+    assert!(!arr.is_empty()); // split_array should never return (None, None)
+    match split_array(arr, lane_size) {
+        (Some(simd_arr), Some(rem)) => {
+            // Perform SIMD operation on the first part of the array
+            let simd_result = unsafe { core_argmax(simd_arr) };
+            // Perform scalar operation on the remainder of the array
+            let rem_max_index = scalar_argmax(rem);
+            let rem_result = (rem_max_index + simd_arr.len(), rem[rem_max_index]);
+            // Find the final max value
+            let (max_index, _) =
+                find_final_index_max(simd_result, rem_result, nan_check, ignore_nan);
+            max_index
+        }
+        (Some(simd_arr), None) => {
+            let (max_index, _) = unsafe { core_argmax(simd_arr) };
+            max_index
+        }
+        (None, Some(rem)) => scalar_argmax(rem),
+        (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    }
+}
+
+#[inline(always)]
 fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[T]>) {
     let n = arr.len();
 

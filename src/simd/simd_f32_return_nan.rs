@@ -145,6 +145,14 @@ mod avx2 {
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
         }
+
+        unsafe fn argmin(data: &[f32]) -> usize {
+            Self::argminmax(data).0
+        }
+
+        unsafe fn argmax(data: &[f32]) -> usize {
+            Self::argminmax(data).1
+        }
     }
 }
 
@@ -235,6 +243,14 @@ mod sse {
         #[target_feature(enable = "sse4.1")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
+        }
+
+        unsafe fn argmin(data: &[f32]) -> usize {
+            Self::argminmax(data).0
+        }
+
+        unsafe fn argmax(data: &[f32]) -> usize {
+            Self::argminmax(data).1
         }
     }
 }
@@ -332,6 +348,14 @@ mod avx512 {
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
         }
+
+        unsafe fn argmin(data: &[f32]) -> usize {
+            Self::argminmax(data).0
+        }
+
+        unsafe fn argmax(data: &[f32]) -> usize {
+            Self::argminmax(data).1
+        }
     }
 }
 
@@ -422,6 +446,14 @@ mod neon {
         #[target_feature(enable = "neon")]
         unsafe fn argminmax(data: &[f32]) -> (usize, usize) {
             Self::_argminmax(data)
+        }
+
+        unsafe fn argmin(data: &[f32]) -> usize {
+            Self::argminmax(data).0
+        }
+
+        unsafe fn argmax(data: &[f32]) -> usize {
+            Self::argminmax(data).1
         }
     }
 }
