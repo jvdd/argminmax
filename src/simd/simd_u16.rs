@@ -559,7 +559,7 @@ mod neon {
 
     impl_SIMDInit_Int!(u16, uint16x8_t, uint16x8_t, LANE_SIZE, NEON<Int>);
 
-    impl_SIMDArgMinMax_Int!(
+    impl_SIMDArgMinMax!(
         u16,
         uint16x8_t,
         uint16x8_t,
