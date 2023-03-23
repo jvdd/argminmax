@@ -10,7 +10,7 @@ description = "ArgMinMax (argmin & argmax in 1 function) with SIMD for floats an
 keywords = ["argminmax", "simd", "ndarray"]
 categories = ["algorithms", "mathematics", "science"]
 documentation = "https://docs.rs/argminmax"
-exclude = [".git*", "dev_utils/**/*", "benches/**/*", "tests/**/*"]
+exclude = [".git*", "dev_utils/**/*", "tests/**/*"]
 
 
 [dependencies]
