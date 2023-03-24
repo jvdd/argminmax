@@ -55,7 +55,10 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
     /// # Returns
     /// The index of the minimum value in the slice.
     ///
-    fn argmin(data: &[ScalarDType]) -> usize;
+    #[inline(never)]
+    fn argmin(data: &[ScalarDType]) -> usize {
+        Self::argminmax(data).0
+    }
 
     /// Get the index of the maximum value in the slice.
     ///
@@ -65,7 +68,10 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
     /// # Returns
     /// The index of the maximum value in the slice.
     ///
-    fn argmax(data: &[ScalarDType]) -> usize;
+    #[inline(never)]
+    fn argmax(data: &[ScalarDType]) -> usize {
+        Self::argminmax(data).1
+    }
 }
 
 /// Type that implements the [ScalarArgMinMax](crate::ScalarArgMinMax) trait.
@@ -205,80 +211,83 @@ macro_rules! impl_scalar {
                                 // And disable the first_non_nan_update update
                                 first_non_nan_update = false;
                             }
-                        } else if v > high {
-                            high = v;
-                            high_index = i;
-                        } else if v < low {
-                            low = v;
-                            low_index = i;
+                        } else {
+                            if v < low {
+                                low = v;
+                                low_index = i;
+                            }
+                            if v > high {
+                                high = v;
+                                high_index = i;
+                            }
                         }
                     }
                     (low_index, high_index)
                 }
 
-                #[inline(always)]
-                fn argmin(arr: &[$dtype]) -> usize {
-                    assert!(!arr.is_empty());
-                    let mut low_index: usize = 0;
-                    // It is remarkably faster to iterate over the index and use get_unchecked
-                    // than using .iter().enumerate() (with a fold).
-                    let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
-                    let mut low: $dtype = Self::_init_min(start_value);
-                    let mut first_non_nan_update: bool = Self::_allow_first_non_nan_update(start_value);
-                    for i in 0..arr.len() {
-                        let v: $dtype = unsafe { *arr.get_unchecked(i) };
-                        if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
-                            // When _RETURN_AT_NAN is true and we encounter a NaN
-                            return i; // -> return the index
-                        }
-                        if first_non_nan_update {
-                            // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            if !Self::_nan_check(v) {
-                                // Update the low
-                                low = v;
-                                low_index = i;
-                                // And disable the first_non_nan_update update
-                                first_non_nan_update = false;
-                            }
-                        } else if v < low {
-                            low = v;
-                            low_index = i;
-                        }
-                    }
-                    low_index
-                }
+                // #[inline(always)]
+                // fn argmin(arr: &[$dtype]) -> usize {
+                //     assert!(!arr.is_empty());
+                //     let mut low_index: usize = 0;
+                //     // It is remarkably faster to iterate over the index and use get_unchecked
+                //     // than using .iter().enumerate() (with a fold).
+                //     let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
+                //     let mut low: $dtype = Self::_init_min(start_value);
+                //     let mut first_non_nan_update: bool = Self::_allow_first_non_nan_update(start_value);
+                //     for i in 0..arr.len() {
+                //         let v: $dtype = unsafe { *arr.get_unchecked(i) };
+                //         if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
+                //             // When _RETURN_AT_NAN is true and we encounter a NaN
+                //             return i; // -> return the index
+                //         }
+                //         if first_non_nan_update {
+                //             // If we allow the first non-nan update (only for FloatIgnoreNaN)
+                //             if !Self::_nan_check(v) {
+                //                 // Update the low
+                //                 low = v;
+                //                 low_index = i;
+                //                 // And disable the first_non_nan_update update
+                //                 first_non_nan_update = false;
+                //             }
+                //         } else if v < low {
+                //             low = v;
+                //             low_index = i;
+                //         }
+                //     }
+                //     low_index
+                // }
 
-                #[inline(always)]
-                fn argmax(arr: &[$dtype]) -> usize {
-                    assert!(!arr.is_empty());
-                    let mut high_index: usize = 0;
-                    // It is remarkably faster to iterate over the index and use get_unchecked
-                    // than using .iter().enumerate() (with a fold).
-                    let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
-                    let mut high: $dtype = Self::_init_max(start_value);
-                    let mut first_non_nan_update: bool = Self::_allow_first_non_nan_update(start_value);
-                    for i in 0..arr.len() {
-                        let v: $dtype = unsafe { *arr.get_unchecked(i) };
-                        if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
-                            // When _RETURN_AT_NAN is true and we encounter a NaN
-                            return i; // -> return the index
-                        }
-                        if first_non_nan_update {
-                            // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            if !Self::_nan_check(v) {
-                                // Update the high
-                                high = v;
-                                high_index = i;
-                                // And disable the first_non_nan_update update
-                                first_non_nan_update = false;
-                            }
-                        } else if v > high {
-                            high = v;
-                            high_index = i;
-                        }
-                    }
-                    high_index
-                }
+                // #[inline(always)]
+                // fn argmax(arr: &[$dtype]) -> usize {
+                //     assert!(!arr.is_empty());
+                //     let mut high_index: usize = 0;
+                //     // It is remarkably faster to iterate over the index and use get_unchecked
+                //     // than using .iter().enumerate() (with a fold).
+                //     let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
+                //     let mut high: $dtype = Self::_init_max(start_value);
+                //     let mut first_non_nan_update: bool = Self::_allow_first_non_nan_update(start_value);
+                //     for i in 0..arr.len() {
+                //         let v: $dtype = unsafe { *arr.get_unchecked(i) };
+                //         if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
+                //             // When _RETURN_AT_NAN is true and we encounter a NaN
+                //             return i; // -> return the index
+                //         }
+                //         if first_non_nan_update {
+                //             // If we allow the first non-nan update (only for FloatIgnoreNaN)
+                //             if !Self::_nan_check(v) {
+                //                 // Update the high
+                //                 high = v;
+                //                 high_index = i;
+                //                 // And disable the first_non_nan_update update
+                //                 first_non_nan_update = false;
+                //             }
+                //         } else if v > high {
+                //             high = v;
+                //             high_index = i;
+                //         }
+                //     }
+                //     high_index
+                // }
             }
         )*
     };
