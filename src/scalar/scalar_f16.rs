@@ -30,22 +30,71 @@ pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
     let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
     let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
     for i in 0..arr.len() {
-        let v: f16 = unsafe { *arr.get_unchecked(i) };
-        if v.is_nan() {
+        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
+        // Check for NaN using the bit representation
+        if v & 0x7FFF > 0x7C00 {
             // Return the index of the first NaN value
             return (i, i);
         }
-        let v: i16 = f16_to_i16ord(v);
         if v < low {
             low = v;
             low_index = i;
+        } else if v > high {
+            high = v;
+            high_index = i;
+        }
+    }
+    (low_index, high_index)
+}
+
+pub(crate) fn scalar_argmin_f16_return_nan(arr: &[f16]) -> usize {
+    // f16 is transformed to i16ord
+    //   benchmarks  show:
+    //     1. this is 7-10x faster than using raw f16
+    //     2. this is 3x faster than transforming to f32 or f64
+    assert!(!arr.is_empty());
+    let mut low_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
+    for i in 0..arr.len() {
+        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
+        // Check for NaN using the bit representation
+        if v & 0x7FFF > 0x7C00 {
+            // Return the index of the first NaN value
+            return i;
+        }
+        if v < low {
+            low = v;
+            low_index = i;
+        }
+    }
+    low_index
+}
+
+pub(crate) fn scalar_argmax_f16_return_nan(arr: &[f16]) -> usize {
+    // f16 is transformed to i16ord
+    //   benchmarks  show:
+    //     1. this is 7-10x faster than using raw f16
+    //     2. this is 3x faster than transforming to f32 or f64
+    assert!(!arr.is_empty());
+    let mut high_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
+    for i in 0..arr.len() {
+        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
+        // Check for NaN using the bit representation
+        if v & 0x7FFF > 0x7C00 {
+            // Return the index of the first NaN value
+            return i;
         }
         if v > high {
             high = v;
             high_index = i;
         }
     }
-    (low_index, high_index)
+    high_index
 }
 
 // TODO: previously we had dedicated non x86_64 code for f16 (see below)
