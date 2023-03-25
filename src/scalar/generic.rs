@@ -209,12 +209,15 @@ macro_rules! impl_scalar {
                                 // And disable the first_non_nan_update update
                                 first_non_nan_update = false;
                             }
-                        } else if v < low {
-                            low = v;
-                            low_index = i;
-                        } else if v > high {
-                            high = v;
-                            high_index = i;
+                        } else
+                        {
+                            if v < low {
+                                low = v;
+                                low_index = i;
+                            } else if v > high {
+                                high = v;
+                                high_index = i;
+                            }
                         }
                     }
                     (low_index, high_index)
@@ -244,8 +247,7 @@ macro_rules! impl_scalar {
                                 // And disable the first_non_nan_update update
                                 first_non_nan_update = false;
                             }
-                        }
-                        if v < low {
+                        } else if v < low {
                             low = v;
                             low_index = i;
                         }
@@ -277,8 +279,7 @@ macro_rules! impl_scalar {
                                 // And disable the first_non_nan_update update
                                 first_non_nan_update = false;
                             }
-                        }
-                        if v > high {
+                        } else if v > high {
                             high = v;
                             high_index = i;
                         }
