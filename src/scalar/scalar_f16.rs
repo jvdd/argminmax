@@ -39,7 +39,8 @@ pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
         if v < low {
             low = v;
             low_index = i;
-        } else if v > high {
+        }
+        if v > high {
             high = v;
             high_index = i;
         }
