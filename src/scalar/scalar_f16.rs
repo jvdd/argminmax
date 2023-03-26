@@ -30,12 +30,12 @@ pub(crate) fn scalar_argminmax_f16_return_nan(arr: &[f16]) -> (usize, usize) {
     let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
     let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
     for i in 0..arr.len() {
-        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
-        // Check for NaN using the bit representation
-        if v & 0x7FFF > 0x7C00 {
+        let v: f16 = unsafe { *arr.get_unchecked(i) };
+        if v.is_nan() {
             // Return the index of the first NaN value
             return (i, i);
         }
+        let v: i16 = f16_to_i16ord(v);
         if v < low {
             low = v;
             low_index = i;
@@ -58,12 +58,12 @@ pub(crate) fn scalar_argmin_f16_return_nan(arr: &[f16]) -> usize {
     // than using .iter().enumerate() (with a fold).
     let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
     for i in 0..arr.len() {
-        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
-        // Check for NaN using the bit representation
-        if v & 0x7FFF > 0x7C00 {
+        let v: f16 = unsafe { *arr.get_unchecked(i) };
+        if v.is_nan() {
             // Return the index of the first NaN value
             return i;
         }
+        let v: i16 = f16_to_i16ord(v);
         if v < low {
             low = v;
             low_index = i;
@@ -83,12 +83,12 @@ pub(crate) fn scalar_argmax_f16_return_nan(arr: &[f16]) -> usize {
     // than using .iter().enumerate() (with a fold).
     let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
     for i in 0..arr.len() {
-        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
-        // Check for NaN using the bit representation
-        if v & 0x7FFF > 0x7C00 {
+        let v: f16 = unsafe { *arr.get_unchecked(i) };
+        if v.is_nan() {
             // Return the index of the first NaN value
             return i;
         }
+        let v: i16 = f16_to_i16ord(v);
         if v > high {
             high = v;
             high_index = i;
@@ -109,15 +109,14 @@ pub(crate) fn scalar_argminmax_f16_ignore_nan(arr: &[f16]) -> (usize, usize) {
     // than using .iter().enumerate() (with a fold).
     let mut low: i16 = f16_to_i16ord(f16::INFINITY);
     let mut high: i16 = f16_to_i16ord(f16::NEG_INFINITY);
-    let mut first_non_nan_update =
-        f16_to_i16ord(unsafe { *arr.get_unchecked(0) }) & 0x7FFF > 0x7C00;
+    let mut first_non_nan_update = true;
     for i in 0..arr.len() {
-        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
-        // Check for NaN using the bit representation
-        if v & 0x7FFF > 0x7C00 {
+        let v: f16 = unsafe { *arr.get_unchecked(i) };
+        if v.is_nan() {
             // v is NaN, ignore it (do nothing)
         } else {
             // v is not NaN
+            let v: i16 = f16_to_i16ord(v);
             if first_non_nan_update {
                 low = v;
                 high = v;
@@ -134,6 +133,58 @@ pub(crate) fn scalar_argminmax_f16_ignore_nan(arr: &[f16]) -> (usize, usize) {
         }
     }
     (low_index, high_index)
+}
+
+pub(crate) fn scalar_argmin_f16_ignore_nan(arr: &[f16]) -> usize {
+    // f16 is transformed to i16ord
+    //   benchmarks  show:
+    //     1. this is 7-10x faster than using raw f16
+    //     2. this is 3x faster than transforming to f32 or f64
+    assert!(!arr.is_empty());
+    let mut low_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let mut low: i16 = f16_to_i16ord(f16::INFINITY);
+    for i in 0..arr.len() {
+        let v: f16 = unsafe { *arr.get_unchecked(i) };
+        if v.is_nan() {
+            // v is NaN, ignore it (do nothing)
+        } else {
+            // v is not NaN
+            let v: i16 = f16_to_i16ord(v);
+            if v < low {
+                low = v;
+                low_index = i;
+            }
+        }
+    }
+    low_index
+}
+
+pub(crate) fn scalar_argmax_f16_ignore_nan(arr: &[f16]) -> usize {
+    // f16 is transformed to i16ord
+    //   benchmarks  show:
+    //     1. this is 7-10x faster than using raw f16
+    //     2. this is 3x faster than transforming to f32 or f64
+    assert!(!arr.is_empty());
+    let mut high_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let mut high: i16 = f16_to_i16ord(f16::NEG_INFINITY);
+    for i in 0..arr.len() {
+        let v: f16 = unsafe { *arr.get_unchecked(i) };
+        if v.is_nan() {
+            // v is NaN, ignore it (do nothing)
+        } else {
+            // v is not NaN
+            let v: i16 = f16_to_i16ord(v);
+            if v > high {
+                high = v;
+                high_index = i;
+            }
+        }
+    }
+    high_index
 }
 
 // TODO: previously we had dedicated non x86_64 code for f16 (see below)
@@ -172,8 +223,13 @@ pub(crate) fn scalar_argminmax_f16_ignore_nan(arr: &[f16]) -> (usize, usize) {
 #[cfg(all(feature = "float", feature = "half"))]
 #[cfg(test)]
 mod tests {
-    use super::scalar_argminmax_f16_return_nan;
-    use crate::{FloatReturnNaN, ScalarArgMinMax, SCALAR};
+    use super::{
+        scalar_argmax_f16_ignore_nan, scalar_argmin_f16_ignore_nan, scalar_argminmax_f16_ignore_nan,
+    };
+    use super::{
+        scalar_argmax_f16_return_nan, scalar_argmin_f16_return_nan, scalar_argminmax_f16_return_nan,
+    };
+    use crate::{FloatIgnoreNaN, FloatReturnNaN, ScalarArgMinMax, SCALAR};
 
     use half::f16;
 
@@ -195,10 +251,24 @@ mod tests {
             let (vec_f32, vec_f16) = get_arrays(ARR_LEN);
             let data_f32: &[f32] = &vec_f32;
             let data_f16: &[f16] = &vec_f16;
+            // Return NaN
             let (argmin_index, argmax_index) = SCALAR::<FloatReturnNaN>::argminmax(data_f32);
             let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_return_nan(data_f16);
+            let argmin_index_f16_single = scalar_argmin_f16_return_nan(data_f16);
+            let argmax_index_f16_single = scalar_argmax_f16_return_nan(data_f16);
             assert_eq!(argmin_index, argmin_index_f16);
+            assert_eq!(argmax_index, argmax_index_f16_single);
             assert_eq!(argmax_index, argmax_index_f16);
+            assert_eq!(argmin_index, argmin_index_f16_single);
+            // Ignore NaN
+            let (argmin_index, argmax_index) = SCALAR::<FloatIgnoreNaN>::argminmax(data_f32);
+            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_ignore_nan(data_f16);
+            let argmin_index_f16_single = scalar_argmin_f16_ignore_nan(data_f16);
+            let argmax_index_f16_single = scalar_argmax_f16_ignore_nan(data_f16);
+            assert_eq!(argmin_index, argmin_index_f16);
+            assert_eq!(argmin_index, argmin_index_f16_single);
+            assert_eq!(argmax_index, argmax_index_f16);
+            assert_eq!(argmax_index, argmax_index_f16_single);
         }
     }
 
@@ -214,8 +284,12 @@ mod tests {
             data_f16[*pos] = f16::NAN;
             let (argmin_index, argmax_index) = SCALAR::<FloatReturnNaN>::argminmax(&data_f32);
             let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_return_nan(&data_f16);
+            let argmin_index_f16_single = scalar_argmin_f16_return_nan(&data_f16);
+            let argmax_index_f16_single = scalar_argmax_f16_return_nan(&data_f16);
             assert_eq!(argmin_index, argmin_index_f16);
+            assert_eq!(argmin_index, argmin_index_f16_single);
             assert_eq!(argmax_index, argmax_index_f16);
+            assert_eq!(argmax_index, argmax_index_f16_single);
         }
 
         // all elements are NaN
@@ -226,8 +300,50 @@ mod tests {
         let data_f16: &[f16] = &vec_f16;
         let (argmin_index, argmax_index) = SCALAR::<FloatReturnNaN>::argminmax(data_f32);
         let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_return_nan(data_f16);
+        let argmin_index_f16_single = scalar_argmin_f16_return_nan(data_f16);
+        let argmax_index_f16_single = scalar_argmax_f16_return_nan(data_f16);
         assert_eq!(argmin_index, argmin_index_f16);
+        assert_eq!(argmin_index, argmin_index_f16_single);
         assert_eq!(argmax_index, argmax_index_f16);
+        assert_eq!(argmax_index, argmax_index_f16_single);
+        assert_eq!(argmin_index, 0);
+        assert_eq!(argmax_index, 0);
+    }
+
+    #[test]
+    fn test_generic_and_specific_impl_ignore_nans() {
+        // first, middle, last element
+        let nan_pos: [usize; 3] = [0, ARR_LEN / 2, ARR_LEN - 1];
+        for pos in nan_pos.iter() {
+            let (vec_f32, vec_f16) = get_arrays(ARR_LEN);
+            let mut data_f32: Vec<f32> = vec_f32;
+            let mut data_f16: Vec<f16> = vec_f16;
+            data_f32[*pos] = f32::NAN;
+            data_f16[*pos] = f16::NAN;
+            let (argmin_index, argmax_index) = SCALAR::<FloatIgnoreNaN>::argminmax(&data_f32);
+            let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_ignore_nan(&data_f16);
+            let argmin_index_f16_single = scalar_argmin_f16_ignore_nan(&data_f16);
+            let argmax_index_f16_single = scalar_argmax_f16_ignore_nan(&data_f16);
+            assert_eq!(argmin_index, argmin_index_f16);
+            assert_eq!(argmin_index, argmin_index_f16_single);
+            assert_eq!(argmax_index, argmax_index_f16);
+            assert_eq!(argmax_index, argmax_index_f16_single);
+        }
+
+        // all elements are NaN
+        let (mut vec_f32, mut vec_f16) = get_arrays(ARR_LEN);
+        vec_f32.iter_mut().for_each(|x| *x = f32::NAN);
+        vec_f16.iter_mut().for_each(|x| *x = f16::NAN);
+        let data_f32: &[f32] = &vec_f32;
+        let data_f16: &[f16] = &vec_f16;
+        let (argmin_index, argmax_index) = SCALAR::<FloatIgnoreNaN>::argminmax(data_f32);
+        let (argmin_index_f16, argmax_index_f16) = scalar_argminmax_f16_ignore_nan(data_f16);
+        let argmin_index_f16_single = scalar_argmin_f16_ignore_nan(data_f16);
+        let argmax_index_f16_single = scalar_argmax_f16_ignore_nan(data_f16);
+        assert_eq!(argmin_index, argmin_index_f16);
+        assert_eq!(argmin_index, argmin_index_f16_single);
+        assert_eq!(argmax_index, argmax_index_f16);
+        assert_eq!(argmax_index, argmax_index_f16_single);
         assert_eq!(argmin_index, 0);
         assert_eq!(argmax_index, 0);
     }

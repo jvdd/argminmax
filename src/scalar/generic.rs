@@ -294,9 +294,13 @@ impl_scalar!(FloatIgnoreNaN, f32, f64);
 
 #[cfg(feature = "half")]
 use super::scalar_f16::{
-    scalar_argmax_f16_return_nan, scalar_argmin_f16_return_nan, scalar_argminmax_f16_ignore_nan,
-    scalar_argminmax_f16_return_nan,
+    scalar_argmax_f16_ignore_nan, scalar_argmin_f16_ignore_nan, scalar_argminmax_f16_ignore_nan,
 };
+#[cfg(feature = "half")]
+use super::scalar_f16::{
+    scalar_argmax_f16_return_nan, scalar_argmin_f16_return_nan, scalar_argminmax_f16_return_nan,
+};
+
 #[cfg(feature = "half")]
 use half::f16;
 
@@ -320,7 +324,6 @@ impl ScalarArgMinMax<f16> for SCALAR<FloatReturnNaN> {
 
 #[cfg(feature = "half")]
 impl ScalarArgMinMax<f16> for SCALAR<FloatIgnoreNaN> {
-    // TODO: implement this correctly
     #[inline(always)]
     fn argminmax(arr: &[f16]) -> (usize, usize) {
         scalar_argminmax_f16_ignore_nan(arr)
@@ -328,11 +331,11 @@ impl ScalarArgMinMax<f16> for SCALAR<FloatIgnoreNaN> {
 
     #[inline(always)]
     fn argmin(arr: &[f16]) -> usize {
-        scalar_argminmax_f16_ignore_nan(arr).0
+        scalar_argmin_f16_ignore_nan(arr)
     }
 
     #[inline(always)]
     fn argmax(arr: &[f16]) -> usize {
-        scalar_argminmax_f16_ignore_nan(arr).1
+        scalar_argmax_f16_ignore_nan(arr)
     }
 }
