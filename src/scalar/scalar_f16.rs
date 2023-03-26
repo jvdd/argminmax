@@ -97,6 +97,45 @@ pub(crate) fn scalar_argmax_f16_return_nan(arr: &[f16]) -> usize {
     high_index
 }
 
+pub(crate) fn scalar_argminmax_f16_ignore_nan(arr: &[f16]) -> (usize, usize) {
+    // f16 is transformed to i16ord
+    //   benchmarks  show:
+    //     1. this is 7-10x faster than using raw f16
+    //     2. this is 3x faster than transforming to f32 or f64
+    assert!(!arr.is_empty());
+    let mut low_index: usize = 0;
+    let mut high_index: usize = 0;
+    // It is remarkably faster to iterate over the index and use get_unchecked
+    // than using .iter().enumerate() (with a fold).
+    let mut low: i16 = f16_to_i16ord(f16::INFINITY);
+    let mut high: i16 = f16_to_i16ord(f16::NEG_INFINITY);
+    let mut first_non_nan_update =
+        f16_to_i16ord(unsafe { *arr.get_unchecked(0) }) & 0x7FFF > 0x7C00;
+    for i in 0..arr.len() {
+        let v: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(i) });
+        // Check for NaN using the bit representation
+        if v & 0x7FFF > 0x7C00 {
+            // v is NaN, ignore it (do nothing)
+        } else {
+            // v is not NaN
+            if first_non_nan_update {
+                low = v;
+                high = v;
+                low_index = i;
+                high_index = i;
+                first_non_nan_update = false;
+            } else if v < low {
+                low = v;
+                low_index = i;
+            } else if v > high {
+                high = v;
+                high_index = i;
+            }
+        }
+    }
+    (low_index, high_index)
+}
+
 // TODO: previously we had dedicated non x86_64 code for f16 (see below)
 
 // #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
