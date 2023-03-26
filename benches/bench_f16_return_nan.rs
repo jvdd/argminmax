@@ -14,8 +14,8 @@ use argminmax::simd::{SIMDArgMinMax, NEON};
 use half::f16;
 
 fn get_random_f16_array(n: usize) -> Vec<f16> {
-    let data = utils::get_random_array::<u16>(n, u16::MIN, u16::MAX);
-    let data: Vec<f16> = data.iter().map(|&x| f16::from_bits(x)).collect();
+    let data = utils::get_random_array::<i16>(n, -0x7C00, 0x7C00);
+    let data: Vec<f16> = data.iter().map(|&x| f16::from_bits(x as u16)).collect();
     // Replace NaNs and Infs with 0
     let data: Vec<f16> = data
         .iter()
