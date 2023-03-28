@@ -660,11 +660,7 @@ mod neon_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> int16x8_t {
-            // TODO: can better perhaps?
             let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
-            // _f16_as_int16x8_to_i16ord(vld1q_s16(unsafe {
-            //     std::mem::transmute::<*const f16, *const i16>(data.as_ptr())
-            // }))
             _f16_as_int16x8_to_i16ord(vld1q_s16(data.as_ptr() as *const i16))
         }
     }
