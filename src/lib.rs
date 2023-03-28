@@ -738,15 +738,15 @@ mod arrow_impl {
         for<'a> &'a [T::Native]: ArgMinMax,
     {
         fn argminmax(&self) -> (usize, usize) {
-            self.values().argminmax()
+            self.values().as_ref().argminmax()
         }
 
         fn argmin(&self) -> usize {
-            self.values().argmin()
+            self.values().as_ref().argmin()
         }
 
         fn argmax(&self) -> usize {
-            self.values().argmax()
+            self.values().as_ref().argmax()
         }
     }
 
@@ -757,15 +757,15 @@ mod arrow_impl {
         for<'a> &'a [T::Native]: NaNArgMinMax,
     {
         fn nanargminmax(&self) -> (usize, usize) {
-            self.values().nanargminmax()
+            self.values().as_ref().nanargminmax()
         }
 
         fn nanargmin(&self) -> usize {
-            self.values().nanargmin()
+            self.values().as_ref().nanargmin()
         }
 
         fn nanargmax(&self) -> usize {
-            self.values().nanargmax()
+            self.values().as_ref().nanargmax()
         }
     }
 }
