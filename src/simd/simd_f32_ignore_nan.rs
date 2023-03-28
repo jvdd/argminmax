@@ -16,6 +16,7 @@ use super::generic::{
     impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps,
 };
 use crate::SCALAR;
+use num_traits::Zero;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
