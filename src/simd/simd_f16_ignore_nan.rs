@@ -579,9 +579,7 @@ mod neon_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f16) -> int16x8_t {
-            _f16_as_int16x8_to_i16ord(vld1q_s16(unsafe {
-                std::mem::transmute::<*const f16, *const i16>(data)
-            }))
+            _f16_as_int16x8_to_i16ord(vld1q_s16(data as *const i16))
         }
 
         #[inline(always)]
@@ -591,12 +589,12 @@ mod neon_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_cmpgt(a: int16x8_t, b: int16x8_t) -> uint16x8_t {
-            vand_u16(vcgtq_s16(a, b), _non_nan_check(a))
+            vandq_u16(vcgtq_s16(a, b), _non_nan_check(a))
         }
 
         #[inline(always)]
         unsafe fn _mm_cmplt(a: int16x8_t, b: int16x8_t) -> uint16x8_t {
-            vand_u16(vcltq_s16(a, b), _non_nan_check(a))
+            vandq_u16(vcltq_s16(a, b), _non_nan_check(a))
         }
 
         #[inline(always)]
@@ -661,12 +659,13 @@ mod neon_ignore_nan {
         }
 
         #[inline(always)]
-        unsafe fn _mm_set1(a: f16) -> __m512i {
+        unsafe fn _mm_set1(a: f16) -> int16x8_t {
             // TODO: can better perhaps?
             let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
-            _f16_as_int16x8_to_i16ord(vld1q_f16(
-                (unsafe { std::mem::transmute::<*const f16, *const i16>(data) }),
-            ))
+            // _f16_as_int16x8_to_i16ord(vld1q_s16(unsafe {
+            //     std::mem::transmute::<*const f16, *const i16>(data.as_ptr())
+            // }))
+            _f16_as_int16x8_to_i16ord(vld1q_s16(data.as_ptr() as *const i16))
         }
     }
 

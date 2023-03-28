@@ -542,9 +542,7 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f16) -> int16x8_t {
-            _f16_as_int16x8_to_i16ord(vld1q_s16(unsafe {
-                std::mem::transmute::<*const f16, *const i16>(data)
-            }))
+            _f16_as_int16x8_to_i16ord(vld1q_s16(data as *const i16))
         }
 
         #[inline(always)]
