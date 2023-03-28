@@ -352,7 +352,6 @@ mod sse_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m128i {
-            // TODO: can better perhaps?
             let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
             _f16_as_m128i_to_i16ord(_mm_loadu_si128(data.as_ptr() as *const __m128i))
         }
@@ -514,7 +513,6 @@ mod avx512_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m512i {
-            // TODO: can better perhaps?
             let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
             _f16_as_m521i_to_i16ord(_mm512_loadu_si512(data.as_ptr() as *const i32))
         }
@@ -542,7 +540,7 @@ mod neon_ignore_nan {
 
     const LANE_SIZE: usize = NEON::<FloatIgnoreNaN>::LANE_SIZE_16;
     const LOWER_15_MASK: int16x8_t = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
-    const NAN_MASK: int16x8_t = unsafe { std::mem::transmute([NAN_MASK_VALUE + 1; LANE_SIZE]) };
+    const NAN_MASK: int16x8_t = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_int16x8_to_i16ord(f16_as_int16x8: int16x8_t) -> int16x8_t {
