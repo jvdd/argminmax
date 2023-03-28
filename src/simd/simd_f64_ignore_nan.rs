@@ -18,6 +18,7 @@ use super::config::SIMDInstructionSet;
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN};
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
 use crate::SCALAR;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use num_traits::Zero;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
