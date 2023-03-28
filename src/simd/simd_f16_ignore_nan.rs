@@ -542,6 +542,7 @@ mod neon_ignore_nan {
 
     const LANE_SIZE: usize = NEON::<FloatIgnoreNaN>::LANE_SIZE_16;
     const LOWER_15_MASK: int16x8_t = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const NAN_MASK: int16x8_t = unsafe { std::mem::transmute([NAN_MASK_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_int16x8_to_i16ord(f16_as_int16x8: int16x8_t) -> int16x8_t {
@@ -549,6 +550,13 @@ mod neon_ignore_nan {
         let sign_bit_shifted = vshrq_n_s16(f16_as_int16x8, BIT_SHIFT);
         let sign_bit_masked = vandq_s16(sign_bit_shifted, LOWER_15_MASK);
         veorq_s16(f16_as_int16x8, sign_bit_masked)
+    }
+
+    #[inline(always)]
+    unsafe fn _non_nan_check(f16_as_int16x8: int16x8_t) -> uint16x8_t {
+        // on a scalar: (v & 0x7FFF) > 0x7C00
+        let abs_value = vandq_s16(f16_as_int16x8, LOWER_15_MASK);
+        vcltq_s16(abs_value, NAN_MASK)
     }
 
     #[inline(always)]
@@ -585,12 +593,12 @@ mod neon_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_cmpgt(a: int16x8_t, b: int16x8_t) -> uint16x8_t {
-            vcgtq_s16(a, b)
+            vand_u16(vcgtq_s16(a, b), _non_nan_check(a))
         }
 
         #[inline(always)]
         unsafe fn _mm_cmplt(a: int16x8_t, b: int16x8_t) -> uint16x8_t {
-            vcltq_s16(a, b)
+            vand_u16(vcltq_s16(a, b), _non_nan_check(a))
         }
 
         #[inline(always)]

@@ -762,9 +762,6 @@ pub(crate) use impl_SIMDArgMinMax; // Now classic paths Just Work™
 
 // --------------------------------- Unimplement Macros --------------------------------
 
-// TODO: temporarily removed the target_arch specification bc we currently do not
-// ArgMinMax for f16 ignore nan
-
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 macro_rules! unimpl_SIMDOps {
     ($scalar_type:ty, $reg:ty, $simd_struct:ty) => {
@@ -827,8 +824,6 @@ macro_rules! unimpl_SIMDArgMinMax {
         }
     };
 }
-
-// TODO: temporarily removed the target_arch until we implement f16_ignore_nans
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub(crate) use unimpl_SIMDArgMinMax; // Now classic paths Just Work™
