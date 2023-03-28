@@ -67,6 +67,7 @@ mod avx2_ignore_nan {
 
     const LANE_SIZE: usize = AVX2::<FloatIgnoreNaN>::LANE_SIZE_16;
     const LOWER_15_MASK: __m256i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const NAN_MASK: __m256i = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
@@ -79,6 +80,13 @@ mod avx2_ignore_nan {
         //     _mm256_srai_epi16(f16_as_m256i, 15),
         //     _mm256_and_si256(f16_as_m256i, LOWER_15_MASK),
         // )
+    }
+
+    #[inline(always)]
+    unsafe fn _non_nan_check(f16_as_m256i: __m256i) -> __m256i {
+        // on a scalar: (v & 0x7FFF) > 0x7C00
+        let abs_value = _mm256_and_si256(f16_as_m256i, LOWER_15_MASK);
+        _mm256_cmpgt_epi16(NAN_MASK, abs_value)
     }
 
     #[inline(always)]
@@ -117,12 +125,12 @@ mod avx2_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_cmpgt(a: __m256i, b: __m256i) -> __m256i {
-            _mm256_cmpgt_epi16(a, b)
+            _mm256_and_si256(_mm256_cmpgt_epi16(a, b), _non_nan_check(a))
         }
 
         #[inline(always)]
         unsafe fn _mm_cmplt(a: __m256i, b: __m256i) -> __m256i {
-            _mm256_cmpgt_epi16(b, a)
+            _mm256_and_si256(_mm256_cmpgt_epi16(b, a), _non_nan_check(a))
         }
 
         #[inline(always)]
@@ -371,6 +379,7 @@ mod avx512_ignore_nan {
 
     const LANE_SIZE: usize = AVX512::<FloatIgnoreNaN>::LANE_SIZE_16;
     const LOWER_15_MASK: __m512i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const NAN_MASK: __m512i = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m521i_to_i16ord(f16_as_m512i: __m512i) -> __m512i {
@@ -378,6 +387,13 @@ mod avx512_ignore_nan {
         let sign_bit_shifted = _mm512_srai_epi16(f16_as_m512i, BIT_SHIFT as u32);
         let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, LOWER_15_MASK);
         _mm512_xor_si512(f16_as_m512i, sign_bit_masked)
+    }
+
+    #[inline(always)]
+    unsafe fn _non_nan_check(f16_as_m512i: __m512i) -> u32 {
+        // on a scalar: (v & 0x7FFF) < 0x7C00
+        let abs_value = _mm512_and_si512(f16_as_m512i, LOWER_15_MASK);
+        _mm512_cmplt_epi16_mask(abs_value, NAN_MASK)
     }
 
     #[inline(always)]
@@ -417,12 +433,12 @@ mod avx512_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_cmpgt(a: __m512i, b: __m512i) -> u32 {
-            _mm512_cmpgt_epi16_mask(a, b)
+            _mm512_cmpgt_epi16_mask(a, b) & _non_nan_check(a)
         }
 
         #[inline(always)]
         unsafe fn _mm_cmplt(a: __m512i, b: __m512i) -> u32 {
-            _mm512_cmplt_epi16_mask(a, b)
+            _mm512_cmplt_epi16_mask(a, b) & _non_nan_check(a)
         }
 
         #[inline(always)]

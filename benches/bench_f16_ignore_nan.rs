@@ -63,20 +63,20 @@ fn argminmax_in_f16_random_array_long(c: &mut Criterion) {
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx") {
-        c.bench_function("avx_f16_argminmax_in", |b| {
+    if is_x86_feature_detected!("avx2") {
+        c.bench_function("avx2_f16_argminmax_in", |b| {
             b.iter(|| unsafe { AVX2::<FloatIgnoreNaN>::argminmax(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx") {
-        c.bench_function("avx_f16_argmin_in", |b| {
+    if is_x86_feature_detected!("avx2") {
+        c.bench_function("avx2_f16_argmin_in", |b| {
             b.iter(|| unsafe { AVX2::<FloatIgnoreNaN>::argmin(black_box(data)) })
         });
     }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    if is_x86_feature_detected!("avx") {
-        c.bench_function("avx_f16_argmax_in", |b| {
+    if is_x86_feature_detected!("avx2") {
+        c.bench_function("avx2_f16_argmax_in", |b| {
             b.iter(|| unsafe { AVX2::<FloatIgnoreNaN>::argmax(black_box(data)) })
         });
     }
