@@ -377,10 +377,7 @@ macro_rules! impl_argminmax_float {
                 fn argminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
-                            // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSE::<FloatIgnoreNaN>::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                        if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
                             // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {
@@ -416,10 +413,7 @@ macro_rules! impl_argminmax_float {
                 fn argmin(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
-                            // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSE::<FloatIgnoreNaN>::argmin(self) }
-                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                        if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
                             // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
                         } else if is_x86_feature_detected!("avx512f") {
@@ -455,10 +449,7 @@ macro_rules! impl_argminmax_float {
                 fn argmax(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
-                            // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSE::<FloatIgnoreNaN>::argmax(self) }
-                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                        if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
                             // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {
@@ -496,11 +487,8 @@ macro_rules! impl_argminmax_float {
                 fn nanargminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
-                            // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSE::<FloatReturnNaN>::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS <= 16) {
-                            // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
+                        if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                            // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
@@ -533,11 +521,8 @@ macro_rules! impl_argminmax_float {
                 fn nanargmin(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
-                            // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSE::<FloatReturnNaN>::argmin(self) }
-                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS <= 16) {
-                            // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
+                        if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                            // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
                         } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
@@ -570,11 +555,8 @@ macro_rules! impl_argminmax_float {
                 fn nanargmax(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
-                            // 8-bit numbers are best handled by SSE4.1
-                            return unsafe { SSE::<FloatReturnNaN>::argmax(self) }
-                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS <= 16) {
-                            // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
+                        if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                            // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
