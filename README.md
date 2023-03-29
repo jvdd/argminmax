@@ -108,10 +108,6 @@ Some (minor) limitations:
 - `NaNArgMinMax` its functions returns the first NaN its index (if any present).
   - ❗ When multiple bit-representations for NaNs are used, no guarantee is made that the first NaN is returned.
 
-❗ The "half" feature (f16 support) is not yet fully supported:
-- [x] `ReturnNaN` variant
-- [ ] `IgnoreNaN` variant -> currently defaults to the `ReturnNaN` variant
-
 ---
 
 ## Acknowledgements

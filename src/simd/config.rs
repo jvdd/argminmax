@@ -61,7 +61,7 @@ impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
 // - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
 // - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 //     ! important remark: AVX is enough for f32 and f64, but we need AVX2 for f16
-//     -> f16 is currently not yet implemented (TODO)
+//
 pub struct AVX2<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
