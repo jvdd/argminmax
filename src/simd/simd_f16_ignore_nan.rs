@@ -125,6 +125,7 @@ mod avx2_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_cmpgt(a: __m256i, b: __m256i) -> __m256i {
+            // TODO for argminmax the non-nan check is avoided twice -> optimize this
             _mm256_and_si256(_mm256_cmpgt_epi16(a, b), _non_nan_check(a))
         }
 
