@@ -12,7 +12,7 @@ mod task;
 
 // FLOAT
 #[cfg(feature = "half")]
-mod simd_f16_ignore_nan; // TODO: not supported yet
+mod simd_f16_ignore_nan;
 #[cfg(feature = "half")]
 mod simd_f16_return_nan;
 #[cfg(feature = "float")]

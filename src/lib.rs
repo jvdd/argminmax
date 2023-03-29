@@ -293,7 +293,7 @@ macro_rules! impl_argminmax_int {
                         } else if is_x86_feature_detected!("avx512bw") & (<$int_type>::NB_BITS <= 16) {
                             // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                             return unsafe { AVX512::<Int>::argmin(self) }
-                        } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
+                        } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<Int>::argmin(self) }
                         } else if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<Int>::argmin(self) }
@@ -316,7 +316,6 @@ macro_rules! impl_argminmax_int {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$int_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<Int>::argmin(self) }
                         }
@@ -333,7 +332,7 @@ macro_rules! impl_argminmax_int {
                         } else if is_x86_feature_detected!("avx512bw") & (<$int_type>::NB_BITS <= 16) {
                             // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                             return unsafe { AVX512::<Int>::argmax(self) }
-                        } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
+                        } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<Int>::argmax(self) }
                         } else if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<Int>::argmax(self) }
@@ -356,7 +355,6 @@ macro_rules! impl_argminmax_int {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$int_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<Int>::argmax(self) }
                         }
@@ -377,20 +375,19 @@ macro_rules! impl_argminmax_float {
         $(
             impl ArgMinMax for &[$float_type] {
                 fn argminmax(&self) -> (usize, usize) {
-                    if <$float_type>::NB_BITS <= 16 {
-                        // TODO: f16 IgnoreNaN is not yet SIMD-optimized
-                        // do nothing (defaults to scalar)
-                        return SCALAR::<FloatIgnoreNaN>::argminmax(self);
-                    }
-
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        // if <$float_type>::NB_BITS <= 16 {
-                            // TODO: f16 IgnoreNaN is not yet SIMD-optimized
-                            // do nothing (defaults to scalar)
-                        // } else
-                        if is_x86_feature_detected!("avx512f") {
+                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
+                            // 8-bit numbers are best handled by SSE4.1
+                            return unsafe { SSE::<FloatIgnoreNaN>::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                            // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx512f") {
+                            return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
+                        } else if is_x86_feature_detected!("avx2")  & (<$float_type>::NB_BITS == 16) {
+                            // f16 requires avx2
+                            return unsafe { AVX2::<FloatIgnoreNaN>::argminmax(self) }
                         } else if is_x86_feature_detected!("avx") {
                             // f32 and f64 do not require avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argminmax(self) }
@@ -409,7 +406,6 @@ macro_rules! impl_argminmax_float {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<FloatIgnoreNaN>::argminmax(self) }
                         }
@@ -418,20 +414,19 @@ macro_rules! impl_argminmax_float {
                 }
 
                 fn argmin(&self) -> usize {
-                    if <$float_type>::NB_BITS <= 16 {
-                        // TODO: f16 IgnoreNaN is not yet SIMD-optimized
-                        // do nothing (defaults to scalar)
-                        return SCALAR::<FloatIgnoreNaN>::argmin(self);
-                    }
-
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        // if <$float_type>::NB_BITS <= 16 {
-                            // TODO: f16 IgnoreNaN is not yet SIMD-optimized
-                            // do nothing (defaults to scalar)
-                        // } else
-                        if is_x86_feature_detected!("avx512f") {
+                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
+                            // 8-bit numbers are best handled by SSE4.1
+                            return unsafe { SSE::<FloatIgnoreNaN>::argmin(self) }
+                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                            // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
+                        } else if is_x86_feature_detected!("avx512f") {
+                            return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
+                        } else if is_x86_feature_detected!("avx2")  & (<$float_type>::NB_BITS == 16) {
+                            // f16 requires avx2
+                            return unsafe { AVX2::<FloatIgnoreNaN>::argmin(self) }
                         } else if is_x86_feature_detected!("avx") {
                             // f32 and f64 do not require avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argmin(self) }
@@ -450,7 +445,6 @@ macro_rules! impl_argminmax_float {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<FloatIgnoreNaN>::argmin(self) }
                         }
@@ -459,20 +453,19 @@ macro_rules! impl_argminmax_float {
                 }
 
                 fn argmax(&self) -> usize {
-                    if <$float_type>::NB_BITS <= 16 {
-                        // TODO: f16 IgnoreNaN is not yet SIMD-optimized
-                        // do nothing (defaults to scalar)
-                        return SCALAR::<FloatIgnoreNaN>::argmax(self);
-                    }
-
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        // if <$float_type>::NB_BITS <= 16 {
-                            // TODO: f16 IgnoreNaN is not yet SIMD-optimized
-                            // do nothing (defaults to scalar)
-                        // } else
-                        if is_x86_feature_detected!("avx512f") {
+                        if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS == 8) {
+                            // 8-bit numbers are best handled by SSE4.1
+                            return unsafe { SSE::<FloatIgnoreNaN>::argmax(self) }
+                        } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
+                            // BW (ByteWord) instructions are needed for 16-bit avx512
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
+                        } else if is_x86_feature_detected!("avx512f") {
+                            return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
+                        } else if is_x86_feature_detected!("avx2")  & (<$float_type>::NB_BITS == 16) {
+                            // f16 requires avx2
+                            return unsafe { AVX2::<FloatIgnoreNaN>::argmax(self) }
                         } else if is_x86_feature_detected!("avx") {
                             // f32 and f64 do not require avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argmax(self) }
@@ -491,7 +484,6 @@ macro_rules! impl_argminmax_float {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<FloatIgnoreNaN>::argmax(self) }
                         }
@@ -510,7 +502,7 @@ macro_rules! impl_argminmax_float {
                         } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS <= 16) {
                             // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                             return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
+                        } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
                         } else if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<FloatReturnNaN>::argminmax(self) }
@@ -531,7 +523,6 @@ macro_rules! impl_argminmax_float {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<FloatReturnNaN>::argminmax(self) }
                         }
@@ -548,7 +539,7 @@ macro_rules! impl_argminmax_float {
                         } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS <= 16) {
                             // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                             return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
-                        } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
+                        } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
                         } else if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<FloatReturnNaN>::argmin(self) }
@@ -569,7 +560,6 @@ macro_rules! impl_argminmax_float {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<FloatReturnNaN>::argmin(self) }
                         }
@@ -586,7 +576,7 @@ macro_rules! impl_argminmax_float {
                         } else if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS <= 16) {
                             // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
                             return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
-                        } else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
+                        } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
                         } else if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<FloatReturnNaN>::argmax(self) }
@@ -607,7 +597,6 @@ macro_rules! impl_argminmax_float {
                     #[cfg(target_arch = "arm")]
                     {
                         if std::arch::is_arm_feature_detected!("neon") & (<$float_type>::NB_BITS < 64) {
-                            // TODO: requires v7?
                             // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<FloatReturnNaN>::argmax(self) }
                         }

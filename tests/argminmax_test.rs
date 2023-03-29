@@ -47,7 +47,7 @@ fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
 #[cfg(feature = "float")]
 #[template]
 #[rstest]
-// #[case::float16(f16::MIN, f16::MAX)] // TODO
+// #[case::float16(f16::MIN, f16::MAX)] // TODO -> https://github.com/starkat99/half-rs/pull/83
 #[case::float32(f32::MIN, f32::MAX)]
 #[case::float64(f64::MIN, f64::MAX)]
 #[case::int8(i8::MIN, i8::MAX)]
