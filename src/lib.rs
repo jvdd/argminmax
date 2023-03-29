@@ -382,10 +382,10 @@ macro_rules! impl_argminmax_float {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx2")  & (<$float_type>::NB_BITS == 16) {
+                        } else if is_x86_feature_detected!("avx2") {
                             // f16 requires avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argminmax(self) }
-                        } else if is_x86_feature_detected!("avx") {
+                        } else if is_x86_feature_detected!("avx") & (<$float_type>::NB_BITS > 16) {
                             // f32 and f64 do not require avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argminmax(self) }
                         } else if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS < 64) {
@@ -418,10 +418,10 @@ macro_rules! impl_argminmax_float {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
                         } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
-                        } else if is_x86_feature_detected!("avx2")  & (<$float_type>::NB_BITS == 16) {
+                        } else if is_x86_feature_detected!("avx2") {
                             // f16 requires avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argmin(self) }
-                        } else if is_x86_feature_detected!("avx") {
+                        } else if is_x86_feature_detected!("avx") & (<$float_type>::NB_BITS > 16) {
                             // f32 and f64 do not require avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argmin(self) }
                         } else if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS < 64) {
@@ -454,10 +454,10 @@ macro_rules! impl_argminmax_float {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
                         } else if is_x86_feature_detected!("avx512f") {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
-                        } else if is_x86_feature_detected!("avx2")  & (<$float_type>::NB_BITS == 16) {
+                        } else if is_x86_feature_detected!("avx2") {
                             // f16 requires avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argmax(self) }
-                        } else if is_x86_feature_detected!("avx") {
+                        } else if is_x86_feature_detected!("avx") & (<$float_type>::NB_BITS > 16) {
                             // f32 and f64 do not require avx2
                             return unsafe { AVX2::<FloatIgnoreNaN>::argmax(self) }
                         } else if is_x86_feature_detected!("sse4.1") & (<$float_type>::NB_BITS < 64) {
