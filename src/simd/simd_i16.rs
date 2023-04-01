@@ -283,7 +283,7 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> __m512i {
-            _mm512_loadu_epi16(data as *const i16)
+            _mm512_loadu_si512(data as *const i32)
         }
 
         #[inline(always)]
