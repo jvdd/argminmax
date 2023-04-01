@@ -13,6 +13,8 @@ use dev_utils::utils;
 use rand;
 
 const ARRAY_LENGTH: usize = 100_000;
+const NB_RANDOM_RUNS: usize = 500;
+const RANDOM_ARR_LENGTH: usize = 5_000;
 
 // ----- dtypes_with_nan template -----
 
@@ -207,8 +209,8 @@ mod default_test {
         T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
         for<'a> &'a [T]: ArgMinMax,
     {
-        for _ in 0..500 {
-            let data: Vec<T> = utils::get_random_array::<T>(5_000, min, max);
+        for _ in 0..NB_RANDOM_RUNS {
+            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -337,8 +339,8 @@ mod ndarray_tests {
         T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
         for<'a> &'a [T]: ArgMinMax,
     {
-        for _ in 0..500 {
-            let data: Vec<T> = utils::get_random_array::<T>(5_000, min, max);
+        for _ in 0..NB_RANDOM_RUNS {
+            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -478,8 +480,8 @@ mod arrow_tests {
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
-        for _ in 0..500 {
-            let data: Vec<T> = utils::get_random_array::<T>(5_000, min, max);
+        for _ in 0..NB_RANDOM_RUNS {
+            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -487,6 +489,160 @@ mod arrow_tests {
             let (min_vec, max_vec) = data.argminmax();
             // Arrow
             let arrow: PrimitiveArray<ArrowDataType> = PrimitiveArray::from(data);
+            let (min_arrow, max_arrow) = arrow.argminmax();
+
+            // Check
+            assert_eq!(min_slice, min_vec);
+            assert_eq!(max_slice, max_vec);
+            assert_eq!(min_slice, min_arrow);
+            assert_eq!(max_slice, max_arrow);
+        }
+    }
+}
+
+#[cfg(feature = "arrow2")]
+#[cfg(test)]
+mod arrow2_tests {
+    use super::*;
+
+    use arrow2::array::PrimitiveArray;
+    use arrow2::types::NativeType;
+
+    // Float and not half
+    #[cfg(feature = "float")]
+    #[template]
+    #[rstest]
+    #[case::float32(f32::MIN, f32::MAX)]
+    #[case::float64(f64::MIN, f64::MAX)]
+    fn dtypes_with_nan_arrow2<T>(#[case] min: T, #[case] max: T) {}
+
+    #[apply(dtypes)]
+    fn test_argminmax_arrow2<T>(#[case] _min: T, #[case] max: T)
+    where
+        for<'a> &'a [T]: ArgMinMax,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + NativeType,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
+        let data: PrimitiveArray<T> =
+            PrimitiveArray::from_vec(get_monotonic_array(ARRAY_LENGTH, max_index));
+        // Test owned PrimitiveArray
+        let (min, max) = data.argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed PrimitiveArray
+        let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
+    #[cfg(feature = "float")]
+    #[apply(dtypes_with_nan_arrow2)]
+    fn test_argminmax_arrow2_nan<T>(#[case] _min: T, #[case] max: T)
+    where
+        for<'a> &'a [T]: NaNArgMinMax,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + NativeType,
+    {
+        // max_index is the max value that can be represented by T
+        let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
+
+        let data: PrimitiveArray<T> =
+            PrimitiveArray::from_vec(get_monotonic_array(ARRAY_LENGTH, max_index));
+        // Test owned PrimitiveArray
+        let (min, max) = data.nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed PrimitiveArray
+        let (min, max) = (&data).nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+    }
+
+    #[apply(dtypes)]
+    fn test_argminmax_many_random_runs_arrow2<T>(#[case] min: T, #[case] max: T)
+    where
+        for<'a> &'a [T]: ArgMinMax,
+        T: Copy
+            + FromPrimitive
+            + AsPrimitive<usize>
+            + rand::distributions::uniform::SampleUniform
+            + NativeType,
+    {
+        for _ in 0..NB_RANDOM_RUNS {
+            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            // Slice
+            let slice: &[T] = &data;
+            let (min_slice, max_slice) = slice.argminmax();
+            // Vec
+            let (min_vec, max_vec) = data.argminmax();
+            // Arrow
+            let arrow: PrimitiveArray<T> = PrimitiveArray::from_vec(data);
+            let (min_arrow, max_arrow) = arrow.argminmax();
+
+            // Check
+            assert_eq!(min_slice, min_vec);
+            assert_eq!(max_slice, max_vec);
+            assert_eq!(min_slice, min_arrow);
+            assert_eq!(max_slice, max_arrow);
+        }
+    }
+
+    // Perform the same tests with half::f16 - convert to arrow2::types::f16
+    #[test]
+    #[cfg(feature = "half")]
+    fn test_argminmax_arrow2_f16() {
+        // Get monotonic array
+        let max_index: usize = 1 << f16::MANTISSA_DIGITS;
+        let data: Vec<f16> = get_monotonic_array(ARRAY_LENGTH, max_index);
+        // Convert the half::f16 vec to PrimitiveArray<arrow2::types::f16>
+        let data: Vec<arrow2::types::f16> = data
+            .into_iter()
+            .map(|x| arrow2::types::f16(x.to_bits()))
+            .collect();
+
+        let data: PrimitiveArray<arrow2::types::f16> = PrimitiveArray::from_vec(data);
+
+        // --- ArgMinMax
+        // Test owned PrimitiveArray
+        let (min, max) = data.argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed PrimitiveArray
+        let (min, max) = (&data).argminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+
+        // --- NaNArgMinMax
+        // Test owned PrimitiveArray
+        let (min, max) = data.nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+        // Test borrowed PrimitiveArray
+        let (min, max) = (&data).nanargminmax();
+        assert_eq!(min, 0);
+        assert_eq!(max, max_index - 1);
+
+        // --- many random runs
+        for _ in 0..NB_RANDOM_RUNS {
+            let data: Vec<i16> =
+                utils::get_random_array::<i16>(RANDOM_ARR_LENGTH, i16::MIN, i16::MAX);
+            // convert to half::f16
+            let data_half: Vec<f16> = data.into_iter().map(|x| f16::from_bits(x as u16)).collect();
+            // convert to arrow2::types::f16
+            let data: Vec<arrow2::types::f16> = data_half
+                .clone()
+                .into_iter()
+                .map(|x| arrow2::types::f16(x.to_bits()))
+                .collect();
+
+            // Slice
+            let slice: &[f16] = &data_half;
+            let (min_slice, max_slice) = slice.argminmax();
+            // Vec
+            let (min_vec, max_vec) = data_half.argminmax();
+            // Arrow2
+            let arrow: PrimitiveArray<arrow2::types::f16> = PrimitiveArray::from_vec(data);
             let (min_arrow, max_arrow) = arrow.argminmax();
 
             // Check

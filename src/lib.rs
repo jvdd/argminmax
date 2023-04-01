@@ -35,6 +35,7 @@
 //! - **`half`** - enables the traits for `f16` (requires the [`half`](https://crates.io/crates/half) crate).
 //! - **`ndarray`** - adds the traits to [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html) (requires the `ndarray` crate).
 //! - **`arrow`** - adds the traits to [`arrow::array::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html) (requires the `arrow` crate).
+//! - **`arrow2`** - adds the traits to [`arrow2::array::PrimitiveArray`](https://docs.rs/arrow2/latest/arrow2/array/struct.PrimitiveArray.html) (requires the `arrow2` crate).
 //!
 //!
 //! # Examples
@@ -737,6 +738,97 @@ mod arrow_impl {
 
         fn nanargmax(&self) -> usize {
             self.values().as_ref().nanargmax()
+        }
+    }
+}
+
+// ---------------------- (optional) arrow2 ----------------------
+
+#[cfg(feature = "arrow2")]
+mod arrow2_impl {
+    use super::*;
+    use arrow2::array::PrimitiveArray;
+
+    impl<T> ArgMinMax for PrimitiveArray<T>
+    where
+        T: arrow2::types::NativeType,
+        for<'a> &'a [T]: ArgMinMax,
+    {
+        fn argminmax(&self) -> (usize, usize) {
+            self.values().as_ref().argminmax()
+        }
+
+        fn argmin(&self) -> usize {
+            self.values().as_ref().argmin()
+        }
+
+        fn argmax(&self) -> usize {
+            self.values().as_ref().argmax()
+        }
+    }
+
+    #[cfg(feature = "float")]
+    impl<T> NaNArgMinMax for PrimitiveArray<T>
+    where
+        T: arrow2::types::NativeType,
+        for<'a> &'a [T]: NaNArgMinMax,
+    {
+        fn nanargminmax(&self) -> (usize, usize) {
+            self.values().as_ref().nanargminmax()
+        }
+
+        fn nanargmin(&self) -> usize {
+            self.values().as_ref().nanargmin()
+        }
+
+        fn nanargmax(&self) -> usize {
+            self.values().as_ref().nanargmax()
+        }
+    }
+
+    #[cfg(feature = "half")]
+    #[inline(always)]
+    /// Convert a PrimitiveArray<arrow2::types::f16> to a slice of half::f16
+    /// To do so, the pointer to the arrow2::types::f16 slice is casted to a pointer to
+    /// a slice of half::f16 (since both use u16 as their underlying type)
+    fn _to_half_f16_slice(
+        primitive_array_f16: &PrimitiveArray<arrow2::types::f16>,
+    ) -> &[half::f16] {
+        unsafe {
+            std::slice::from_raw_parts(
+                primitive_array_f16.values().as_ptr() as *const half::f16,
+                primitive_array_f16.len(),
+            )
+        }
+    }
+
+    #[cfg(feature = "half")]
+    impl ArgMinMax for PrimitiveArray<arrow2::types::f16> {
+        fn argminmax(&self) -> (usize, usize) {
+            _to_half_f16_slice(self).argminmax()
+        }
+
+        fn argmin(&self) -> usize {
+            _to_half_f16_slice(self).argmin()
+        }
+
+        fn argmax(&self) -> usize {
+            _to_half_f16_slice(self).argmax()
+        }
+    }
+
+    #[cfg(feature = "half")]
+    impl NaNArgMinMax for PrimitiveArray<arrow2::types::f16> {
+        fn nanargminmax(&self) -> (usize, usize) {
+            _to_half_f16_slice(self).nanargminmax()
+        }
+
+        fn nanargmin(&self) -> usize {
+            _to_half_f16_slice(self).nanargmin()
+        }
+
+        fn nanargmax(&self) -> usize {
+            _to_half_f16_slice(self).nanargmax()
         }
     }
 }

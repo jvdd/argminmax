@@ -5,7 +5,7 @@
 
 🚀 The function is generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>1</sup>, `f32`<sup>2</sup>, `f64`<sup>2</sup>, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
 
-🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>3</sup>, and apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>4</sup>.
+🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>3</sup>, apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>4</sup> and [`arrow2::PrimitiveArray`](https://docs.rs/arrow2/latest/arrow2/array/struct.PrimitiveArray.html)<sup>5</sup>.
 
 ⚡ **Runtime CPU feature detection** is used to select the most efficient implementation for the current CPU. This means that the same binary can be used on different CPUs without recompilation. 
 
@@ -18,6 +18,7 @@
 > <i><sup>2</sup> for <code>f32</code> and <code>f64</code> you should enable the (default) `"float"` feature.</i>  
 > <i><sup>3</sup> for <code>ndarray::ArrayBase</code> you should enable the `"ndarray"` feature.</i>  
 > <i><sup>4</sup> for <code>arrow::PrimitiveArray</code> you should enable the `"arrow"` feature.</i>  
+> <i><sup>5</sup> for <code>arrow2::PrimitiveArray</code> you should enable the `"arrow2"` feature.</i>
 
 ## Installing
 
