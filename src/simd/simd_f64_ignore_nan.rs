@@ -16,7 +16,9 @@
 use super::config::SIMDInstructionSet;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use num_traits::Zero;
@@ -26,6 +28,7 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on f64 data: ignore NaN values
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
 // https://stackoverflow.com/a/3793950

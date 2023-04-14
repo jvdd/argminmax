@@ -2,7 +2,9 @@
 use super::config::SIMDInstructionSet;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -10,6 +12,7 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on i64 data: (default) Int
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::super::dtype_strategy::Int;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

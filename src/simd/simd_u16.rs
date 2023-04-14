@@ -10,8 +10,11 @@
 /// the ordinal integer values and then transform the result back to the original u16
 /// values.
 ///
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::config::SIMDInstructionSet;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDOps};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
@@ -24,6 +27,7 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on u16 data: (default) Int
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::super::dtype_strategy::Int;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -36,6 +40,7 @@ fn _i16ord_to_u16(ord_i16: i16) -> u16 {
     unsafe { std::mem::transmute::<i16, u16>(ord_i16 ^ XOR_VALUE) }
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 const MAX_INDEX: usize = i16::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -578,8 +583,8 @@ mod neon {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    target_arch = "arm",
-    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    all(target_arch = "aarch64", feature = "nightly_simd"),
 ))]
 #[cfg(test)]
 mod tests {
@@ -591,7 +596,6 @@ mod tests {
     #[cfg(feature = "nightly_simd")]
     use crate::simd::config::AVX512;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-    #[cfg(feature = "nightly_simd")]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, SSE};
@@ -630,7 +634,6 @@ mod tests {
     // ------------ Template for ARM / AArch64 ------------
 
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-    #[cfg(feature = "nightly_simd")]
     #[template]
     #[rstest]
     #[case::neon(NEON {_dtype_strategy: PhantomData::<Int>}, true)]
