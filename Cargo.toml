@@ -22,7 +22,8 @@ arrow2 = { version = ">0.0", default-features = false, optional = true}
 # once_cell = "1.16.0"
 
 [features]
-default = ["float"]
+default = ["nightly_simd", "float"]
+nightly_simd = []
 float = []
 half = ["dep:half"]
 ndarray = ["dep:ndarray"]
