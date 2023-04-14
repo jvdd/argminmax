@@ -16,6 +16,7 @@ use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
+#[cfg(feature = "nightly_simd")]
 use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
