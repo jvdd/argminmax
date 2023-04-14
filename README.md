@@ -1,11 +1,11 @@
 # ArgMinMax
-> Efficient argmin &amp; argmax (in 1 function) with SIMD (SSE, AVX(2), AVX512, NEON) for `f16`, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
+> Efficient argmin &amp; argmax (in 1 function) with SIMD (SSE, AVX(2), AVX512<sup>1</sup>, NEON<sup>1</sup>) for `f16`, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
 
 <!-- This project uses [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) to compute argmin and argmax in a single function.   -->
 
-🚀 The function is generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>1</sup>, `f32`<sup>2</sup>, `f64`<sup>2</sup>, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
+🚀 The function is generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>2</sup>, `f32`<sup>2</sup>, `f64`<sup>3</sup>, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
 
-🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>3</sup>, apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>4</sup> and [`arrow2::PrimitiveArray`](https://docs.rs/arrow2/latest/arrow2/array/struct.PrimitiveArray.html)<sup>5</sup>.
+🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>4</sup>, apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>5</sup> and [`arrow2::PrimitiveArray`](https://docs.rs/arrow2/latest/arrow2/array/struct.PrimitiveArray.html)<sup>6</sup>.
 
 ⚡ **Runtime CPU feature detection** is used to select the most efficient implementation for the current CPU. This means that the same binary can be used on different CPUs without recompilation. 
 
@@ -13,12 +13,12 @@
 
 🪄 **Efficient support for f16 and uints**: through (bijective aka symmetric) bitwise operations, f16 (optional<sup>1</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 
-
-> <i><sup>1</sup> for <code>f16</code> you should enable the `"half"` feature.</i>  
-> <i><sup>2</sup> for <code>f32</code> and <code>f64</code> you should enable the (default) `"float"` feature.</i>  
-> <i><sup>3</sup> for <code>ndarray::ArrayBase</code> you should enable the `"ndarray"` feature.</i>  
-> <i><sup>4</sup> for <code>arrow::PrimitiveArray</code> you should enable the `"arrow"` feature.</i>  
-> <i><sup>5</sup> for <code>arrow2::PrimitiveArray</code> you should enable the `"arrow2"` feature.</i>
+> <i><sup>1</sup> for <code>AVX512</code> and most of <code>NEON</code> you should enable the (default) `"nightly_simd"` feature (requires nightly Rust).</i>  
+> <i><sup>2</sup> for <code>f16</code> you should enable the `"half"` feature.</i>  
+> <i><sup>3</sup> for <code>f32</code> and <code>f64</code> you should enable the (default) `"float"` feature.</i>  
+> <i><sup>4</sup> for <code>ndarray::ArrayBase</code> you should enable the `"ndarray"` feature.</i>  
+> <i><sup>5</sup> for <code>arrow::PrimitiveArray</code> you should enable the `"arrow"` feature.</i>  
+> <i><sup>6</sup> for <code>arrow2::PrimitiveArray</code> you should enable the `"arrow2"` feature.</i>
 
 ## Installing
 
@@ -70,6 +70,7 @@ When dealing with NaNs, `NaNArgMinMax` its functions return the first NaN its in
 
 
 ## Features
+- [default] **"nightly_simd"**: enables the use of non-stable SIMD intrinsics (`AVX512` and most of `NEON`), which are only available on nightly Rust.
 - [default] **"float"**: support `f32` and `f64` argminmax (uses NaN-handling - [see below](#limitations)).
 - **"half"**: support `f16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
 - **"ndarray"**: add `ArgMinMax` trait to [`ndarray`](https://docs.rs/ndarray/latest/ndarray) its `Array1` & `ArrayView1`.
