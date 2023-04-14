@@ -11,15 +11,20 @@
 /// As comparisons with NaN always return false, it is guaranteed that no NaN values
 /// are added to the accumulating SIMD register.
 ///
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::config::SIMDInstructionSet;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{
     impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps,
 };
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use num_traits::Zero;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
+#[cfg(feature = "nightly_simd")]
 use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -27,9 +32,11 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on f32 data: ignore NaN values
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
 // https://stackoverflow.com/a/3793950
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -173,6 +180,7 @@ mod sse_ignore_nan {
 // -------------------------------------- AVX512 ---------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(feature = "nightly_simd")]
 mod avx512_ignore_nan {
     use super::super::config::AVX512;
     use super::*;
@@ -244,6 +252,7 @@ mod avx512_ignore_nan {
 // --------------------------------------- NEON ----------------------------------------
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(feature = "nightly_simd")]
 mod neon_ignore_nan {
     use super::super::config::NEON;
     use super::*;
@@ -319,8 +328,8 @@ mod neon_ignore_nan {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    target_arch = "arm",
-    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    all(target_arch = "aarch64", feature = "nightly_simd"),
 ))]
 #[cfg(test)]
 mod tests {
@@ -328,10 +337,13 @@ mod tests {
     use rstest_reuse::{self, *};
     use std::marker::PhantomData;
 
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(feature = "nightly_simd")]
+    use crate::simd::config::AVX512;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    use crate::simd::config::{AVX2, AVX512, SSE};
+    use crate::simd::config::{AVX2, SSE};
     use crate::{FloatIgnoreNaN, SIMDArgMinMax, SCALAR};
 
     use super::super::test_utils::{
@@ -359,7 +371,7 @@ mod tests {
     #[rstest]
     #[case::sse(SSE {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("sse4.1"))]
     #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("avx"))]
-    #[case::avx512(AVX512 {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("avx512f"))]
+    #[cfg_attr(feature = "nightly_simd", case::avx512(AVX512 {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("avx512f")))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
         #[case] simd_available: bool,

@@ -36,4 +36,5 @@ mod simd_u8;
 
 // Test utils
 #[cfg(test)]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 mod test_utils;

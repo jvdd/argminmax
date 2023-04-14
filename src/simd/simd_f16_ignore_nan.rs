@@ -25,37 +25,48 @@
 /// Note that most x86 CPUs do not support f16 instructions - making this implementation
 /// multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
 ///
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::config::SIMDInstructionSet;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{
     impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps,
 };
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
-
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use num_traits::Zero;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "arm")]
+#[cfg(feature = "nightly_simd")]
 use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use half::f16;
 
 /// The dtype-strategy for performing operations on f16 data: ignore NaN values
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 const BIT_SHIFT: i32 = 15;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - masks everything but the sign bit
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 const NAN_VALUE: i16 = 0x7C00; // absolute values above this are NaN
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 #[inline(always)]
 fn _i16ord_to_f16(ord_i16: i16) -> f16 {
     let v = ((ord_i16 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i16;
     f16::from_bits(v as u16)
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 const MAX_INDEX: usize = i16::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -373,6 +384,7 @@ mod sse_ignore_nan {
 // -------------------------------------- AVX512 ---------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(feature = "nightly_simd")]
 mod avx512_ignore_nan {
     use super::super::config::AVX512;
     use super::*;
@@ -535,6 +547,7 @@ mod avx512_ignore_nan {
 // --------------------------------------- NEON ----------------------------------------
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(feature = "nightly_simd")]
 mod neon_ignore_nan {
     use super::super::config::NEON;
     use super::*;
@@ -684,8 +697,8 @@ mod neon_ignore_nan {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    target_arch = "arm",
-    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    all(target_arch = "aarch64", feature = "nightly_simd"),
 ))]
 #[cfg(test)]
 mod tests {
@@ -695,10 +708,13 @@ mod tests {
 
     use half::f16;
 
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(feature = "nightly_simd")]
+    use crate::simd::config::AVX512;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    use crate::simd::config::{AVX2, AVX512, SSE};
+    use crate::simd::config::{AVX2, SSE};
     use crate::{FloatIgnoreNaN, SIMDArgMinMax, SCALAR};
 
     use super::super::test_utils::{
@@ -727,7 +743,7 @@ mod tests {
     #[rstest]
     #[case::sse(SSE {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("sse4.1"))]
     #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("avx2"))]
-    #[case::avx512(AVX512 {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("avx512bw"))]
+    #[cfg_attr(feature = "nightly_simd", case::avx512(AVX512 {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, is_x86_feature_detected!("avx512bw")))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
         #[case] simd_available: bool,
