@@ -53,7 +53,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run cargo check
-        run: cargo check
+        run: cargo check --no-default-features --features "half,float"
 
   Test:
     runs-on: ${{ matrix.os }}
