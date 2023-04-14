@@ -376,6 +376,7 @@ mod avx512 {
 //   intrinsics: vadd_, vcgt_, vclt_
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(feature = "nightly_simd")]
 mod neon {
     use super::super::config::NEON;
     use super::super::generic::{unimpl_SIMDArgMinMax, unimpl_SIMDInit, unimpl_SIMDOps};

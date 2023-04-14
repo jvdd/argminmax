@@ -363,6 +363,7 @@ mod avx512 {
 // --------------------------------------- NEON ----------------------------------------
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(feature = "nightly_simd")]
 mod neon {
     use super::super::config::NEON;
     use super::*;
@@ -477,6 +478,7 @@ mod tests {
     #[cfg(feature = "nightly_simd")]
     use crate::simd::config::AVX512;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(feature = "nightly_simd")]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, SSE};
@@ -516,6 +518,7 @@ mod tests {
     // ------------ Template for ARM / AArch64 ------------
 
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(feature = "nightly_simd")]
     #[template]
     #[rstest]
     #[case::neon(NEON { _dtype_strategy: PhantomData::<FloatReturnNaN>}, true)]
