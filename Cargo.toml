@@ -1,6 +1,6 @@
 [package]
 name = "argminmax"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Jeroen Van Der Donckt"]
 edition = "2021"
 readme = "README.md"
