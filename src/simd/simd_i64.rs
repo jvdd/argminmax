@@ -1,13 +1,13 @@
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nighly_simd")
+    all(target_arch = "aarch64", feature = "nightly_simd")
 ))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nighly_simd")
+    all(target_arch = "aarch64", feature = "nightly_simd")
 ))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
@@ -28,7 +28,7 @@ use super::super::dtype_strategy::Int;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nighly_simd")
+    all(target_arch = "aarch64", feature = "nightly_simd")
 ))]
 const MAX_INDEX: usize = i64::MAX as usize;
 

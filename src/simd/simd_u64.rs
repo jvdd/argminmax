@@ -14,13 +14,13 @@
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nighly_simd")
+    all(target_arch = "aarch64", feature = "nightly_simd")
 ))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nighly_simd")
+    all(target_arch = "aarch64", feature = "nightly_simd")
 ))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
@@ -54,7 +54,7 @@ fn _i64ord_to_u64(ord_i64: i64) -> u64 {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nighly_simd")
+    all(target_arch = "aarch64", feature = "nightly_simd")
 ))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
@@ -335,7 +335,7 @@ mod avx512 {
 
 // --------------------------------------- NEON ----------------------------------------
 
-// There are SIMD intrinsics i64, but
+// There are SIMD intrinsics u64, but
 //  - for arm we miss the vcgt_ and vclt_ intrinsics.
 //  - for aarch64 the required intrinsics are present (on nightly)
 
@@ -420,6 +420,7 @@ mod neon {
     target_arch = "x86_64",
     all(target_arch = "aarch64", feature = "nightly_simd"),
 ))]
+#[cfg(test)]
 mod tests {
     use rstest::rstest;
     use rstest_reuse::{self, *};
