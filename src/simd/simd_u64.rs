@@ -361,7 +361,7 @@ mod neon {
     use super::super::config::NEON;
     use super::*;
 
-    const LANE_SIZE: usize = NEON::<Int>::LANE_SIZE_32;
+    const LANE_SIZE: usize = NEON::<Int>::LANE_SIZE_64;
 
     impl SIMDOps<u64, uint64x2_t, uint64x2_t, LANE_SIZE> for NEON<Int> {
         const INITIAL_INDEX: uint64x2_t = unsafe { std::mem::transmute([0u64, 1u64]) };
