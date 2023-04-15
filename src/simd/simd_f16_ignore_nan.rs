@@ -35,10 +35,9 @@ use super::generic::{
 use crate::SCALAR;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use num_traits::Zero;
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
 use std::arch::aarch64::*;
-#[cfg(target_arch = "arm")]
-#[cfg(feature = "nightly_simd")]
+#[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
 use std::arch::arm::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;

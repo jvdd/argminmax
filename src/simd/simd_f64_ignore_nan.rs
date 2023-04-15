@@ -404,7 +404,7 @@ mod tests {
     #[cfg(target_arch = "aarch64")]
     #[template]
     #[rstest]
-    #[case::neon(NEON {_dtype_strategy: PhantomData::<Int>}, true)]
+    #[case::neon(NEON {_dtype_strategy: PhantomData::<FloatIgnoreNaN>}, true)]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
         #[case] simd_available: bool,
