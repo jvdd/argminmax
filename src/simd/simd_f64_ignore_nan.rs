@@ -14,7 +14,7 @@
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",))]
 use super::config::SIMDInstructionSet;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN};
 #[cfg(any(
     target_arch = "x86",
@@ -30,7 +30,7 @@ use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
     feature = "nightly_simd"
 ))]
 use crate::SCALAR;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use num_traits::Zero;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
@@ -49,7 +49,7 @@ use std::arch::x86_64::*;
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
 // https://stackoverflow.com/a/3793950
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 const MAX_INDEX: usize = 1 << f64::MANTISSA_DIGITS;
 #[cfg(target_arch = "x86")] // https://stackoverflow.com/a/29592369
 const MAX_INDEX: usize = u32::MAX as usize;
