@@ -45,6 +45,8 @@ use super::generic::impl_SIMDInit_FloatReturnNaN;
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
+#[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
+use std::arch::aarch64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
