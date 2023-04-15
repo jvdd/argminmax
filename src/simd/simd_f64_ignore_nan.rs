@@ -30,7 +30,7 @@ use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
     feature = "nightly_simd"
 ))]
 use crate::SCALAR;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",))]
 use num_traits::Zero;
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
@@ -40,7 +40,12 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on f64 data: ignore NaN values
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    feature = "nightly_simd"
+))]
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
 // https://stackoverflow.com/a/3793950
@@ -257,7 +262,7 @@ mod avx512_ignore_nan {
 // --------------------------------------- NEON ----------------------------------------
 
 // There are no NEON intrinsics for f64 on arm.
-// But fore aarch64 we can use the neon intrinsics (on stable!!)
+// But fore aarch64 we can use the NEON intrinsics (on stable!!)
 
 #[cfg(target_arch = "arm")]
 #[cfg(feature = "nightly_simd")]
