@@ -94,9 +94,12 @@ pub(crate) use scalar::{ScalarArgMinMax, SCALAR};
 pub(crate) use simd::AVX512;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub(crate) use simd::{SIMDArgMinMax, AVX2, SSE};
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-#[cfg(feature = "nightly_simd")]
-// TODO: can be adapted when 64-bit aarch64 implementation is added
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "aarch64", feature = "float"), // is stable for f64
+    feature = "nightly_simd"
+))]
 pub(crate) use simd::{SIMDArgMinMax, NEON};
 
 #[cfg(feature = "half")]
