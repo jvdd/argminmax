@@ -434,10 +434,10 @@ mod neon {
 
     #[inline(always)]
     unsafe fn _f64_as_int64x2_to_i64ord(f64_as_int64x2: int64x2_t) -> int64x2_t {
-        // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
-        let sign_bit_shifted = vshrq_n_s32(f64_as_int64x2, BIT_SHIFT);
-        let sign_bit_masked = vandq_s32(sign_bit_shifted, LOWER_31_MASK);
-        veorq_s32(sign_bit_masked, f64_as_int64x2)
+        // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
+        let sign_bit_shifted = vshrq_n_s64(f64_as_int64x2, BIT_SHIFT);
+        let sign_bit_masked = vandq_s64(sign_bit_shifted, LOWER_31_MASK);
+        veorq_s64(sign_bit_masked, f64_as_int64x2)
     }
 
     #[inline(always)]
