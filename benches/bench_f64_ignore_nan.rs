@@ -8,6 +8,8 @@ use argminmax::dtype_strategy::FloatIgnoreNaN;
 use argminmax::scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use argminmax::simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
+#[cfg(target_arch = "aarch64")]
+use argminmax::simd::{SIMDArgMinMax, NEON};
 
 // _in stands for "ignore nan"
 
@@ -75,6 +77,24 @@ fn argminmax_in_f64_random_array_long(c: &mut Criterion) {
     if is_x86_feature_detected!("avx512f") {
         c.bench_function("avx512_f64_argmax_in", |b| {
             b.iter(|| unsafe { AVX512::<FloatIgnoreNaN>::argmax(black_box(data)) })
+        });
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        c.bench_function("neon_f64_argminmax_in", |b| {
+            b.iter(|| unsafe { NEON::<FloatIgnoreNaN>::argminmax(black_box(data)) })
+        });
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        c.bench_function("neon_f64_argmin_in", |b| {
+            b.iter(|| unsafe { NEON::<FloatIgnoreNaN>::argmin(black_box(data)) })
+        });
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        c.bench_function("neon_f64_argmax_in", |b| {
+            b.iter(|| unsafe { NEON::<FloatIgnoreNaN>::argmax(black_box(data)) })
         });
     }
     c.bench_function("impl_f64_argminmax_in", |b| {
