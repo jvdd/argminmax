@@ -148,8 +148,33 @@ jobs:
           # rustup component add clippy
       # - name: Run Clippy
         # run: cargo clippy --all-targets --target ${{ matrix.target }}
-      - name: Build (release)
+
+      - name: Build (release) - all features
         run: cargo build --target ${{ matrix.target }} --release --all-features
+      - name: Build (release) - default features
+        run: cargo build --target ${{ matrix.target }} --release
+      - name: Build (release) - no default features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features
+      - name: Build (release) - only float
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features float
+      - name: Build (release) - only half
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features half
+      - name: Build (release) - only float and half features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features "half,float"
+
+
+      - name: Override to stable toolchain
+        run: |
+          rustup override set stable
+          rustup target add ${{ matrix.target }}
+      - name: Build (release) - no default features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features
+      - name: Build (release) - only float
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features float
+      - name: Build (release) - only half
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features half
+      - name: Build (release) - only float and half features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features "half,float"
 
 
       # - name: Run cargo-tarpaulin
