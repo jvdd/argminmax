@@ -154,7 +154,9 @@ jobs:
         run: cargo build --target ${{ matrix.target }} --release --no-default-features
 
       - name: Override to stable toolchain
-        run: rustup override set stable
+        run: |
+          rustup override set stable
+          rustup target add ${{ matrix.target }}
       - name: Build (release) - only float and half features
         run: cargo build --target ${{ matrix.target }} --release --no-default-features --features "half,float"
 
