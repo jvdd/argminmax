@@ -659,7 +659,7 @@ impl NaNArgMinMax for &[f64] {
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
                 // We miss some NEON instructions for 64-bit numbers
-                return unsafe { NEON::<FloatReturnNaN>::argminmax(self) }
+                return unsafe { NEON::<FloatReturnNaN>::argminmax(self) };
             }
         }
         SCALAR::<FloatReturnNaN>::argminmax(self)
@@ -669,16 +669,17 @@ impl NaNArgMinMax for &[f64] {
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
                 // We miss some NEON instructions for 64-bit numbers
-                return unsafe { NEON::<FloatReturnNaN>::argminmax(self) }
+                return unsafe { NEON::<FloatReturnNaN>::argminmax(self) };
             }
         }
-        SCALAR::<FloatReturnNaN>::argmin(self)    }
+        SCALAR::<FloatReturnNaN>::argmin(self)
+    }
     fn nanargmax(&self) -> usize {
         #[cfg(feature = "nightly_simd")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
                 // We miss some NEON instructions for 64-bit numbers
-                return unsafe { NEON::<FloatReturnNaN>::argminmax(self) }
+                return unsafe { NEON::<FloatReturnNaN>::argminmax(self) };
             }
         }
         SCALAR::<FloatReturnNaN>::argmax(self)
