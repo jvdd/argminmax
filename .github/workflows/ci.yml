@@ -150,6 +150,13 @@ jobs:
         # run: cargo clippy --all-targets --target ${{ matrix.target }}
       - name: Build (release)
         run: cargo build --target ${{ matrix.target }} --release --all-features
+      - name: Build (release) - no default features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features
+
+      - name: Override to stable toolchain
+        run: rustup override set stable
+      - name: Build (release) - only float and half features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features "half,float"
 
 
       # - name: Run cargo-tarpaulin
