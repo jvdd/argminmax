@@ -261,7 +261,7 @@ mod avx512_ignore_nan {
 
 // --------------------------------------- NEON ----------------------------------------
 
-// There are no NEON intrinsics for f64 on arm.
+// There are no NEON SIMD intrinsics for f64 on arm.
 // But fore aarch64 we can use the NEON intrinsics (on stable!!)
 
 #[cfg(target_arch = "arm")]

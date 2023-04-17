@@ -403,7 +403,7 @@ mod avx512 {
 
 // --------------------------------------- NEON ----------------------------------------
 
-// There are SIMD intrinsics i64 (used after ord_transform), but
+// There are NEON SIMD intrinsics for i64 (used after ord_transform), but
 //  - for arm we miss the vcgt_ and vclt_ intrinsics.
 //  - for aarch64 the required intrinsics are present (on nightly)
 
@@ -537,7 +537,7 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[cfg(feature = "nightly_simd")]
     use crate::simd::config::AVX512;
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(target_arch = "aarch64")]
     use crate::simd::config::NEON;
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, SSE};
@@ -574,9 +574,9 @@ mod tests {
     ) {
     }
 
-    // ------------ Template for ARM / AArch64 ------------
+    // --------------- Template for AArch64 ---------------
 
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(target_arch = "aarch64")]
     #[template]
     #[rstest]
     #[case::neon(NEON { _dtype_strategy: PhantomData::<FloatReturnNaN>}, true)]

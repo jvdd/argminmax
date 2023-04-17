@@ -213,7 +213,7 @@ mod avx512 {
 
 // --------------------------------------- NEON ----------------------------------------
 
-// There are SIMD intrinsics i64, but
+// There are NEON SIMD intrinsics for i64, but
 //  - for arm we miss the vcgt_ and vclt_ intrinsics.
 //  - for aarch64 the required intrinsics are present (on nightly)
 

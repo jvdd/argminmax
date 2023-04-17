@@ -284,7 +284,7 @@ macro_rules! impl_argminmax_int {
                     #[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
                     {
                         if std::arch::is_aarch64_feature_detected!("neon") & (<$int_type>::NB_BITS < 64) {
-                            // We miss some NEON instructions for 64-bit numbers
+                            // Scalar is faster for 64-bit numbers
                             return unsafe { NEON::<Int>::argminmax(self) }
                         }
                     }
@@ -329,7 +329,6 @@ macro_rules! impl_argminmax_int {
                     #[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
                     {
                         if std::arch::is_aarch64_feature_detected!("neon") {
-                            // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<Int>::argmin(self) }
                         }
                     }
@@ -373,7 +372,6 @@ macro_rules! impl_argminmax_int {
                     #[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
                     {
                         if std::arch::is_aarch64_feature_detected!("neon") {
-                            // We miss some NEON instructions for 64-bit numbers
                             return unsafe { NEON::<Int>::argmax(self) }
                         }
                     }
@@ -639,6 +637,11 @@ macro_rules! impl_argminmax_float {
     };
 }
 
+/// Implement ArgMinMax for &[f64] on aarch64 as NEON intrinsics for f64
+/// are part of stable Rust on aarch64.
+// Note: implementing this in a distinct impl block seemed more clean than
+// hacking with unimpl_ macros in the simd_.rs files to avoid complaints
+// from the compiler..
 #[cfg(all(feature = "float", target_arch = "aarch64"))]
 impl ArgMinMax for &[f64] {
     fn argminmax(&self) -> (usize, usize) {
@@ -652,13 +655,17 @@ impl ArgMinMax for &[f64] {
     }
 }
 
+/// Implement NaNArgMinMax for &[f64] on aarch64 - the required intrinsics
+/// for return nan are not part of stable Rust.
+// Note: implementing this in a distinct impl block seemed more clean than
+// hacking with unimpl_ macros in the simd_.rs files to avoid complaints
+// from the compiler..
 #[cfg(all(feature = "float", target_arch = "aarch64"))]
 impl NaNArgMinMax for &[f64] {
     fn nanargminmax(&self) -> (usize, usize) {
         #[cfg(feature = "nightly_simd")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
-                // We miss some NEON instructions for 64-bit numbers
                 return unsafe { NEON::<FloatReturnNaN>::argminmax(self) };
             }
         }
@@ -668,7 +675,6 @@ impl NaNArgMinMax for &[f64] {
         #[cfg(feature = "nightly_simd")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
-                // We miss some NEON instructions for 64-bit numbers
                 return unsafe { NEON::<FloatReturnNaN>::argmin(self) };
             }
         }
@@ -678,7 +684,6 @@ impl NaNArgMinMax for &[f64] {
         #[cfg(feature = "nightly_simd")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
-                // We miss some NEON instructions for 64-bit numbers
                 return unsafe { NEON::<FloatReturnNaN>::argmax(self) };
             }
         }
@@ -691,6 +696,7 @@ impl_argminmax_int!(i8, i16, i32, i64, u8, u16, u32, u64);
 // Implement for (optional) float rust primitive types
 #[cfg(all(feature = "float", not(target_arch = "aarch64")))]
 impl_argminmax_float!(f32, f64);
+// For aarch64 f64 is implemented in the two impl blocks above
 #[cfg(all(feature = "float", target_arch = "aarch64"))]
 impl_argminmax_float!(f32);
 
