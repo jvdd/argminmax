@@ -11,14 +11,24 @@
 /// values.
 ///
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "aarch64", feature = "nightly_simd")
+))]
 use super::config::SIMDInstructionSet;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "aarch64", feature = "nightly_simd")
+))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
+#[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
+use std::arch::aarch64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -41,7 +51,11 @@ fn _i64ord_to_u64(ord_i64: i64) -> u64 {
     unsafe { std::mem::transmute::<i64, u64>(ord_i64 ^ XOR_VALUE) }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "aarch64", feature = "nightly_simd")
+))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -321,12 +335,11 @@ mod avx512 {
 
 // --------------------------------------- NEON ----------------------------------------
 
-// There are no NEON intrinsics for f64, so we need to use the scalar version.
-//   although NEON intrinsics exist for i64 and u64, we cannot use them as
-//   they there is no 64-bit variant (of any data type) for the following three
-//   intrinsics: vadd_, vcgt_, vclt_
+// There are NEON SIMD intrinsics for u64, but
+//  - for arm we miss the vcgt_ and vclt_ intrinsics.
+//  - for aarch64 the required intrinsics are present (on nightly)
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(target_arch = "arm")]
 #[cfg(feature = "nightly_simd")]
 mod neon {
     use super::super::config::NEON;
@@ -342,17 +355,83 @@ mod neon {
     unimpl_SIMDArgMinMax!(u64, usize, SCALAR<Int>, NEON<Int>);
 }
 
+#[cfg(target_arch = "aarch64")]
+#[cfg(feature = "nightly_simd")]
+mod neon {
+    use super::super::config::NEON;
+    use super::*;
+
+    const LANE_SIZE: usize = NEON::<Int>::LANE_SIZE_64;
+
+    impl SIMDOps<u64, uint64x2_t, uint64x2_t, LANE_SIZE> for NEON<Int> {
+        const INITIAL_INDEX: uint64x2_t = unsafe { std::mem::transmute([0u64, 1u64]) };
+        const INDEX_INCREMENT: uint64x2_t =
+            unsafe { std::mem::transmute([LANE_SIZE as i64; LANE_SIZE]) };
+        const MAX_INDEX: usize = MAX_INDEX;
+
+        #[inline(always)]
+        unsafe fn _reg_to_arr(reg: uint64x2_t) -> [u64; LANE_SIZE] {
+            std::mem::transmute::<uint64x2_t, [u64; LANE_SIZE]>(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_loadu(data: *const u64) -> uint64x2_t {
+            vld1q_u64(data)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_add(a: uint64x2_t, b: uint64x2_t) -> uint64x2_t {
+            vaddq_u64(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmpgt(a: uint64x2_t, b: uint64x2_t) -> uint64x2_t {
+            vcgtq_u64(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_cmplt(a: uint64x2_t, b: uint64x2_t) -> uint64x2_t {
+            vcltq_u64(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_blendv(a: uint64x2_t, b: uint64x2_t, mask: uint64x2_t) -> uint64x2_t {
+            vbslq_u64(mask, b, a)
+        }
+    }
+
+    impl_SIMDInit_Int!(u64, uint64x2_t, uint64x2_t, LANE_SIZE, NEON<Int>);
+
+    impl_SIMDArgMinMax!(
+        u64,
+        uint64x2_t,
+        uint64x2_t,
+        LANE_SIZE,
+        SCALAR<Int>,
+        NEON<Int>,
+        "neon"
+    );
+}
+
 // ======================================= TESTS =======================================
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "aarch64", feature = "nightly_simd"),
+))]
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
     use rstest_reuse::{self, *};
     use std::marker::PhantomData;
 
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[cfg(feature = "nightly_simd")]
     use crate::simd::config::AVX512;
+    #[cfg(target_arch = "aarch64")]
+    use crate::simd::config::NEON;
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::{AVX2, SSE};
     use crate::{Int, SIMDArgMinMax, SCALAR};
 
@@ -379,6 +458,18 @@ mod tests {
     #[case::sse(SSE {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("sse4.2"))]
     #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx2"))]
     #[cfg_attr(feature = "nightly_simd", case::avx512(AVX512 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx512f")))]
+    fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) {
+    }
+
+    // --------------- Template for AArch64 ---------------
+
+    #[cfg(target_arch = "aarch64")]
+    #[template]
+    #[rstest]
+    #[case::neon(NEON {_dtype_strategy: PhantomData::<Int>}, true)]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
         #[case] simd_available: bool,

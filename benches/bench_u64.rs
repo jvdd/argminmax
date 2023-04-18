@@ -7,6 +7,8 @@ use dev_utils::{config, utils};
 use argminmax::scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use argminmax::simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
+#[cfg(target_arch = "aarch64")]
+use argminmax::simd::{SIMDArgMinMax, NEON};
 
 fn argminmax_u64_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
@@ -72,6 +74,24 @@ fn argminmax_u64_random_array_long(c: &mut Criterion) {
     if is_x86_feature_detected!("avx512f") {
         c.bench_function("avx512_u64_argmax", |b| {
             b.iter(|| unsafe { AVX512::argmax(black_box(data)) })
+        });
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        c.bench_function("neon_u64_argminmax", |b| {
+            b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
+        });
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        c.bench_function("neon_u64_argmin", |b| {
+            b.iter(|| unsafe { NEON::argmin(black_box(data)) })
+        });
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        c.bench_function("neon_u64_argmax", |b| {
+            b.iter(|| unsafe { NEON::argmax(black_box(data)) })
         });
     }
     c.bench_function("impl_u64_argminmax", |b| {
