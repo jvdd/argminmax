@@ -39,8 +39,11 @@ fn _i16ord_to_u16(ord_i16: i16) -> u16 {
     unsafe { std::mem::transmute::<i16, u16>(ord_i16 ^ XOR_VALUE) }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
-const MAX_INDEX: usize = i16::MAX as usize;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+const MAX_INDEX: usize = i16::MAX as usize; // SIMD operations on signed ints
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(feature = "nightly_simd")]
+const MAX_INDEX: usize = u8::MAX as usize; // SIMD operations on unsigned ints
 
 // --------------------------------------- AVX2 ----------------------------------------
 

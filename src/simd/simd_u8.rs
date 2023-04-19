@@ -39,8 +39,11 @@ fn _i8ord_to_u8(ord_i8: i8) -> u8 {
     unsafe { std::mem::transmute::<i8, u8>(ord_i8 ^ XOR_VALUE) }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
-const MAX_INDEX: usize = i8::MAX as usize;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+const MAX_INDEX: usize = i8::MAX as usize; // SIMD operations on signed ints
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(feature = "nightly_simd")]
+const MAX_INDEX: usize = u8::MAX as usize; // SIMD operations on unsigned ints
 
 // --------------------------------------- AVX2 ----------------------------------------
 
