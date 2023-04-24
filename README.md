@@ -1,9 +1,25 @@
 # ArgMinMax
-> Efficient argmin &amp; argmax (in 1 function) with SIMD (SSE, AVX(2), AVX512<sup>1</sup>, NEON<sup>1</sup>) for `f16`, `f32`, `f64`, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
+
+<div align="center">
+  <a href="https://crates.io/crates/argminmax">
+    <img src="https://img.shields.io/crates/v/argminmax.svg"/>
+  </a>
+  <a href="">
+    <img src="https://shields.io/badge/license-MIT-blue"/>
+  </a>
+  <a href="https://docs.rs/argminmax/latest/argminmax/">
+    <img src="https://docs.rs/argminmax/badge.svg" alt="rust docs"/>
+  </a>
+  <a href="https://github.com/jvdd/argminmax/actions">
+    <img src="https://github.com/jvdd/argminmax/actions/workflows/ci.yml/badge.svg" alt="Build and test"/>
+  </a>
+</div>
+
+> Efficient argmin &amp; argmax (in 1 function) with SIMD (SSE, AVX(2), AVX512<sup>1</sup>, NEON<sup>1</sup>) ⚡
 
 <!-- This project uses [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) to compute argmin and argmax in a single function.   -->
 
-🚀 The function is generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>2</sup>, `f32`<sup>2</sup>, `f64`<sup>3</sup>, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
+🚀 The functions are generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>2</sup>, `f32`<sup>2</sup>, `f64`<sup>3</sup>, `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`.
 
 🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>4</sup>, apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>5</sup> and [`arrow2::PrimitiveArray`](https://docs.rs/arrow2/latest/arrow2/array/struct.PrimitiveArray.html)<sup>6</sup>.
 
