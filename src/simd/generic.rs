@@ -234,54 +234,71 @@ pub(crate) use impl_SIMDInit_FloatReturnNaN; // Now classic paths Just Work™
     feature = "nightly_simd"
 ))]
 macro_rules! impl_SIMDInit_FloatIgnoreNaN {
-    ($($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty),*) => {
-        $(
-            impl SIMDInit<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size> for $simd_struct {
-                // Use the _return_check method from the default implementation
+    ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
+        impl SIMDInit<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size>
+            for $simd_struct
+        {
+            // Use the _return_check method from the default implementation
 
-                const IGNORE_NAN: bool = true;
+            const IGNORE_NAN: bool = true;
 
-                #[inline(always)]
-                unsafe fn _initialize_index_values_low(
-                    arr_ptr: *const $scalar_dtype,
-                ) -> ($simd_vec_dtype, $simd_vec_dtype) {
-                    // Initialize the index and value SIMD registers
-                    let new_values = Self::_mm_loadu(arr_ptr);
-                    let mask_low = Self::_mm_cmplt(new_values, Self::_mm_set1(<$scalar_dtype>::INFINITY));
-                    let values_low = Self::_mm_blendv(Self::_mm_set1(<$scalar_dtype>::INFINITY), new_values, mask_low);
-                    let index_low = Self::_mm_blendv(Self::_mm_set1(<$scalar_dtype>::zero()), Self::INITIAL_INDEX, mask_low);
-                    (index_low, values_low)
-                }
-
-                #[inline(always)]
-                unsafe fn _initialize_index_values_high(
-                    arr_ptr: *const $scalar_dtype,
-                ) -> ($simd_vec_dtype, $simd_vec_dtype) {
-                    // Initialize the index and value SIMD registers
-                    let new_values = Self::_mm_loadu(arr_ptr);
-                    let mask_high = Self::_mm_cmpgt(new_values, Self::_mm_set1(<$scalar_dtype>::NEG_INFINITY));
-                    let values_high =
-                        Self::_mm_blendv(Self::_mm_set1(<$scalar_dtype>::NEG_INFINITY), new_values, mask_high);
-                    let index_high = Self::_mm_blendv(Self::_mm_set1(<$scalar_dtype>::zero()), Self::INITIAL_INDEX, mask_high);
-                    (index_high, values_high)
-                }
-
-                #[inline(always)]
-                fn _initialize_min_value(_: &[$scalar_dtype]) -> $scalar_dtype {
-                    <$scalar_dtype>::INFINITY
-                }
-
-                #[inline(always)]
-                fn _initialize_max_value(_: &[$scalar_dtype]) -> $scalar_dtype {
-                    <$scalar_dtype>::NEG_INFINITY
-                }
-
-                #[inline(always)]
-                fn _nan_check(v: $scalar_dtype) -> bool {
-                    v.is_nan()
-                }
+            #[inline(always)]
+            unsafe fn _initialize_index_values_low(
+                arr_ptr: *const $scalar_dtype,
+            ) -> ($simd_vec_dtype, $simd_vec_dtype) {
+                // Initialize the index and value SIMD registers
+                let new_values = Self::_mm_loadu(arr_ptr);
+                let mask_low =
+                    Self::_mm_cmplt(new_values, Self::_mm_set1(<$scalar_dtype>::INFINITY));
+                let values_low = Self::_mm_blendv(
+                    Self::_mm_set1(<$scalar_dtype>::INFINITY),
+                    new_values,
+                    mask_low,
+                );
+                let index_low = Self::_mm_blendv(
+                    Self::_mm_set1(<$scalar_dtype>::zero()),
+                    Self::INITIAL_INDEX,
+                    mask_low,
+                );
+                (index_low, values_low)
             }
-        )*
+
+            #[inline(always)]
+            unsafe fn _initialize_index_values_high(
+                arr_ptr: *const $scalar_dtype,
+            ) -> ($simd_vec_dtype, $simd_vec_dtype) {
+                // Initialize the index and value SIMD registers
+                let new_values = Self::_mm_loadu(arr_ptr);
+                let mask_high =
+                    Self::_mm_cmpgt(new_values, Self::_mm_set1(<$scalar_dtype>::NEG_INFINITY));
+                let values_high = Self::_mm_blendv(
+                    Self::_mm_set1(<$scalar_dtype>::NEG_INFINITY),
+                    new_values,
+                    mask_high,
+                );
+                let index_high = Self::_mm_blendv(
+                    Self::_mm_set1(<$scalar_dtype>::zero()),
+                    Self::INITIAL_INDEX,
+                    mask_high,
+                );
+                (index_high, values_high)
+            }
+
+            #[inline(always)]
+            fn _initialize_min_value(_: &[$scalar_dtype]) -> $scalar_dtype {
+                <$scalar_dtype>::INFINITY
+            }
+
+            #[inline(always)]
+            fn _initialize_max_value(_: &[$scalar_dtype]) -> $scalar_dtype {
+                <$scalar_dtype>::NEG_INFINITY
+            }
+
+            #[inline(always)]
+            fn _nan_check(v: $scalar_dtype) -> bool {
+                v.is_nan()
+            }
+        }
     };
 }
 
@@ -755,29 +772,35 @@ where
     feature = "nightly_simd"
 ))]
 macro_rules! impl_SIMDArgMinMax {
-    ($($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $scalar_struct:ty, $simd_struct:ty, $target:expr),*) => {
-        $(
-            impl SIMDArgMinMax<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size, $scalar_struct> for $simd_struct {
-                #[target_feature(enable = $target)]
-                unsafe fn argminmax(data: &[$scalar_dtype]) -> (usize, usize) {
-                    Self::_argminmax(data)
-                }
-
-                #[target_feature(enable = $target)]
-                unsafe fn argmin(data: &[$scalar_dtype]) -> usize {
-                    Self::_argmin(data)
-                    // TODO: test if this is same speed as _argmin
-                    // Self::_argminmax(data).0
-                }
-
-                #[target_feature(enable = $target)]
-                unsafe fn argmax(data: &[$scalar_dtype]) -> usize {
-                    Self::_argmax(data)
-                    // Self::_argminmax(data).1
-                }
+    ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $scalar_struct:ty, $simd_struct:ty, $target:expr) => {
+        impl
+            SIMDArgMinMax<
+                $scalar_dtype,
+                $simd_vec_dtype,
+                $simd_mask_dtype,
+                $lane_size,
+                $scalar_struct,
+            > for $simd_struct
+        {
+            #[target_feature(enable = $target)]
+            unsafe fn argminmax(data: &[$scalar_dtype]) -> (usize, usize) {
+                Self::_argminmax(data)
             }
-        )*
-    }
+
+            #[target_feature(enable = $target)]
+            unsafe fn argmin(data: &[$scalar_dtype]) -> usize {
+                Self::_argmin(data)
+                // TODO: test if this is same speed as _argmin
+                // Self::_argminmax(data).0
+            }
+
+            #[target_feature(enable = $target)]
+            unsafe fn argmax(data: &[$scalar_dtype]) -> usize {
+                Self::_argmax(data)
+                // Self::_argminmax(data).1
+            }
+        }
+    };
 }
 
 #[cfg(any(
