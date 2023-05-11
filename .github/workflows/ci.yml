@@ -176,6 +176,19 @@ jobs:
       - name: Build (release) - only float and half features
         run: cargo build --target ${{ matrix.target }} --release --no-default-features --features "half,float"
 
+      - name: Override to rustc 1.62
+      - run: |
+          rustup override set 1.62
+          rustup target add ${{ matrix.target }}
+      - name: Build (release) - no default features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features
+      - name: Build (release) - only float
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features float
+      - name: Build (release) - only half
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features half
+      - name: Build (release) - only float and half features
+        run: cargo build --target ${{ matrix.target }} --release --no-default-features --features "half,float"
+
 
       # - name: Run cargo-tarpaulin
       #   uses: actions-rs/tarpaulin@v0.1
