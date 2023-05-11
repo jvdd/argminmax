@@ -177,7 +177,7 @@ jobs:
         run: cargo build --target ${{ matrix.target }} --release --no-default-features --features "half,float"
 
       - name: Override to rustc 1.62
-      - run: |
+        run: |
           rustup override set 1.62
           rustup target add ${{ matrix.target }}
       - name: Build (release) - no default features
