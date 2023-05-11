@@ -55,7 +55,7 @@ jobs:
       - name: Run cargo check
         run: cargo check --no-default-features --features "half,float"
 
-  Build_1.62:
+  Build_1_62:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -66,8 +66,8 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
 
-      - name: Run cargo build
-        run: cargo build --no-default-features --features "half,float"
+      - name: Run cargo build (release)
+        run: cargo build --release --no-default-features --features "half,float"
 
   Test:
     runs-on: ${{ matrix.os }}
