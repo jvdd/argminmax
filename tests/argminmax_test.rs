@@ -114,11 +114,15 @@ mod default_test {
         // Test slice (aka the base implementation)
         let (min, max) = data.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.argmax());
         // Borrowed slice
         let (min, max) = (&data).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).argmax());
     }
 
     #[cfg(any(feature = "float", feature = "half"))]
@@ -135,11 +139,15 @@ mod default_test {
         // Test slice (aka the base implementation)
         let (min, max) = data.nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.nanargmax());
         // Borrowed slice
         let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).nanargmax());
     }
 
     // TODO: this is currently not supported yet
@@ -165,21 +173,29 @@ mod default_test {
         // Test owned vec
         let (min, max) = data.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.argmax());
         // Test borrowed vec
         let (min, max) = (&data).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).argmax());
 
         let mut data_mut: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
         // Test owned mutable vec
         let (min, max) = data_mut.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data_mut.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data_mut.argmax());
         // Test borrowed mutable vec
         let (min, max) = (&mut data_mut).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&mut data_mut).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&mut data_mut).argmax());
     }
 
     #[cfg(any(feature = "float", feature = "half"))]
@@ -196,11 +212,15 @@ mod default_test {
         // Test owned vec
         let (min, max) = data.nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.nanargmax());
         // Test borrowed vec
         let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).nanargmax());
     }
 
     #[apply(dtypes)]
@@ -219,7 +239,11 @@ mod default_test {
 
             // Check
             assert_eq!(min_slice, min_vec);
+            assert_eq!(min_slice, slice.argmin());
+            assert_eq!(min_slice, data.argmin());
             assert_eq!(max_slice, max_vec);
+            assert_eq!(max_slice, slice.argmax());
+            assert_eq!(max_slice, data.argmax());
         }
     }
 }
@@ -246,40 +270,56 @@ mod ndarray_tests {
         // Test owned Array1
         let (min, max) = data.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.argmax());
         // Test borrowed Array1
         let (min, max) = (&data).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).argmax());
         // --- ArrayView1
         // Test owened ArrayView1
         let (min, max) = data.view().argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.view().argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.view().argmax());
         // Test borrowed ArrayView1
         let (min, max) = (&data.view()).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data.view()).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data.view()).argmax());
 
         let mut data_mut: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
         // --- Array1
         // Test owned mutable Array1
         let (min, max) = data_mut.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data_mut.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data_mut.argmax());
         // Test borrowed mutable Array1
         let (min, max) = (&mut data_mut).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&mut data_mut).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&mut data_mut).argmax());
         // --- ArrayView1
         // Test owned mutable ArrayView1
         let (min, max) = data_mut.view_mut().argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data_mut.view_mut().argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data_mut.view_mut().argmax());
         // Test borrowed mutable ArrayView1
         let (min, max) = (&mut data_mut.view_mut()).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&mut data_mut.view_mut()).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&mut data_mut.view_mut()).argmax());
     }
 
     #[cfg(any(feature = "float", feature = "half"))]
@@ -297,40 +337,56 @@ mod ndarray_tests {
         // Test owned Array1
         let (min, max) = data.nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.nanargmax());
         // Test borrowed Array1
         let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).nanargmax());
         // --- ArrayView1
         // Test owened ArrayView1
         let (min, max) = data.view().nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.view().nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.view().nanargmax());
         // Test borrowed ArrayView1
         let (min, max) = (&data.view()).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data.view()).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data.view()).nanargmax());
 
         let mut data_mut: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
         // --- Array1
         // Test owned mutable Array1
         let (min, max) = data_mut.nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data_mut.nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data_mut.nanargmax());
         // Test borrowed mutable Array1
         let (min, max) = (&mut data_mut).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&mut data_mut).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&mut data_mut).nanargmax());
         // --- ArrayView1
         // Test owned mutable ArrayView1
         let (min, max) = data_mut.view_mut().nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data_mut.view_mut().nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data_mut.view_mut().nanargmax());
         // Test borrowed mutable ArrayView1
         let (min, max) = (&mut data_mut.view_mut()).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&mut data_mut.view_mut()).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&mut data_mut.view_mut()).nanargmax());
     }
 
     #[apply(dtypes)]
@@ -352,9 +408,15 @@ mod ndarray_tests {
 
             // Check
             assert_eq!(min_slice, min_vec);
-            assert_eq!(max_slice, max_vec);
             assert_eq!(min_slice, min_array);
+            assert_eq!(min_slice, slice.argmin());
+            assert_eq!(min_slice, data.argmin());
+            assert_eq!(min_slice, array.argmin());
+            assert_eq!(max_slice, max_vec);
             assert_eq!(max_slice, max_array);
+            assert_eq!(max_slice, slice.argmax());
+            assert_eq!(max_slice, data.argmax());
+            assert_eq!(max_slice, array.argmax());
         }
     }
 }
@@ -435,11 +497,15 @@ mod arrow_tests {
         // Test owned PrimitiveArray
         let (min, max) = data.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.argmax());
         // Test borrowed PrimitiveArray
         let (min, max) = (&data).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).argmax());
     }
 
     #[cfg(feature = "float")]
@@ -462,11 +528,15 @@ mod arrow_tests {
         // Test owned PrimitiveArray
         let (min, max) = data.nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.nanargmax());
         // Test borrowed PrimitiveArray
         let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).nanargmax());
     }
 
     #[apply(dtypes_arrow)]
@@ -488,14 +558,20 @@ mod arrow_tests {
             // Vec
             let (min_vec, max_vec) = data.argminmax();
             // Arrow
-            let arrow: PrimitiveArray<ArrowDataType> = PrimitiveArray::from(data);
+            let arrow: PrimitiveArray<ArrowDataType> = PrimitiveArray::from(data.clone());
             let (min_arrow, max_arrow) = arrow.argminmax();
 
             // Check
             assert_eq!(min_slice, min_vec);
-            assert_eq!(max_slice, max_vec);
             assert_eq!(min_slice, min_arrow);
+            assert_eq!(min_slice, slice.argmin());
+            assert_eq!(min_slice, data.argmin());
+            assert_eq!(min_slice, arrow.argmin());
+            assert_eq!(max_slice, max_vec);
             assert_eq!(max_slice, max_arrow);
+            assert_eq!(max_slice, slice.argmax());
+            assert_eq!(max_slice, data.argmax());
+            assert_eq!(max_slice, arrow.argmax());
         }
     }
 }
@@ -530,11 +606,15 @@ mod arrow2_tests {
         // Test owned PrimitiveArray
         let (min, max) = data.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.argmax());
         // Test borrowed PrimitiveArray
         let (min, max) = (&data).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).argmax());
     }
 
     #[cfg(feature = "float")]
@@ -552,11 +632,15 @@ mod arrow2_tests {
         // Test owned PrimitiveArray
         let (min, max) = data.nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.nanargmax());
         // Test borrowed PrimitiveArray
         let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).nanargmax());
     }
 
     #[apply(dtypes)]
@@ -577,14 +661,20 @@ mod arrow2_tests {
             // Vec
             let (min_vec, max_vec) = data.argminmax();
             // Arrow
-            let arrow: PrimitiveArray<T> = PrimitiveArray::from_vec(data);
+            let arrow: PrimitiveArray<T> = PrimitiveArray::from_vec(data.clone());
             let (min_arrow, max_arrow) = arrow.argminmax();
 
             // Check
             assert_eq!(min_slice, min_vec);
-            assert_eq!(max_slice, max_vec);
             assert_eq!(min_slice, min_arrow);
+            assert_eq!(min_slice, slice.argmin());
+            assert_eq!(min_slice, data.argmin());
+            assert_eq!(min_slice, arrow.argmin());
+            assert_eq!(max_slice, max_vec);
             assert_eq!(max_slice, max_arrow);
+            assert_eq!(max_slice, slice.argmax());
+            assert_eq!(max_slice, data.argmax());
+            assert_eq!(max_slice, arrow.argmax());
         }
     }
 
@@ -601,27 +691,35 @@ mod arrow2_tests {
             .map(|x| arrow2::types::f16(x.to_bits()))
             .collect();
 
-        let data: PrimitiveArray<arrow2::types::f16> = PrimitiveArray::from_vec(data);
+        let data: PrimitiveArray<arrow2::types::f16> = PrimitiveArray::from_vec(data.clone());
 
         // --- ArgMinMax
         // Test owned PrimitiveArray
         let (min, max) = data.argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.argmax());
         // Test borrowed PrimitiveArray
         let (min, max) = (&data).argminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).argmax());
 
         // --- NaNArgMinMax
         // Test owned PrimitiveArray
         let (min, max) = data.nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, data.nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, data.nanargmax());
         // Test borrowed PrimitiveArray
         let (min, max) = (&data).nanargminmax();
         assert_eq!(min, 0);
+        assert_eq!(min, (&data).nanargmin());
         assert_eq!(max, max_index - 1);
+        assert_eq!(max, (&data).nanargmax());
 
         // --- many random runs
         for _ in 0..NB_RANDOM_RUNS {
@@ -647,9 +745,15 @@ mod arrow2_tests {
 
             // Check
             assert_eq!(min_slice, min_vec);
-            assert_eq!(max_slice, max_vec);
             assert_eq!(min_slice, min_arrow);
+            assert_eq!(min_slice, slice.argmin());
+            assert_eq!(min_slice, data_half.argmin());
+            assert_eq!(min_slice, arrow.argmin());
+            assert_eq!(max_slice, max_vec);
             assert_eq!(max_slice, max_arrow);
+            assert_eq!(max_slice, slice.argmax());
+            assert_eq!(max_slice, data_half.argmax());
+            assert_eq!(max_slice, arrow.argmax());
         }
     }
 }
