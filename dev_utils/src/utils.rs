@@ -3,8 +3,8 @@ use num_traits::Zero;
 
 use std::ops::{Add, Sub};
 
-use rand::{thread_rng, Rng};
 use rand::distributions::Uniform;
+use rand::{thread_rng, Rng};
 
 // random array that samples between min and max of T
 pub fn get_random_array<T>(n: usize, min_value: T, max_value: T) -> Vec<T>
