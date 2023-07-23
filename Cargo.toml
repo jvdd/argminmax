@@ -14,8 +14,8 @@ exclude = [".git*", "dev_utils/**/*", "tests/**/*"]
 
 
 [dependencies]
-num-traits = { version = "0.2.15", default-features = false }
-half = { version = "2.1.0", default-features = false, features=["num-traits"], optional = true }
+num-traits = { version = "0.2.14", default-features = false }
+half = { version = "2.3.1", default-features = false, features=["num-traits"], optional = true }
 ndarray = { version = "0.15.6", default-features = false, optional = true}
 arrow = { version = ">0", default-features = false, optional = true}
 arrow2 = { version = ">0.0", default-features = false, optional = true}
@@ -31,12 +31,15 @@ arrow = ["dep:arrow"]
 arrow2 = ["dep:arrow2"]
 
 [dev-dependencies]
-rstest = { version = "0.16", default-features = false }
-rstest_reuse = { version = "0.5", default-features = false }
-rand = { version = "0.7.2", default-features = false }
+rstest = { version = "0.18.1", default-features = false }
+rstest_reuse = { version = "0.6", default-features = false }
+rand = { version = "0.8.5", default-features = false } # TODO: remove?
 codspeed-criterion-compat = "1.1"
-criterion = "0.3.1"
+criterion = "0.4"
 dev_utils = { path = "dev_utils" }
+
+[dev-dependencies.half]
+features = ["rand_distr"]
 
 
 [[bench]]

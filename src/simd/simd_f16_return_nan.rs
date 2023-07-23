@@ -687,8 +687,7 @@ mod tests {
     use dev_utils::utils;
 
     fn get_array_f16(n: usize) -> Vec<f16> {
-        let arr = utils::get_random_array(n, i16::MIN, i16::MAX);
-        arr.iter().map(|x| f16::from_f32(*x as f32)).collect()
+        utils::SampleUniformFullRange::get_random_array(n)
     }
 
     // The scalar implementation
