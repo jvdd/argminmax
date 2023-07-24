@@ -9,8 +9,7 @@ use num_traits::{AsPrimitive, FromPrimitive};
 use rstest::rstest;
 use rstest_reuse::{self, *};
 
-use dev_utils::utils;
-use rand;
+use dev_utils::utils::SampleUniformFullRange;
 
 const ARRAY_LENGTH: usize = 100_000;
 const NB_RANDOM_RUNS: usize = 500;
@@ -226,11 +225,11 @@ mod default_test {
     #[apply(dtypes)]
     fn test_argminmax_many_random_runs<T>(#[case] min: T, #[case] max: T)
     where
-        T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -392,11 +391,11 @@ mod ndarray_tests {
     #[apply(dtypes)]
     fn test_argminmax_many_random_runs_ndarray<T>(#[case] min: T, #[case] max: T)
     where
-        T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -545,13 +544,13 @@ mod arrow_tests {
         #[case] min: T,
         #[case] max: T,
     ) where
-        T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -647,14 +646,10 @@ mod arrow2_tests {
     fn test_argminmax_many_random_runs_arrow2<T>(#[case] min: T, #[case] max: T)
     where
         for<'a> &'a [T]: ArgMinMax,
-        T: Copy
-            + FromPrimitive
-            + AsPrimitive<usize>
-            + rand::distributions::uniform::SampleUniform
-            + NativeType,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniform + NativeType,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -723,10 +718,7 @@ mod arrow2_tests {
 
         // --- many random runs
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<i16> =
-                utils::get_random_array::<i16>(RANDOM_ARR_LENGTH, i16::MIN, i16::MAX);
-            // convert to half::f16
-            let data_half: Vec<f16> = data.into_iter().map(|x| f16::from_bits(x as u16)).collect();
+            let data_half: Vec<f16> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // convert to arrow2::types::f16
             let data: Vec<arrow2::types::f16> = data_half
                 .clone()

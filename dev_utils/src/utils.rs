@@ -36,7 +36,7 @@ where
     arr
 }
 
-pub trait SampleUniformFullRange {
+pub trait SampleUniformFullRange: rand::distributions::uniform::SampleUniform {
     const MIN: Self;
     const MAX: Self;
 
