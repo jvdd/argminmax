@@ -15,7 +15,7 @@ use argminmax::simd::{SIMDArgMinMax, NEON};
 
 fn argminmax_in_f64_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
-    let data: &[f64] = &utils::get_random_array::<f64>(n, f64::MIN, f64::MAX);
+    let data: &[f64] = &utils::SampleUniformFullRange::get_random_array(n);
     c.bench_function("scalar_f64_argminmax_in", |b| {
         b.iter(|| SCALAR::<FloatIgnoreNaN>::argminmax(black_box(data)))
     });

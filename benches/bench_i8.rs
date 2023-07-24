@@ -12,7 +12,7 @@ use argminmax::simd::{SIMDArgMinMax, NEON};
 
 fn argminmax_i8_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
-    let data: &[i8] = &utils::get_random_array::<i8>(n, i8::MIN, i8::MAX);
+    let data: &[i8] = &utils::SampleUniformFullRange::get_random_array(n);
     c.bench_function("scalar_i8_argminmax", |b| {
         b.iter(|| SCALAR::argminmax(black_box(data)))
     });
