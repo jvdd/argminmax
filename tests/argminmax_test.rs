@@ -646,7 +646,7 @@ mod arrow2_tests {
     fn test_argminmax_many_random_runs_arrow2<T>(#[case] min: T, #[case] max: T)
     where
         for<'a> &'a [T]: ArgMinMax,
-        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniform + NativeType,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange + NativeType,
     {
         for _ in 0..NB_RANDOM_RUNS {
             let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
