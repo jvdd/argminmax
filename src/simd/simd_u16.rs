@@ -611,7 +611,7 @@ mod tests {
     use dev_utils::utils;
 
     fn get_array_u16(n: usize) -> Vec<u16> {
-        utils::get_random_array(n, u16::MIN, u16::MAX)
+        utils::SampleUniformFullRange::get_random_array(n)
     }
 
     // The scalar implementation

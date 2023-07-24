@@ -638,7 +638,7 @@ mod tests {
     use dev_utils::utils;
 
     fn get_array_u8(n: usize) -> Vec<u8> {
-        utils::get_random_array(n, u8::MIN, u8::MAX)
+        utils::SampleUniformFullRange::get_random_array(n)
     }
 
     // The scalar implementation

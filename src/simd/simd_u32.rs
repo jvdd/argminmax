@@ -418,7 +418,7 @@ mod tests {
     use dev_utils::utils;
 
     fn get_array_u32(n: usize) -> Vec<u32> {
-        utils::get_random_array(n, u32::MIN, u32::MAX)
+        utils::SampleUniformFullRange::get_random_array(n)
     }
 
     // The scalar implementation

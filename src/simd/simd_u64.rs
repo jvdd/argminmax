@@ -440,7 +440,7 @@ mod tests {
     use dev_utils::utils;
 
     fn get_array_u64(n: usize) -> Vec<u64> {
-        utils::get_random_array(n, u64::MIN, u64::MAX)
+        utils::SampleUniformFullRange::get_random_array(n)
     }
 
     // The scalar implementation
