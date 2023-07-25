@@ -33,7 +33,7 @@ arrow2 = ["dep:arrow2"]
 [dev-dependencies]
 rstest = { version = "0.18.1", default-features = false }
 rstest_reuse = { version = "0.6", default-features = false }
-rand = { version = "0.8.5", default-features = false } # TODO: remove?
+rand = { version = "0.8.5", default-features = false }
 codspeed-criterion-compat = "1.1"
 criterion = "0.4"
 dev_utils = { path = "dev_utils" }
