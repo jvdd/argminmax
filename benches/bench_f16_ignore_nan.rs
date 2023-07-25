@@ -13,28 +13,11 @@ use argminmax::simd::{SIMDArgMinMax, NEON};
 
 use half::f16;
 
-fn get_random_f16_array(n: usize) -> Vec<f16> {
-    let data = utils::get_random_array::<i16>(n, -0x7C00, 0x7C00);
-    let data: Vec<f16> = data.iter().map(|&x| f16::from_bits(x as u16)).collect();
-    // Replace NaNs and Infs with 0
-    let data: Vec<f16> = data
-        .iter()
-        .map(|&x| {
-            if x.is_nan() || x.is_infinite() {
-                f16::from_bits(0)
-            } else {
-                x
-            }
-        })
-        .collect();
-    data
-}
-
 // _in stands for "ignore nan"
 
 fn argminmax_in_f16_random_array_long(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
-    let data: &[f16] = &get_random_f16_array(n);
+    let data: &[f16] = &utils::SampleUniformFullRange::get_random_array(n);
     c.bench_function("scalar_f16_argminmax_in", |b| {
         b.iter(|| SCALAR::<FloatIgnoreNaN>::argminmax(black_box(data)))
     });
