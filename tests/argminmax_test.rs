@@ -404,7 +404,7 @@ mod ndarray_tests {
     }
 
     #[apply(dtypes)]
-    fn test_argminmax_many_random_runs_ndarray<T>(#[case] min: T, #[case] max: T)
+    fn test_argminmax_many_random_runs_ndarray<T>(#[case] _min: T, #[case] _max: T)
     where
         T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
@@ -556,8 +556,8 @@ mod arrow_tests {
     #[apply(dtypes_arrow)]
     fn test_argminmax_many_random_runs_arrow<T, ArrowDataType>(
         #[case] _dtype: ArrowDataType, // used to infer the arrow data type
-        #[case] min: T,
-        #[case] max: T,
+        #[case] _min: T,
+        #[case] _max: T,
     ) where
         T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
@@ -598,7 +598,29 @@ mod arrow2_tests {
     use arrow2::array::PrimitiveArray;
     use arrow2::types::NativeType;
 
+    // Float and skip half (even if half feature is enabled)
+    // arrow2::types::f16 has its dedicated test
+    #[cfg(all(feature = "float", feature = "half"))]
+    #[template]
+    #[rstest]
+    #[case::float32(f32::MIN, f32::MAX)]
+    #[case::float64(f64::MIN, f64::MAX)]
+    #[case::int8(i8::MIN, i8::MAX)]
+    #[case::int16(i16::MIN, i16::MAX)]
+    #[case::int32(i32::MIN, i32::MAX)]
+    #[case::int64(i64::MIN, i64::MAX)]
+    #[case::uint8(u8::MIN, u8::MAX)]
+    #[case::uint16(u16::MIN, u16::MAX)]
+    #[case::uint32(u32::MIN, u32::MAX)]
+    #[case::uint64(u64::MIN, u64::MAX)]
+    fn dtypes_arrow2<T>(#[case] min: T, #[case] max: T) {}
+
+    // Shadow dtypes_arrow2 with dtypes if half feature is not enabled
+    #[cfg(not(feature = "half"))]
+    use super::dtypes as dtypes_arrow2;
+
     // Float and not half
+    // arrow2::types::f16 has its dedicated test
     #[cfg(feature = "float")]
     #[template]
     #[rstest]
@@ -606,7 +628,7 @@ mod arrow2_tests {
     #[case::float64(f64::MIN, f64::MAX)]
     fn dtypes_with_nan_arrow2<T>(#[case] min: T, #[case] max: T) {}
 
-    #[apply(dtypes)]
+    #[apply(dtypes_arrow2)]
     fn test_argminmax_arrow2<T>(#[case] _min: T, #[case] max: T)
     where
         for<'a> &'a [T]: ArgMinMax,
@@ -657,8 +679,8 @@ mod arrow2_tests {
         assert_eq!(max, (&data).nanargmax());
     }
 
-    #[apply(dtypes)]
-    fn test_argminmax_many_random_runs_arrow2<T>(#[case] min: T, #[case] max: T)
+    #[apply(dtypes_arrow2)]
+    fn test_argminmax_many_random_runs_arrow2<T>(#[case] _min: T, #[case] _max: T)
     where
         for<'a> &'a [T]: ArgMinMax,
         T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange + NativeType,
