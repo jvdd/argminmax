@@ -43,7 +43,7 @@ jobs:
       - name: Build the benchmark target(s)
         run: cargo codspeed build --features half
 
-      - uses: CodSpeedHQ/action@v1
+      - uses: CodSpeedHQ/action@v2
         name: Run benchmarks
         with:
           run: cargo codspeed run
