@@ -9,8 +9,7 @@ use num_traits::{AsPrimitive, FromPrimitive};
 use rstest::rstest;
 use rstest_reuse::{self, *};
 
-use dev_utils::utils;
-use rand;
+use dev_utils::utils::SampleUniformFullRange;
 
 const ARRAY_LENGTH: usize = 100_000;
 const NB_RANDOM_RUNS: usize = 500;
@@ -46,10 +45,25 @@ fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
 
 // ----- dtypes template -----
 
-#[cfg(feature = "float")]
+#[cfg(all(feature = "float", not(feature = "half")))]
 #[template]
 #[rstest]
-// #[case::float16(f16::MIN, f16::MAX)] // TODO -> https://github.com/starkat99/half-rs/pull/83
+#[case::float32(f32::MIN, f32::MAX)]
+#[case::float64(f64::MIN, f64::MAX)]
+#[case::int8(i8::MIN, i8::MAX)]
+#[case::int16(i16::MIN, i16::MAX)]
+#[case::int32(i32::MIN, i32::MAX)]
+#[case::int64(i64::MIN, i64::MAX)]
+#[case::uint8(u8::MIN, u8::MAX)]
+#[case::uint16(u16::MIN, u16::MAX)]
+#[case::uint32(u32::MIN, u32::MAX)]
+#[case::uint64(u64::MIN, u64::MAX)]
+fn dtypes<T>(#[case] min: T, #[case] max: T) {}
+
+#[cfg(all(feature = "float", feature = "half"))]
+#[template]
+#[rstest]
+#[case::float16(f16::MIN, f16::from_usize(1 << f16::MANTISSA_DIGITS).unwrap())]
 #[case::float32(f32::MIN, f32::MAX)]
 #[case::float64(f64::MIN, f64::MAX)]
 #[case::int8(i8::MIN, i8::MAX)]
@@ -224,13 +238,13 @@ mod default_test {
     }
 
     #[apply(dtypes)]
-    fn test_argminmax_many_random_runs<T>(#[case] min: T, #[case] max: T)
+    fn test_argminmax_many_random_runs<T>(#[case] _min: T, #[case] _max: T)
     where
-        T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -390,13 +404,13 @@ mod ndarray_tests {
     }
 
     #[apply(dtypes)]
-    fn test_argminmax_many_random_runs_ndarray<T>(#[case] min: T, #[case] max: T)
+    fn test_argminmax_many_random_runs_ndarray<T>(#[case] _min: T, #[case] _max: T)
     where
-        T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -542,16 +556,16 @@ mod arrow_tests {
     #[apply(dtypes_arrow)]
     fn test_argminmax_many_random_runs_arrow<T, ArrowDataType>(
         #[case] _dtype: ArrowDataType, // used to infer the arrow data type
-        #[case] min: T,
-        #[case] max: T,
+        #[case] _min: T,
+        #[case] _max: T,
     ) where
-        T: Copy + FromPrimitive + AsPrimitive<usize> + rand::distributions::uniform::SampleUniform,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
         for<'a> &'a [T]: ArgMinMax,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -584,7 +598,29 @@ mod arrow2_tests {
     use arrow2::array::PrimitiveArray;
     use arrow2::types::NativeType;
 
+    // Float and skip half (even if half feature is enabled)
+    // arrow2::types::f16 has its dedicated test
+    #[cfg(all(feature = "float", feature = "half"))]
+    #[template]
+    #[rstest]
+    #[case::float32(f32::MIN, f32::MAX)]
+    #[case::float64(f64::MIN, f64::MAX)]
+    #[case::int8(i8::MIN, i8::MAX)]
+    #[case::int16(i16::MIN, i16::MAX)]
+    #[case::int32(i32::MIN, i32::MAX)]
+    #[case::int64(i64::MIN, i64::MAX)]
+    #[case::uint8(u8::MIN, u8::MAX)]
+    #[case::uint16(u16::MIN, u16::MAX)]
+    #[case::uint32(u32::MIN, u32::MAX)]
+    #[case::uint64(u64::MIN, u64::MAX)]
+    fn dtypes_arrow2<T>(#[case] min: T, #[case] max: T) {}
+
+    // Shadow dtypes_arrow2 with dtypes if half feature is not enabled
+    #[cfg(not(feature = "half"))]
+    use super::dtypes as dtypes_arrow2;
+
     // Float and not half
+    // arrow2::types::f16 has its dedicated test
     #[cfg(feature = "float")]
     #[template]
     #[rstest]
@@ -592,7 +628,7 @@ mod arrow2_tests {
     #[case::float64(f64::MIN, f64::MAX)]
     fn dtypes_with_nan_arrow2<T>(#[case] min: T, #[case] max: T) {}
 
-    #[apply(dtypes)]
+    #[apply(dtypes_arrow2)]
     fn test_argminmax_arrow2<T>(#[case] _min: T, #[case] max: T)
     where
         for<'a> &'a [T]: ArgMinMax,
@@ -643,18 +679,14 @@ mod arrow2_tests {
         assert_eq!(max, (&data).nanargmax());
     }
 
-    #[apply(dtypes)]
-    fn test_argminmax_many_random_runs_arrow2<T>(#[case] min: T, #[case] max: T)
+    #[apply(dtypes_arrow2)]
+    fn test_argminmax_many_random_runs_arrow2<T>(#[case] _min: T, #[case] _max: T)
     where
         for<'a> &'a [T]: ArgMinMax,
-        T: Copy
-            + FromPrimitive
-            + AsPrimitive<usize>
-            + rand::distributions::uniform::SampleUniform
-            + NativeType,
+        T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange + NativeType,
     {
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<T> = utils::get_random_array::<T>(RANDOM_ARR_LENGTH, min, max);
+            let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // Slice
             let slice: &[T] = &data;
             let (min_slice, max_slice) = slice.argminmax();
@@ -723,10 +755,7 @@ mod arrow2_tests {
 
         // --- many random runs
         for _ in 0..NB_RANDOM_RUNS {
-            let data: Vec<i16> =
-                utils::get_random_array::<i16>(RANDOM_ARR_LENGTH, i16::MIN, i16::MAX);
-            // convert to half::f16
-            let data_half: Vec<f16> = data.into_iter().map(|x| f16::from_bits(x as u16)).collect();
+            let data_half: Vec<f16> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
             // convert to arrow2::types::f16
             let data: Vec<arrow2::types::f16> = data_half
                 .clone()

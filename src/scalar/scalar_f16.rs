@@ -238,10 +238,8 @@ mod tests {
     const ARR_LEN: usize = 1025;
 
     fn get_arrays(len: usize) -> (Vec<f32>, Vec<f16>) {
-        // we use i8 its to make sure we have correct representation in float
-        let v = utils::get_random_array(len, i8::MIN, i8::MAX);
-        let vec_f32: Vec<f32> = v.iter().map(|x| *x as f32).collect();
-        let vec_f16: Vec<f16> = vec_f32.iter().map(|x| f16::from_f32(*x)).collect();
+        let vec_f16: Vec<f16> = utils::SampleUniformFullRange::get_random_array(len);
+        let vec_f32: Vec<f32> = vec_f16.iter().map(|x| x.to_f32()).collect();
         (vec_f32, vec_f16)
     }
 

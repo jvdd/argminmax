@@ -355,7 +355,7 @@ mod tests {
     use dev_utils::utils;
 
     fn get_array_f32(n: usize) -> Vec<f32> {
-        utils::get_random_array(n, f32::MIN, f32::MAX)
+        utils::SampleUniformFullRange::get_random_array(n)
     }
 
     // The scalar implementation

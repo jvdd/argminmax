@@ -552,7 +552,7 @@ mod tests {
     use dev_utils::utils;
 
     fn get_array_f64(n: usize) -> Vec<f64> {
-        utils::get_random_array(n, f64::MIN, f64::MAX)
+        utils::SampleUniformFullRange::get_random_array(n)
     }
 
     // The scalar implementation

@@ -129,8 +129,12 @@ jobs:
           - i586-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
           - armv7-unknown-linux-gnueabihf
-          - mips-unknown-linux-gnu
-          - mips64-unknown-linux-gnuabi64
+          # MIPS is currently not supported anymore on nightly chains.
+          # more information:
+          #   - https://github.com/rust-lang/compiler-team/issues/648
+          #   - https://github.com/rust-lang/rust/pull/113274
+          # - mips-unknown-linux-gnu
+          # - mips64-unknown-linux-gnuabi64
           - powerpc-unknown-linux-gnu
           - powerpc64-unknown-linux-gnu
           - riscv64gc-unknown-linux-gnu
