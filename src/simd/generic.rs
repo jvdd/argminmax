@@ -778,7 +778,7 @@ where
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
+    target_arch = "aarch64",
     feature = "nightly_simd"
 ))]
 macro_rules! impl_SIMDArgMinMax {
@@ -816,7 +816,7 @@ macro_rules! impl_SIMDArgMinMax {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
+    target_arch = "aarch64",
     feature = "nightly_simd"
 ))]
 pub(crate) use impl_SIMDArgMinMax; // Now classic paths Just Work™
