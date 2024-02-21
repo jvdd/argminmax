@@ -68,8 +68,31 @@
 //!```
 //!
 
-// enable SIMD nightly features when on nightly_simd enabled
-#![cfg_attr(feature = "nightly_simd", feature(stdsimd))]
+// Enable SIMD nightly features when on nightly_simd enabled
+#![cfg_attr(feature = "nightly_simd", feature(cfg_version))]
+// ------- version 1.78 and above
+#![cfg_attr(
+    all(
+        feature = "nightly_simd",
+        any(target_arch = "x86_64", target_arch = "x86")
+    ),
+    cfg_attr(version("1.78"), feature(stdarch_x86_avx512))
+)]
+// TODO: Aarch64 is stable now - check if this is under nightly_simd https://github.com/rust-lang/rust/issues/111800
+#![cfg_attr(
+    all(feature = "nightly_simd", target_arch = "arm"),
+    cfg_attr(
+        version("1.78"),
+        feature(stdarch_arm_neon_intrinsics),
+        feature(stdarch_arm_feature_detection)
+    )
+)]
+// ------- version 1.77 and below
+#![cfg_attr(
+    feature = "nightly_simd",
+    cfg_attr(not(version("1.78")), feature(stdsimd))
+)]
+// ------- any version
 #![cfg_attr(feature = "nightly_simd", feature(avx512_target_feature))]
 #![cfg_attr(feature = "nightly_simd", feature(arm_target_feature))]
 
