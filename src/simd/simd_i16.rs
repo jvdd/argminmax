@@ -4,7 +4,7 @@ use super::config::SIMDInstructionSet;
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use crate::SCALAR;
-#[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
+#[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
 use std::arch::arm::*;
@@ -392,8 +392,10 @@ mod avx512 {
 
 // --------------------------------------- NEON ----------------------------------------
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-#[cfg(feature = "nightly_simd")]
+#[cfg(any(
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64"
+))]
 mod neon {
     use super::super::config::NEON;
     use super::*;
@@ -414,6 +416,7 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> int16x8_t {
+            // experimental on arm
             vld1q_s16(data as *const i16)
         }
 
@@ -513,7 +516,7 @@ mod neon {
     target_arch = "x86",
     target_arch = "x86_64",
     all(target_arch = "arm", feature = "nightly_simd"),
-    all(target_arch = "aarch64", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 #[cfg(test)]
 mod tests {
