@@ -181,7 +181,12 @@ where
 
 // --------------- Int (signed and unsigned)
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    feature = "nightly_simd"
+))]
 macro_rules! impl_SIMDInit_Int {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
         impl SIMDInit<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size>
@@ -192,7 +197,12 @@ macro_rules! impl_SIMDInit_Int {
     };
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    feature = "nightly_simd"
+))]
 pub(crate) use impl_SIMDInit_Int; // Now classic paths Just Work™
 
 // --------------- Float Return NaNs
