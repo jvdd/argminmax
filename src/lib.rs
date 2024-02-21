@@ -74,21 +74,23 @@
 #![cfg_attr(
     all(
         feature = "nightly_simd",
-        version("1.78"),
         any(target_arch = "x86_64", target_arch = "x86")
     ),
-    feature(stdarch_x86_avx512)
+    cfg_attr(version("1.78"), feature(stdarch_x86_avx2))
 )]
 #![cfg_attr(
-    all(feature = "nightly_simd", version("1.78"), target_arch = "arm"),
-    feature(stdarch_arm_neon_intrinsics)
+    all(feature = "nightly_simd", target_arch = "arm"),
+    cfg_attr(version("1.78"), feature(stdarch_arm_neon_intrinsics)) // TODO: Aarch64 is stable now - check if this is under nightly_simd https://github.com/rust-lang/rust/issues/111800
 )]
 #![cfg_attr(
-    all(feature = "nightly_simd", version("1.78"), target_arch = "arm"),
-    feature(stdarch_arm_feature_detection)
+    all(feature = "nightly_simd", target_arch = "arm"),
+    cfg_attr(version("1.78"), feature(stdarch_arm_feature_detection))
 )]
 // ------- version 1.77 and below
-#![cfg_attr(all(feature = "nightly_simd", not(version("1.78"))), feature(stdsimd))]
+#![cfg_attr(
+    feature = "nightly_simd",
+    cfg_attr(not(version("1.78")), feature(stdsimd))
+)]
 // ------- any version
 #![cfg_attr(feature = "nightly_simd", feature(avx512_target_feature))]
 #![cfg_attr(feature = "nightly_simd", feature(arm_target_feature))]
