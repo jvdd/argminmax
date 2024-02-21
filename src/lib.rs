@@ -68,8 +68,8 @@
 //!```
 //!
 
-#![feature(cfg_version)]
 // Enable SIMD nightly features when on nightly_simd enabled
+#![cfg_attr(feature = "nightly_simd", feature(cfg_version))]
 // ------- version 1.78 and above
 #![cfg_attr(
     all(
