@@ -76,7 +76,7 @@
         feature = "nightly_simd",
         any(target_arch = "x86_64", target_arch = "x86")
     ),
-    cfg_attr(version("1.78"), feature(stdarch_x86_avx2))
+    cfg_attr(version("1.78"), feature(stdarch_x86_avx512))
 )]
 #![cfg_attr(
     all(feature = "nightly_simd", target_arch = "arm"),
