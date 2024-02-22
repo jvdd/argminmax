@@ -13,15 +13,11 @@ pub(crate) trait SIMDInstructionSet {
     /// The size of the register in bits
     const REGISTER_SIZE: usize;
 
-    // Set the const lanesize for each datatype
+    // Set the const LANE_SIZE for each datatype (postfix is the number of bits)
     const LANE_SIZE_8: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u8>() * 8);
     const LANE_SIZE_16: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u16>() * 8);
     const LANE_SIZE_32: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u32>() * 8);
     const LANE_SIZE_64: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u64>() * 8);
-
-    fn get_lane_size<DType>() -> usize {
-        Self::REGISTER_SIZE / (std::mem::size_of::<DType>() * 8)
-    }
 }
 
 // ----------------------------------- x86_64 / x86 ------------------------------------
@@ -150,103 +146,39 @@ mod tests {
     #[case::int(Int)]
     fn dtype_strategies<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {}
 
-    #[cfg(feature = "half")]
     #[apply(dtype_strategies)]
-    fn test_lane_size_f16<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<f16>(), 8);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<f16>(), 16);
+    fn test_lane_size_8bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
+        assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_8, 16);
+        assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_8, 32);
         #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<f16>(), 32);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<f16>(), 8);
+        assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_8, 64);
+        assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_8, 16);
     }
 
     #[apply(dtype_strategies)]
-    fn test_lane_size_f32<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<f32>(), 4);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<f32>(), 8);
+    fn test_lane_size_16bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
+        assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_16, 8);
+        assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_16, 16);
         #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<f32>(), 16);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<f32>(), 4);
+        assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_16, 32);
+        assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_16, 8);
     }
 
     #[apply(dtype_strategies)]
-    fn test_lane_size_f64<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<f64>(), 2);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<f64>(), 4);
+    fn test_lane_size_32bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
+        assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_32, 4);
+        assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_32, 8);
         #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<f64>(), 8);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<f64>(), 2);
+        assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_32, 16);
+        assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_32, 4);
     }
 
     #[apply(dtype_strategies)]
-    fn test_lane_size_i8<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<i8>(), 16);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<i8>(), 32);
+    fn test_lane_size_64bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
+        assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_64, 2);
+        assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_64, 4);
         #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<i8>(), 64);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<i8>(), 16);
-    }
-
-    #[apply(dtype_strategies)]
-    fn test_lane_size_i16<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<i16>(), 8);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<i16>(), 16);
-        #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<i16>(), 32);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<i16>(), 8);
-    }
-
-    #[apply(dtype_strategies)]
-    fn test_lane_size_i32<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<i32>(), 4);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<i32>(), 8);
-        #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<i32>(), 16);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<i32>(), 4);
-    }
-
-    #[apply(dtype_strategies)]
-    fn test_lane_size_i64<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<i64>(), 2);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<i64>(), 4);
-        #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<i64>(), 8);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<i64>(), 2);
-    }
-
-    #[apply(dtype_strategies)]
-    fn test_lane_size_u8<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<u8>(), 16);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<u8>(), 32);
-        #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<u8>(), 64);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<u8>(), 16);
-    }
-
-    #[apply(dtype_strategies)]
-    fn test_lane_size_u16<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<u16>(), 8);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<u16>(), 16);
-        #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<u16>(), 32);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<u16>(), 8);
-    }
-
-    #[apply(dtype_strategies)]
-    fn test_lane_size_u32<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<u32>(), 4);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<u32>(), 8);
-        #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<u32>(), 16);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<u32>(), 4);
-    }
-
-    #[apply(dtype_strategies)]
-    fn test_lane_size_u64<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
-        assert_eq!(SSE::<DTypeStrategy>::get_lane_size::<u64>(), 2);
-        assert_eq!(AVX2::<DTypeStrategy>::get_lane_size::<u64>(), 4);
-        #[cfg(feature = "nightly_simd")]
-        assert_eq!(AVX512::<DTypeStrategy>::get_lane_size::<u64>(), 8);
-        assert_eq!(NEON::<DTypeStrategy>::get_lane_size::<u64>(), 2);
+        assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_64, 8);
+        assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_64, 2);
     }
 }
