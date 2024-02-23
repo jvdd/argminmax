@@ -489,7 +489,7 @@ mod avx512 {
 
 #[cfg(any(
     all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64"  // stable for AArch64
+    target_arch = "aarch64" // stable for AArch64
 ))]
 mod neon {
     use super::super::config::NEON;

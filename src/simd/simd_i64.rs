@@ -221,7 +221,7 @@ mod neon {
     unimpl_SIMDArgMinMax!(i64, usize, SCALAR<Int>, NEON<Int>);
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(target_arch = "aarch64")] // stable for AArch64
 mod neon {
     use super::super::config::NEON;
     use super::*;
