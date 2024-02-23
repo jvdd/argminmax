@@ -185,7 +185,7 @@ where
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(feature = "nightly_simd", target_arch = "arm")
+    feature = "nightly_simd"
 ))]
 macro_rules! impl_SIMDInit_Int {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
@@ -201,7 +201,7 @@ macro_rules! impl_SIMDInit_Int {
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(feature = "nightly_simd", target_arch = "arm")
+    feature = "nightly_simd"
 ))]
 pub(crate) use impl_SIMDInit_Int; // Now classic paths Just Work™
 
@@ -212,7 +212,7 @@ pub(crate) use impl_SIMDInit_Int; // Now classic paths Just Work™
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(feature = "nightly_simd", target_arch = "arm")
+    feature = "nightly_simd"
 ))]
 macro_rules! impl_SIMDInit_FloatReturnNaN {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
@@ -240,7 +240,7 @@ macro_rules! impl_SIMDInit_FloatReturnNaN {
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(feature = "nightly_simd", target_arch = "arm") // TODO: all like this?
+    feature = "nightly_simd"
 ))]
 pub(crate) use impl_SIMDInit_FloatReturnNaN; // Now classic paths Just Work™
 
