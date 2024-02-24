@@ -27,13 +27,28 @@
 /// SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
 /// necessarily the index of the first NaN value.
 ///
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 use super::config::SIMDInstructionSet;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMDOps};
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 use crate::SCALAR;
-#[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
+#[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
 use std::arch::arm::*;
@@ -42,26 +57,56 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 use half::f16;
 
 /// The dtype-strategy for performing operations on f16 data: return NaN index
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 use super::super::dtype_strategy::FloatReturnNaN;
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 const BIT_SHIFT: i32 = 15;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - masks everything but the sign bit
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 #[inline(always)]
 fn _i16ord_to_f16(ord_i16: i16) -> f16 {
     let v = ((ord_i16 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i16;
     f16::from_bits(v as u16)
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 const MAX_INDEX: usize = i16::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -513,8 +558,10 @@ mod avx512 {
 
 // --------------------------------------- NEON ----------------------------------------
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-#[cfg(feature = "nightly_simd")]
+#[cfg(any(
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64" // stable for AArch64
+))]
 mod neon {
     use super::super::config::NEON;
     use super::*;
@@ -658,7 +705,7 @@ mod neon {
     target_arch = "x86",
     target_arch = "x86_64",
     all(target_arch = "arm", feature = "nightly_simd"),
-    all(target_arch = "aarch64", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 #[cfg(test)]
 mod tests {

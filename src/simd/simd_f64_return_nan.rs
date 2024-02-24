@@ -29,23 +29,25 @@
 /// necessarily the index of the first NaN value.
 ///
 
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::config::SIMDInstructionSet;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
+use super::generic::impl_SIMDInit_FloatReturnNaN;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
 ))]
-use super::generic::impl_SIMDInit_FloatReturnNaN;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 use crate::SCALAR;
-#[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
+#[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -53,45 +55,30 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on f64 data: return NaN index
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+))]
 use super::super::dtype_strategy::FloatReturnNaN;
 
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::task::{max_index_value, min_index_value};
 
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 const BIT_SHIFT: i32 = 63;
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 const MASK_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX - masks everything but the sign bit
 
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 #[inline(always)]
 fn _i64ord_to_f64(ord_i64: i64) -> f64 {
     let v = ((ord_i64 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i64;
     f64::from_bits(v as u64)
 }
 
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -424,7 +411,6 @@ mod neon {
 }
 
 #[cfg(target_arch = "aarch64")]
-#[cfg(feature = "nightly_simd")]
 mod neon {
     use super::super::config::NEON;
     use super::*;
@@ -523,11 +509,7 @@ mod neon {
 
 // ======================================= TESTS =======================================
 
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
