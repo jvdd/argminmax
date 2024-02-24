@@ -85,8 +85,8 @@ const BIT_SHIFT: i32 = 31;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    target_arch = "aarch64",
     all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - masks everything but the sign bit
 
@@ -105,8 +105,8 @@ fn _i32ord_to_f32(ord_i32: i32) -> f32 {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    target_arch = "aarch64",
     all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 const MAX_INDEX: usize = i32::MAX as usize;
 
