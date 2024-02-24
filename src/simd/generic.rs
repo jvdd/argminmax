@@ -111,9 +111,9 @@ where
 /// - `impl_SIMDInit_Int!`
 ///     - called in the `simd_i*.rs` files
 ///     - called in the `simd_u*.rs` files
-/// - `impl_SIMDInit_FloatIgnoreNaN!`
-///     - see the `simd_f*_return_nan.rs` files
 /// - `impl_SIMDInit_FloatReturnNaN!`
+///     - see the `simd_f*_return_nan.rs` files
+/// - `impl_SIMDInit_FloatIgnoreNaN!`
 ///     - see the `simd_f*_ignore_nan.rs` files
 ///
 /// The current (default) implementation is for the Int case - see `impl_SIMDInit_Int!`
@@ -250,7 +250,7 @@ pub(crate) use impl_SIMDInit_FloatReturnNaN; // Now classic paths Just Work™
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
+    target_arch = "aarch64", // is stable for f64
     feature = "nightly_simd"
 ))]
 macro_rules! impl_SIMDInit_FloatIgnoreNaN {
@@ -326,7 +326,7 @@ macro_rules! impl_SIMDInit_FloatIgnoreNaN {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
+    target_arch = "aarch64", // is stable for f64
     feature = "nightly_simd"
 ))]
 pub(crate) use impl_SIMDInit_FloatIgnoreNaN; // Now classic paths Just Work™

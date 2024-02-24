@@ -14,21 +14,21 @@
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
@@ -45,7 +45,7 @@ use std::arch::x86_64::*;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use super::super::dtype_strategy::Int;
 
