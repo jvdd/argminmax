@@ -32,21 +32,21 @@
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
@@ -63,7 +63,7 @@ use std::arch::x86_64::*;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::super::dtype_strategy::FloatReturnNaN;
 
@@ -71,7 +71,7 @@ use super::super::dtype_strategy::FloatReturnNaN;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::task::{max_index_value, min_index_value};
 
@@ -79,14 +79,14 @@ use super::task::{max_index_value, min_index_value};
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 const BIT_SHIFT: i32 = 31;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - masks everything but the sign bit
 
@@ -94,7 +94,7 @@ const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - masks everything but the sign 
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 #[inline(always)]
 fn _i32ord_to_f32(ord_i32: i32) -> f32 {
@@ -106,7 +106,7 @@ fn _i32ord_to_f32(ord_i32: i32) -> f32 {
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 const MAX_INDEX: usize = i32::MAX as usize;
 

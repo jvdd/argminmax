@@ -29,14 +29,14 @@
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::generic::{
     impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps,
@@ -45,14 +45,14 @@ use super::generic::{
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use crate::SCALAR;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use num_traits::Zero;
 #[cfg(target_arch = "aarch64")]
@@ -68,7 +68,7 @@ use std::arch::x86_64::*;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use half::f16;
 
@@ -77,7 +77,7 @@ use half::f16;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
@@ -85,21 +85,21 @@ use super::super::dtype_strategy::FloatIgnoreNaN;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 const BIT_SHIFT: i32 = 15;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - masks everything but the sign bit
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 const NAN_VALUE: i16 = 0x7C00; // absolute values above this are NaN
 
@@ -107,7 +107,7 @@ const NAN_VALUE: i16 = 0x7C00; // absolute values above this are NaN
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 #[inline(always)]
 fn _i16ord_to_f16(ord_i16: i16) -> f16 {
@@ -119,7 +119,7 @@ fn _i16ord_to_f16(ord_i16: i16) -> f16 {
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd") // TODO: all like this?
+    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 const MAX_INDEX: usize = i16::MAX as usize;
 
@@ -753,8 +753,8 @@ mod neon_ignore_nan {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 #[cfg(test)]
 mod tests {

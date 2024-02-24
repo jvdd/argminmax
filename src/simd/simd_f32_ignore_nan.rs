@@ -15,14 +15,14 @@
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use super::generic::{
     impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps,
@@ -31,14 +31,14 @@ use super::generic::{
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use crate::SCALAR;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use num_traits::Zero;
 #[cfg(target_arch = "aarch64")]
@@ -55,7 +55,7 @@ use std::arch::x86_64::*;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
@@ -64,7 +64,7 @@ use super::super::dtype_strategy::FloatIgnoreNaN;
     target_arch = "x86",
     target_arch = "x86_64",
     target_arch = "aarch64",
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
 ))]
 const MAX_INDEX: usize = 1 << f32::MANTISSA_DIGITS;
 
