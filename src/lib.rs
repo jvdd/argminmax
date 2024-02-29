@@ -306,7 +306,7 @@ macro_rules! impl_argminmax_int {
                     }
                     #[cfg(target_arch = "aarch64")]
                     {
-                        if std::arch::is_aarch64_feature_detected!("neon")  & (<$int_type>::NB_BITS < 64) {
+                        if std::arch::is_aarch64_feature_detected!("neon") & (<$int_type>::NB_BITS < 64) {
                             // Scalar is faster for 64-bit numbers
                             return unsafe { NEON::<Int>::argminmax(self) }
                         }

@@ -31,22 +31,22 @@
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use crate::SCALAR;
 #[cfg(target_arch = "aarch64")]
@@ -62,24 +62,24 @@ use std::arch::x86_64::*;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::super::dtype_strategy::FloatReturnNaN;
 
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 use super::task::{max_index_value, min_index_value};
 
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 const BIT_SHIFT: i32 = 31;
 #[cfg(any(
@@ -93,8 +93,8 @@ const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - masks everything but the sign 
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "nightly_simd")
 ))]
 #[inline(always)]
 fn _i32ord_to_f32(ord_i32: i32) -> f32 {
