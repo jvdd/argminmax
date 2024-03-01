@@ -441,7 +441,6 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> int16x8_t {
-            // experimental on arm
             vld1q_s16(data as *const i16)
         }
 

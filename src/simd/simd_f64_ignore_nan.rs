@@ -280,7 +280,7 @@ mod neon_ignore_nan {
     unimpl_SIMDArgMinMax!(f64, usize, SCALAR<FloatIgnoreNaN>, NEON<FloatIgnoreNaN>);
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(target_arch = "aarch64")] // stable for AArch64
 mod neon_ignore_nan {
     use super::super::config::NEON;
     use super::*;

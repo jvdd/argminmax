@@ -392,7 +392,7 @@ mod avx512 {
 
 // There are NEON SIMD intrinsics for i64 (used after ord_transform), but
 //  - for arm we miss the vcgt_ and vclt_ intrinsics.
-//  - for aarch64 the required intrinsics are present (on nightly)
+//  - for aarch64 the required intrinsics are present (on stable!!)
 
 #[cfg(target_arch = "arm")]
 #[cfg(feature = "nightly_simd")]
@@ -410,7 +410,7 @@ mod neon {
     unimpl_SIMDArgMinMax!(f64, usize, SCALAR<FloatReturnNaN>, NEON<FloatReturnNaN>);
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(target_arch = "aarch64")] // stable for AArch64
 mod neon {
     use super::super::config::NEON;
     use super::*;
