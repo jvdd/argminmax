@@ -78,7 +78,6 @@
     ),
     cfg_attr(version("1.78"), feature(stdarch_x86_avx512))
 )]
-// TODO: Aarch64 is stable now - check if this is under nightly_simd https://github.com/rust-lang/rust/issues/111800
 #![cfg_attr(
     all(feature = "nightly_simd", target_arch = "arm"),
     cfg_attr(
