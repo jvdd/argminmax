@@ -111,9 +111,9 @@ where
 /// - `impl_SIMDInit_Int!`
 ///     - called in the `simd_i*.rs` files
 ///     - called in the `simd_u*.rs` files
-/// - `impl_SIMDInit_FloatIgnoreNaN!`
-///     - see the `simd_f*_return_nan.rs` files
 /// - `impl_SIMDInit_FloatReturnNaN!`
+///     - see the `simd_f*_return_nan.rs` files
+/// - `impl_SIMDInit_FloatIgnoreNaN!`
 ///     - see the `simd_f*_ignore_nan.rs` files
 ///
 /// The current (default) implementation is for the Int case - see `impl_SIMDInit_Int!`
@@ -181,7 +181,12 @@ where
 
 // --------------- Int (signed and unsigned)
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
 macro_rules! impl_SIMDInit_Int {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
         impl SIMDInit<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size>
@@ -192,13 +197,23 @@ macro_rules! impl_SIMDInit_Int {
     };
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
 pub(crate) use impl_SIMDInit_Int; // Now classic paths Just Work™
 
 // --------------- Float Return NaNs
 
 #[cfg(any(feature = "float", feature = "half"))]
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
 macro_rules! impl_SIMDInit_FloatReturnNaN {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
         impl SIMDInit<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size>
@@ -221,7 +236,12 @@ macro_rules! impl_SIMDInit_FloatReturnNaN {
 }
 
 #[cfg(any(feature = "float", feature = "half"))]
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
 pub(crate) use impl_SIMDInit_FloatReturnNaN; // Now classic paths Just Work™
 
 // --------------- Float Ignore NaNs
@@ -230,8 +250,8 @@ pub(crate) use impl_SIMDInit_FloatReturnNaN; // Now classic paths Just Work™
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 macro_rules! impl_SIMDInit_FloatIgnoreNaN {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty) => {
@@ -306,8 +326,8 @@ macro_rules! impl_SIMDInit_FloatIgnoreNaN {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 pub(crate) use impl_SIMDInit_FloatIgnoreNaN; // Now classic paths Just Work™
 
@@ -768,8 +788,8 @@ where
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 macro_rules! impl_SIMDArgMinMax {
     ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $scalar_struct:ty, $simd_struct:ty, $target:expr) => {
@@ -806,8 +826,8 @@ macro_rules! impl_SIMDArgMinMax {
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "float"), // is stable for f64
-    feature = "nightly_simd"
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
 pub(crate) use impl_SIMDArgMinMax; // Now classic paths Just Work™
 

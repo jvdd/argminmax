@@ -1,20 +1,22 @@
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::config::SIMDInstructionSet;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
+use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
-use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int};
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
 use crate::SCALAR;
-#[cfg(all(target_arch = "aarch64", feature = "nightly_simd"))]
+#[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -22,14 +24,15 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 /// The dtype-strategy for performing operations on i64 data: (default) Int
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", feature = "nightly_simd"))]
-use super::super::dtype_strategy::Int;
-
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd")
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
 ))]
+use super::super::dtype_strategy::Int;
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 const MAX_INDEX: usize = i64::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -233,8 +236,7 @@ mod neon {
     unimpl_SIMDArgMinMax!(i64, usize, SCALAR<Int>, NEON<Int>);
 }
 
-#[cfg(target_arch = "aarch64")]
-#[cfg(feature = "nightly_simd")]
+#[cfg(target_arch = "aarch64")] // stable for AArch64
 mod neon {
     use super::super::config::NEON;
     use super::*;
@@ -293,11 +295,7 @@ mod neon {
 
 // ======================================= TESTS =======================================
 
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "aarch64", feature = "nightly_simd"),
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 #[cfg(test)]
 mod tests {
     use rstest::rstest;

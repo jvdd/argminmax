@@ -14,11 +14,11 @@ exclude = [".git*", "dev_utils/**/*", "tests/**/*"]
 
 
 [dependencies]
-num-traits = { version = "0.2.17", default-features = false }
+num-traits = { version = "0.2", default-features = false }
 half = { version = "2.3.1", default-features = false, features=["num-traits"], optional = true }
-ndarray = { version = "0.15.6", default-features = false, optional = true}
-arrow = { version = ">0", default-features = false, optional = true}
-arrow2 = { version = ">0.0", default-features = false, optional = true}
+ndarray = { version = "0.15.6", default-features = false, optional = true }
+arrow = { version = ">0", default-features = false, optional = true }
+arrow2 = { version = ">0.0", default-features = false, optional = true }
 # once_cell = "1.16.0"
 
 [features]

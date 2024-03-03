@@ -19,15 +19,15 @@ use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    feature = "nightly_simd"
 ))]
 use super::generic::{SIMDArgMinMax, SIMDInit, SIMDOps};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    feature = "nightly_simd"
 ))]
 use crate::SCALAR;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
@@ -43,8 +43,8 @@ use std::arch::x86_64::*;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    feature = "nightly_simd"
 ))]
 use super::super::dtype_strategy::FloatIgnoreNaN;
 
@@ -280,7 +280,7 @@ mod neon_ignore_nan {
     unimpl_SIMDArgMinMax!(f64, usize, SCALAR<FloatIgnoreNaN>, NEON<FloatIgnoreNaN>);
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(target_arch = "aarch64")] // stable for AArch64
 mod neon_ignore_nan {
     use super::super::config::NEON;
     use super::*;
