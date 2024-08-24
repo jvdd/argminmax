@@ -36,14 +36,14 @@ jobs:
           rustup default nightly
 
       - name: Install cargo-codspeed (with cache)
-        uses: baptiste0928/cargo-install@v1
+        uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-codspeed
 
       - name: Build the benchmark target(s)
         run: cargo codspeed build --features half
 
-      - uses: CodSpeedHQ/action@v2
+      - uses: CodSpeedHQ/action@v3
         name: Run benchmarks
         with:
           run: cargo codspeed run

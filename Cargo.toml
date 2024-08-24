@@ -31,15 +31,13 @@ arrow = ["dep:arrow"]
 arrow2 = ["dep:arrow2"]
 
 [dev-dependencies]
+half = { version = "2.4", default-features = false, features=["num-traits", "rand_distr"] }
 rstest = { version = "0.18.2", default-features = false }
 rstest_reuse = { version = "0.6", default-features = false }
 rand = { version = "0.8.5", default-features = false }
-codspeed-criterion-compat = "2.4"
+codspeed-criterion-compat = "2.6"
 criterion = "0.5.1"
 dev_utils = { path = "dev_utils" }
-
-[dev-dependencies.half]
-features = ["rand_distr"]
 
 
 [[bench]]
