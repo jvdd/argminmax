@@ -32,9 +32,9 @@ arrow2 = ["dep:arrow2"]
 
 [dev-dependencies]
 half = { version = "2.4", default-features = false, features=["num-traits", "rand_distr"] }
-rstest = { version = "0.22", default-features = false }
+rstest = { version = "0.24", default-features = false }
 rstest_reuse = { version = "0.7", default-features = false }
-rand = { version = "0.8.5", default-features = false }
+rand = { version = "0.8", default-features = false }
 codspeed-criterion-compat = "2.7.2"
 criterion = "0.5.1"
 dev_utils = { path = "dev_utils" }
