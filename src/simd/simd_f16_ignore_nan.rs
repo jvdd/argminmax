@@ -581,7 +581,7 @@ mod avx512_ignore_nan {
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m512i {
             let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
-            _f16_as_m521i_to_i16ord(_mm512_loadu_si512(data.as_ptr() as *const i32))
+            _f16_as_m521i_to_i16ord(_mm512_loadu_si512(data.as_ptr() as *const _))
         }
     }
 
