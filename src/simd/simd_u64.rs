@@ -53,6 +53,7 @@ const XOR_VALUE: i64 = -0x8000000000000000; // i64::MIN
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
+#[allow(unnecessary_transmutes)]
 fn _i64ord_to_u64(ord_i64: i64) -> u64 {
     // let v = ord_i64 ^ -0x8000000000000000;
     unsafe { std::mem::transmute::<i64, u64>(ord_i64 ^ XOR_VALUE) }

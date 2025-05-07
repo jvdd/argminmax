@@ -15,7 +15,7 @@ exclude = [".git*", "dev_utils/**/*", "tests/**/*"]
 
 [dependencies]
 num-traits = { version = "0.2", default-features = false }
-half = { version = "2.4", default-features = false, features=["num-traits"], optional = true }
+half = { version = "2.6", default-features = false, features=["num-traits"], optional = true }
 ndarray = { version = "0.16.1", default-features = false, optional = true }
 arrow = { version = ">0", default-features = false, optional = true }
 arrow2 = { version = ">0.0", default-features = false, optional = true }
