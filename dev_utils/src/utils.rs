@@ -3,8 +3,8 @@ use num_traits::Zero;
 
 use std::ops::{Add, Sub};
 
-use rand::distributions::Uniform;
-use rand::{thread_rng, Rng};
+use rand::distr::Uniform;
+use rand::{rng, Rng};
 
 // worst case array that alternates between increasing max and decreasing min values
 pub fn get_worst_case_array<T>(n: usize, step: T) -> Vec<T>
@@ -26,17 +26,17 @@ where
     arr
 }
 
-pub trait SampleUniformFullRange: rand::distributions::uniform::SampleUniform {
+pub trait SampleUniformFullRange: rand::distr::uniform::SampleUniform {
     const MIN: Self;
     const MAX: Self;
 
     // random array that samples between min and max of Self
     fn get_random_array(n: usize) -> Vec<Self>
     where
-        Self: Copy + rand::distributions::uniform::SampleUniform,
+        Self: Copy + rand::distr::uniform::SampleUniform,
     {
-        let rng = thread_rng();
-        let uni = Uniform::new_inclusive(Self::MIN, Self::MAX);
+        let rng = rng();
+        let uni = Uniform::new_inclusive(Self::MIN, Self::MAX).unwrap();
         rng.sample_iter(uni).take(n).collect()
     }
 }
@@ -62,7 +62,7 @@ macro_rules! impl_full_range_uniform_float {
 
                 fn get_random_array(n: usize) -> Vec<Self>
                 where
-                    Self: Copy + rand::distributions::uniform::SampleUniform,
+                    Self: Copy + rand::distr::uniform::SampleUniform,
                 {
                     // Get a uniform random array of integers
                     let rand_arr_int: Vec<$t_int> = <$t_int>::get_random_array(n);
