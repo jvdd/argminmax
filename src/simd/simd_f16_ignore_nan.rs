@@ -489,7 +489,7 @@ mod avx512_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f16) -> __m512i {
-            _f16_as_m521i_to_i16ord(_mm512_loadu_epi16(data as *const i16))
+            _f16_as_m521i_to_i16ord(_mm512_loadu_si512(data as *const i32))
         }
 
         #[inline(always)]
