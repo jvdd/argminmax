@@ -54,6 +54,7 @@ const XOR_VALUE: i16 = -0x8000; // i16::MIN
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
+#[allow(unnecessary_transmutes)]
 fn _i16ord_to_u16(ord_i16: i16) -> u16 {
     // let v = ord_i16 ^ -0x8000;
     unsafe { std::mem::transmute::<i16, u16>(ord_i16 ^ XOR_VALUE) }

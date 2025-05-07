@@ -57,6 +57,7 @@ const XOR_VALUE: i32 = -0x80000000; // i32::MIN
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
+#[allow(unnecessary_transmutes)]
 fn _i32ord_to_u32(ord_i32: i32) -> u32 {
     // let v = ord_i32 ^ -0x80000000;
     unsafe { std::mem::transmute::<i32, u32>(ord_i32 ^ XOR_VALUE) }

@@ -54,6 +54,7 @@ const XOR_VALUE: i8 = -0x80; // i8::MIN
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
+#[allow(unnecessary_transmutes)]
 fn _i8ord_to_u8(ord_i8: i8) -> u8 {
     // let v = ord_i8 ^ -0x80;
     unsafe { std::mem::transmute::<i8, u8>(ord_i8 ^ XOR_VALUE) }
