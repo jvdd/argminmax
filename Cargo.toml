@@ -15,7 +15,7 @@ exclude = [".git*", "dev_utils/**/*", "tests/**/*"]
 
 [dependencies]
 num-traits = { version = "0.2", default-features = false }
-half = { version = "2.6", default-features = false, features=["num-traits"], optional = true }
+half = { version = "2.7", default-features = false, features=["num-traits"], optional = true }
 ndarray = { version = "0.16.1", default-features = false, optional = true }
 arrow = { version = ">0", default-features = false, optional = true }
 arrow2 = { version = ">0.0", default-features = false, optional = true }
@@ -31,12 +31,12 @@ arrow = ["dep:arrow"]
 arrow2 = ["dep:arrow2"]
 
 [dev-dependencies]
-half = { version = "2.6", default-features = false, features=["num-traits", "rand_distr"] }
-rstest = { version = "0.25", default-features = false }
+half = { version = "2.7", default-features = false, features=["num-traits", "rand_distr"] }
+rstest = { version = "0.26", default-features = false }
 rstest_reuse = { version = "0.7", default-features = false }
 rand = { version = "0.9", default-features = false }
-codspeed-criterion-compat = "2.10.1"
-criterion = "0.5.1"
+codspeed-criterion-compat = "4.0.4"
+criterion = "0.7"
 dev_utils = { path = "dev_utils" }
 
 
