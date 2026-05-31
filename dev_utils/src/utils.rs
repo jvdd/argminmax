@@ -4,7 +4,8 @@ use num_traits::Zero;
 use std::ops::{Add, Sub};
 
 use rand::distr::Uniform;
-use rand::{rng, Rng};
+use rand::RngExt;
+use rand::rngs::ThreadRng;
 
 // worst case array that alternates between increasing max and decreasing min values
 pub fn get_worst_case_array<T>(n: usize, step: T) -> Vec<T>
@@ -26,19 +27,11 @@ where
     arr
 }
 
-pub trait SampleUniformFullRange: rand::distr::uniform::SampleUniform {
+pub trait SampleUniformFullRange: Sized {
     const MIN: Self;
     const MAX: Self;
 
-    // random array that samples between min and max of Self
-    fn get_random_array(n: usize) -> Vec<Self>
-    where
-        Self: Copy + rand::distr::uniform::SampleUniform,
-    {
-        let rng = rng();
-        let uni = Uniform::new_inclusive(Self::MIN, Self::MAX).unwrap();
-        rng.sample_iter(uni).take(n).collect()
-    }
+    fn get_random_array(n: usize) -> Vec<Self>;
 }
 
 macro_rules! impl_full_range_uniform {
@@ -47,6 +40,12 @@ macro_rules! impl_full_range_uniform {
             impl SampleUniformFullRange for $t {
                 const MIN: Self = <$t>::MIN;
                 const MAX: Self = <$t>::MAX;
+
+                fn get_random_array(n: usize) -> Vec<Self> {
+                    let rng = ThreadRng::default();
+                    let uni = Uniform::new_inclusive(Self::MIN, Self::MAX).unwrap();
+                    rng.sample_iter(uni).take(n).collect()
+                }
             }
         )*
     };
@@ -56,19 +55,14 @@ macro_rules! impl_full_range_uniform_float {
     ($($t:ty, $t_int:ty),*) => {
         $(
             impl SampleUniformFullRange for $t {
-                // These 2 are not used, but are required by the trait
                 const MIN: Self = <$t>::MIN;
                 const MAX: Self = <$t>::MAX;
 
-                fn get_random_array(n: usize) -> Vec<Self>
-                where
-                    Self: Copy + rand::distr::uniform::SampleUniform,
-                {
-                    // Get a uniform random array of integers
+                fn get_random_array(n: usize) -> Vec<Self> {
+                    // Generate random integers and transmute to floats to avoid
+                    // range overflow issues with Uniform distribution for floats
                     let rand_arr_int: Vec<$t_int> = <$t_int>::get_random_array(n);
-                    // Transmute the integers to floats
                     let rand_arr_float: Vec<Self> = unsafe { std::mem::transmute(rand_arr_int) };
-                    // Replace the NaNs with 0.0
                     rand_arr_float.iter().map(|x| if x.is_nan() { <$t>::zero() } else { *x }).collect()
                 }
             }
@@ -77,8 +71,5 @@ macro_rules! impl_full_range_uniform_float {
 }
 
 impl_full_range_uniform!(i8, i16, i32, i64, u8, u16, u32, u64);
-// f16 does not suffer from range overflow panick as upcast to f32 is used to generate
-// the random numbers
-impl_full_range_uniform!(f16);
-// Workaround for f32 and f64 as these suffer from range overflow in the rand crate
-impl_full_range_uniform_float!(f32, i32, f64, i64);
+// f16, f32, f64 use integer transmutation to avoid Uniform range overflow / SampleUniform dependency
+impl_full_range_uniform_float!(f16, i16, f32, i32, f64, i64);
