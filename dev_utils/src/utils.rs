@@ -4,8 +4,8 @@ use num_traits::Zero;
 use std::ops::{Add, Sub};
 
 use rand::distr::Uniform;
-use rand::RngExt;
 use rand::rngs::ThreadRng;
+use rand::RngExt;
 
 // worst case array that alternates between increasing max and decreasing min values
 pub fn get_worst_case_array<T>(n: usize, step: T) -> Vec<T>
