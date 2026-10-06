@@ -484,6 +484,7 @@ mod arrow_tests {
 
     #[cfg(not(feature = "float"))]
     #[template]
+    #[rstest]
     #[case::int8(Int8Type {}, i8::MIN, i8::MAX)]
     #[case::int16(Int16Type {}, i16::MIN, i16::MAX)]
     #[case::int32(Int32Type {}, i32::MIN, i32::MAX)]
