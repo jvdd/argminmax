@@ -74,3 +74,14 @@ macro_rules! impl_full_range_uniform_float {
 impl_full_range_uniform!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
 // f16, f32, f64 use integer transmutation to avoid Uniform range overflow / SampleUniform dependency
 impl_full_range_uniform_float!(f16, i16, f32, i32, f64, i64);
+
+/// Returns a validity bitmap (in the Arrow format) for `n` elements that starts at bit
+/// `offset`, in which element `i` is valid iff `valid(i)` (the other bits are random)
+pub fn get_validity(n: usize, offset: usize, valid: impl Fn(usize) -> bool) -> Vec<u8> {
+    let mut validity: Vec<u8> = u8::get_random_array((offset + n).div_ceil(8));
+    for i in 0..n {
+        let (byte, bit) = ((offset + i) / 8, (offset + i) % 8);
+        validity[byte] = (validity[byte] & !(1 << bit)) | ((valid(i) as u8) << bit);
+    }
+    validity
+}

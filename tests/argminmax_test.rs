@@ -1,6 +1,6 @@
-use argminmax::ArgMinMax;
+use argminmax::{ArgMinMax, ArgMinMaxMasked};
 #[cfg(any(feature = "float", feature = "half"))]
-use argminmax::NaNArgMinMax;
+use argminmax::{NaNArgMinMax, NaNArgMinMaxMasked};
 
 #[cfg(feature = "half")]
 use half::f16;
@@ -11,7 +11,7 @@ use num_traits::{AsPrimitive, FromPrimitive};
 use rstest::rstest;
 use rstest_reuse::{self, *};
 
-use dev_utils::utils::SampleUniformFullRange;
+use dev_utils::utils::{get_validity, SampleUniformFullRange};
 
 const ARRAY_LENGTH: usize = 100_000;
 const NB_RANDOM_RUNS: usize = 500;
@@ -114,6 +114,42 @@ where
         // modulo max_index to ensure that the values are within the range of T
         .map(|x| T::from_usize(x % max_index).unwrap())
         .collect::<Vec<T>>()
+}
+
+/// Returns a random validity bitmap for `len` elements that starts at bit `offset` - with
+/// about `nulls` out of 256 elements null - and the validity of each element.
+fn get_random_validity(len: usize, offset: usize, nulls: u16) -> (Vec<u8>, Vec<bool>) {
+    let random: Vec<u8> = SampleUniformFullRange::get_random_array(len);
+    let valid: Vec<bool> = random.iter().map(|&r| r as u16 >= nulls).collect();
+    (get_validity(len, offset, |i| valid[i]), valid)
+}
+
+/// Straightforward reference for the masked functions: the index of the first valid value
+/// that is better than all other valid values (e.g., the min for `is_better = a < b`).
+/// When `ignore_nan`, NaNs are ignored (unless all valid values are NaN, then the first
+/// valid index is returned), otherwise the index of the first valid NaN is returned.
+fn masked_reference<T: Copy + PartialOrd>(
+    data: &[T],
+    valid: &[bool],
+    ignore_nan: bool,
+    is_better: fn(T, T) -> bool,
+) -> Option<usize> {
+    let is_nan = |i: &usize| data[*i].partial_cmp(&data[*i]).is_none();
+    let valid_indices = (0..data.len()).filter(|&i| valid[i]);
+    let first_valid = valid_indices.clone().next()?;
+    if !ignore_nan {
+        if let Some(first_nan) = valid_indices.clone().find(is_nan) {
+            return Some(first_nan);
+        }
+    }
+    let best = valid_indices.filter(|i| !is_nan(i)).reduce(|best, i| {
+        if is_better(data[i], data[best]) {
+            i
+        } else {
+            best
+        }
+    });
+    Some(best.unwrap_or(first_valid))
 }
 
 // ======================================= TESTS =======================================
@@ -290,6 +326,138 @@ mod default_test {
             assert_eq!(max_slice, slice.argmax());
             assert_eq!(max_slice, data.argmax());
         }
+    }
+}
+
+/// Test the ArgMinMaxMasked & NaNArgMinMaxMasked traits against a straightforward reference
+#[cfg(test)]
+mod masked_tests {
+    use super::*;
+
+    #[cfg(any(feature = "float", feature = "half"))]
+    use num_traits::float::FloatCore;
+
+    const LENGTHS: [usize; 7] = [0, 1, 7, 64, 65, 1_000, RANDOM_ARR_LENGTH + 3];
+    const OFFSETS: [usize; 3] = [0, 3, 64 + 11];
+    /// The number of nulls out of 256 elements
+    const NULLS: [u16; 6] = [0, 1, 26, 128, 230, 256];
+
+    #[apply(dtypes)]
+    fn test_argminmax_masked<T>(#[case] _min: T, #[case] _max: T)
+    where
+        T: Copy + PartialOrd + FromPrimitive + SampleUniformFullRange,
+        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
+    {
+        for (len, offset, nulls) in LENGTHS
+            .iter()
+            .flat_map(|&len| OFFSETS.iter().map(move |&offset| (len, offset)))
+            .flat_map(|(len, offset)| NULLS.iter().map(move |&nulls| (len, offset, nulls)))
+        {
+            let (validity, valid) = get_random_validity(len, offset, nulls);
+            let random_data: Vec<T> = SampleUniformFullRange::get_random_array(len);
+            // Many ties: the first index of the min / max should be returned
+            let ties_data: Vec<T> = (0..len).map(|i| T::from_usize(i % 3).unwrap()).collect();
+            for mut data in [random_data, ties_data] {
+                // The null elements hold the extreme values of the data type
+                for i in (0..len).filter(|&i| !valid[i]) {
+                    data[i] = [T::MIN, T::MAX][i % 2];
+                }
+                let min = masked_reference(&data, &valid, true, |a, b| a < b);
+                let max = masked_reference(&data, &valid, true, |a, b| a > b);
+
+                let slice: &[T] = &data;
+                assert_eq!(slice.argminmax_masked(&validity, offset), min.zip(max));
+                assert_eq!(slice.argmin_masked(&validity, offset), min);
+                assert_eq!(slice.argmax_masked(&validity, offset), max);
+                assert_eq!(data.argminmax_masked(&validity, offset), min.zip(max));
+                assert_eq!(data.argmin_masked(&validity, offset), min);
+                assert_eq!(data.argmax_masked(&validity, offset), max);
+                if nulls == 0 && len > 0 {
+                    assert_eq!(min.zip(max), Some(slice.argminmax()));
+                }
+            }
+        }
+    }
+
+    #[cfg(any(feature = "float", feature = "half"))]
+    #[apply(dtypes_with_nan)]
+    fn test_argminmax_masked_nans<T>(#[case] _min: T, #[case] _max: T)
+    where
+        T: FloatCore + SampleUniformFullRange,
+        for<'a> &'a [T]: ArgMinMaxMasked + NaNArgMinMaxMasked,
+    {
+        let (nan, inf) = (T::nan(), T::infinity());
+        for (len, offset, nulls) in LENGTHS
+            .iter()
+            .flat_map(|&len| OFFSETS.iter().map(move |&offset| (len, offset)))
+            .flat_map(|(len, offset)| NULLS.iter().map(move |&nulls| (len, offset, nulls)))
+        {
+            let (validity, valid) = get_random_validity(len, offset, nulls);
+            // Some NaNs, only NaNs, and only NaNs and infinities
+            let some_nans: Vec<T> = (SampleUniformFullRange::get_random_array(len).into_iter())
+                .enumerate()
+                .map(|(i, v): (usize, T)| if i % 97 == 13 { nan } else { v })
+                .collect();
+            let only_nans: Vec<T> = vec![nan; len];
+            let nans_and_inf: Vec<T> = (0..len).map(|i| [nan, inf][i % 2]).collect();
+            // -0.0 and 0.0 as the min (max): they are equal, so the first one is returned
+            let zeros_and = |other: T| -> Vec<T> {
+                let values = [T::zero(), -T::zero(), other];
+                (0..len).map(|i| values[(i * 7 + i / 3) % 3]).collect()
+            };
+            let (zeros_and_one, zeros_and_minus_one) = (zeros_and(T::one()), zeros_and(-T::one()));
+            for mut data in [
+                some_nans,
+                only_nans,
+                nans_and_inf,
+                zeros_and_one,
+                zeros_and_minus_one,
+            ] {
+                // The null elements hold NaNs, infinities and the extreme values
+                for i in (0..len).filter(|&i| !valid[i]) {
+                    data[i] = [nan, -inf, inf, T::MIN, T::MAX][i % 5];
+                }
+                let slice: &[T] = &data;
+
+                // NaNs are ignored
+                let min = masked_reference(&data, &valid, true, |a, b| a < b);
+                let max = masked_reference(&data, &valid, true, |a, b| a > b);
+                assert_eq!(slice.argminmax_masked(&validity, offset), min.zip(max));
+                assert_eq!(slice.argmin_masked(&validity, offset), min);
+                assert_eq!(slice.argmax_masked(&validity, offset), max);
+
+                // The first NaN is returned
+                let min = masked_reference(&data, &valid, false, |a, b| a < b);
+                let max = masked_reference(&data, &valid, false, |a, b| a > b);
+                assert_eq!(slice.nanargminmax_masked(&validity, offset), min.zip(max));
+                assert_eq!(slice.nanargmin_masked(&validity, offset), min);
+                assert_eq!(slice.nanargmax_masked(&validity, offset), max);
+            }
+        }
+    }
+
+    #[test]
+    fn test_argminmax_masked_edge_cases() {
+        let data: Vec<i32> = vec![5, 3, 9, 3, 9];
+        // No (valid) elements
+        assert_eq!((&data[..0]).argminmax_masked(&[], 0), None);
+        assert_eq!(data.argminmax_masked(&[0b0000_0000], 0), None);
+        assert_eq!(data.argmin_masked(&[0b1110_0000], 0), None); // bits after the data
+                                                                 // Bits before the data
+        assert_eq!(data.argmax_masked(&[0b0000_0011], 2), None);
+        // A single valid element
+        assert_eq!(data.argminmax_masked(&[0b0000_0100], 0), Some((2, 2)));
+        // The first index is returned on ties
+        assert_eq!(data.argminmax_masked(&[0b0001_1111], 0), Some((1, 2)));
+        assert_eq!(data.argminmax_masked(&[0b1111_1000, 0], 3), Some((1, 2)));
+        assert_eq!(data.argminmax_masked(&[0b0001_1010], 0), Some((1, 4)));
+    }
+
+    #[test]
+    #[should_panic(expected = "The validity bitmap is too short")]
+    fn test_argminmax_masked_validity_too_short() {
+        let data: Vec<i32> = vec![0; 9];
+        data.argminmax_masked(&[0xFF], 0);
     }
 }
 

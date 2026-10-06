@@ -563,6 +563,11 @@ mod tests {
     use super::super::test_utils::{
         test_return_infs_argminmax, test_return_nans_argminmax, test_signed_zeros_argminmax,
     };
+    // Masked tests
+    use super::super::test_utils::{
+        test_adversarial_masked_argminmax, test_nans_masked_argminmax,
+        test_return_same_result_masked_argminmax,
+    };
 
     use dev_utils::utils;
 
@@ -681,5 +686,49 @@ mod tests {
             return;
         }
         test_return_nans_argminmax(get_array_f64, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_same_result_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f64, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_return_same_result_masked_argminmax(get_array_f64, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_nans_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f64, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_nans_masked_argminmax(get_array_f64, SCALAR_STRATEGY, simd);
+    }
+    #[apply(simd_implementations)]
+    fn test_adversarial_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f64, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_adversarial_masked_argminmax(SCALAR_STRATEGY, simd, true);
     }
 }

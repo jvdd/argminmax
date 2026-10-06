@@ -590,6 +590,10 @@ mod tests {
         test_first_index_identical_values_argminmax, test_no_overflow_argminmax,
         test_return_same_result_argminmax,
     };
+    // Masked tests
+    use super::super::test_utils::{
+        test_no_overflow_masked_argminmax, test_return_same_result_masked_argminmax,
+    };
 
     use dev_utils::utils;
 
@@ -678,5 +682,35 @@ mod tests {
             return;
         }
         test_no_overflow_argminmax(get_array_i8, SCALAR_STRATEGY, simd, None);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_same_result_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<i8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_return_same_result_masked_argminmax(get_array_i8, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_no_overflow_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<i8, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_no_overflow_masked_argminmax(get_array_i8, SCALAR_STRATEGY, simd, None);
     }
 }

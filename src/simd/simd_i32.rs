@@ -315,6 +315,8 @@ mod tests {
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
+    // Masked tests
+    use super::super::test_utils::test_return_same_result_masked_argminmax;
 
     use dev_utils::utils;
 
@@ -388,5 +390,20 @@ mod tests {
             return;
         }
         test_return_same_result_argminmax(get_array_i32, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_same_result_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<i32, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_return_same_result_masked_argminmax(get_array_i32, SCALAR_STRATEGY, simd);
     }
 }
