@@ -29,7 +29,7 @@ jobs:
       - name: check with clippy
         run: cargo clippy --all --all-targets --all-features -- -D warnings
       - name: check with clippy - no default features
-        run: cargo clippy --all --lib --tests --no-default-features -- -D warnings
+        run: cargo clippy --all --all-targets --no-default-features -- -D warnings
       # The SIMD code is cfg-gated per architecture, so clippy only lints it when
       # compiling for that architecture (x86_64 is linted above).
       # On armv7 we skip the benches, as these use the unstable is_arm_feature_detected!
