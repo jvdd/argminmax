@@ -463,6 +463,21 @@ mod tests {
     }
 
     #[apply(simd_implementations)]
+    fn test_signed_zeros<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f64, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        super::super::test_utils::test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
     fn test_ignore_nans<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
         #[case] simd_available: bool,

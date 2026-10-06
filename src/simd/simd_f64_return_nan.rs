@@ -2,11 +2,13 @@
 //! This implementation returns the index of the first* NaN value if any are present,
 //! otherwise it returns the index of the minimum and maximum values.
 //!
-//! To serve this functionality we transform the f64 values to ordinal i64 values:
-//!     ord_i64 = ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
+//! To serve this functionality we transform the f64 values to ordinal i64 values, by
+//! applying the sign bit to the magnitude (the other bits):
+//!     ord_i64 = v               if v >= 0 (as i64)
+//!     ord_i64 = i64::MIN - v      otherwise (i.e., minus the magnitude)
 //!
-//! This transformation is a bijection, i.e. it is reversible:
-//!     v = ((ord_i64 >> 63) & 0x7FFFFFFFFFFFFFFF) ^ ord_i64
+//! This transformation is reversible (with the same formula), except that -0.0 and 0.0
+//! are both mapped to 0 (as these are equal).
 //!
 //! Through this transformation we can perform the argminmax operations on the ordinal
 //! integer values and then transform the result back to the original f64 values.
@@ -67,14 +69,14 @@ use super::super::dtype_strategy::FloatReturnNaN;
 use super::task::{max_index_value, min_index_value};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
-const BIT_SHIFT: i32 = 63;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
-const MASK_VALUE: i64 = 0x7FFFFFFFFFFFFFFF; // i64::MAX - masks everything but the sign bit
-
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 #[inline(always)]
 fn _i64ord_to_f64(ord_i64: i64) -> f64 {
-    let v = ((ord_i64 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i64;
+    // The same formula as the transformation (0.0 is returned for -0.0)
+    let v = if ord_i64 < 0 {
+        i64::MIN - ord_i64
+    } else {
+        ord_i64
+    };
     f64::from_bits(v as u64)
 }
 
@@ -89,19 +91,16 @@ mod avx2 {
     use super::*;
 
     const LANE_SIZE: usize = AVX2::<FloatReturnNaN>::LANE_SIZE_64;
-    const LOWER_63_MASK: __m256i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: __m256i = unsafe { std::mem::transmute([i64::MIN; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f64_as_m256i_to_i64ord(f64_as_m256i: __m256i) -> __m256i {
-        // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
-        // Note: _mm256_srai_epi64 is not available on AVX2.. (only AVX512F)
-        //  -> As we only want to shift the sign bit to the first position, we can use
-        //     _mm256_srai_epi32 instead, which is available on AVX2, and then copy the
-        // sign bit to the next 32 bits (per 64 bit lane).
-        let sign_bit_shifted =
-            _mm256_shuffle_epi32(_mm256_srai_epi32(f64_as_m256i, BIT_SHIFT), 0b11110101);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, LOWER_63_MASK);
-        _mm256_xor_si256(sign_bit_masked, f64_as_m256i)
+        // on a scalar: v if v >= 0 else i64::MIN - v (-0.0 and 0.0 are both 0)
+        // Select (with the sign bit of v) the negated value for negative v, as
+        // srai_epi64 (to obtain a mask from the sign bit) is only available on AVX512F
+        let negated = _mm256_castsi256_pd(_mm256_sub_epi64(SIGN_BIT, f64_as_m256i));
+        let v = _mm256_castsi256_pd(f64_as_m256i);
+        _mm256_castpd_si256(_mm256_blendv_pd(v, negated, v))
     }
 
     #[inline(always)]
@@ -193,19 +192,16 @@ mod sse {
     use super::*;
 
     const LANE_SIZE: usize = SSE::<FloatReturnNaN>::LANE_SIZE_64;
-    const LOWER_63_MASK: __m128i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: __m128i = unsafe { std::mem::transmute([i64::MIN; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f64_as_m128i_to_i64ord(f64_as_m128i: __m128i) -> __m128i {
-        // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
-        // Note: _mm_srai_epi64 is not available on AVX2.. (only on AVX512F)
-        //  -> As we only want to shift the sign bit to the first position, we can use
-        //     _mm_srai_epi32 instead, which is available on AVX2, and then copy the
-        // sign bit to the next 32 bits (per 64 bit lane).
-        let sign_bit_shifted =
-            _mm_shuffle_epi32(_mm_srai_epi32(f64_as_m128i, BIT_SHIFT), 0b11110101);
-        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, LOWER_63_MASK);
-        _mm_xor_si128(sign_bit_masked, f64_as_m128i)
+        // on a scalar: v if v >= 0 else i64::MIN - v (-0.0 and 0.0 are both 0)
+        // Select (with the sign bit of v) the negated value for negative v, as
+        // srai_epi64 (to obtain a mask from the sign bit) is only available on AVX512F
+        let negated = _mm_castsi128_pd(_mm_sub_epi64(SIGN_BIT, f64_as_m128i));
+        let v = _mm_castsi128_pd(f64_as_m128i);
+        _mm_castpd_si128(_mm_blendv_pd(v, negated, v))
     }
 
     #[inline(always)]
@@ -297,14 +293,13 @@ mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::<FloatReturnNaN>::LANE_SIZE_64;
-    const LOWER_63_MASK: __m512i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: __m512i = unsafe { std::mem::transmute([i64::MIN; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f64_as_m512i_to_i64ord(f64_as_m512i: __m512i) -> __m512i {
-        // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
-        let sign_bit_shifted = _mm512_srai_epi64(f64_as_m512i, BIT_SHIFT as u32);
-        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, LOWER_63_MASK);
-        _mm512_xor_si512(sign_bit_masked, f64_as_m512i)
+        // on a scalar: v if v >= 0 else i64::MIN - v (-0.0 and 0.0 are both 0)
+        let negative = _mm512_cmplt_epi64_mask(f64_as_m512i, _mm512_setzero_si512());
+        _mm512_mask_sub_epi64(f64_as_m512i, negative, SIGN_BIT, f64_as_m512i)
     }
 
     #[inline(always)]
@@ -415,14 +410,16 @@ mod neon {
     use super::*;
 
     const LANE_SIZE: usize = NEON::<FloatReturnNaN>::LANE_SIZE_64;
-    const LOWER_31_MASK: int64x2_t = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: int64x2_t = unsafe { std::mem::transmute([i64::MIN; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f64_as_int64x2_to_i64ord(f64_as_int64x2: int64x2_t) -> int64x2_t {
-        // on a scalar: ((v >> 63) & 0x7FFFFFFFFFFFFFFF) ^ v
-        let sign_bit_shifted = vshrq_n_s64(f64_as_int64x2, BIT_SHIFT);
-        let sign_bit_masked = vandq_s64(sign_bit_shifted, LOWER_31_MASK);
-        veorq_s64(sign_bit_masked, f64_as_int64x2)
+        // on a scalar: v if v >= 0 else i64::MIN - v (-0.0 and 0.0 are both 0)
+        // = abs(v) ^ (v & i64::MIN), as abs wraps around (abs(i64::MIN) = i64::MIN)
+        veorq_s64(
+            vabsq_s64(f64_as_int64x2),
+            vandq_s64(f64_as_int64x2, SIGN_BIT),
+        )
     }
 
     #[inline(always)]
@@ -616,6 +613,21 @@ mod tests {
             return;
         }
         test_return_infs_argminmax(get_array_f64, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_signed_zeros<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f64, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        super::super::test_utils::test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]

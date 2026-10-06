@@ -281,6 +281,47 @@ pub(crate) fn test_return_infs_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     assert_eq!(argmax_simd_index_single, 100);
 }
 
+/// Test whether -0.0 and 0.0 are equal - thus the first index is returned - within and
+/// across the SIMD registers and the remainder of the array.
+#[cfg(any(feature = "float", feature = "half"))]
+#[cfg(test)]
+pub(crate) fn test_signed_zeros_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
+    _scalar: SCALAR, // necessary to use SCALAR
+    _simd: SIMD,     // necessary to use SIMD
+) where
+    DType: FloatCore + AsPrimitive<usize>,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    let len = 2 * LANE_SIZE + 3;
+    for (zero_i, zero_j) in [
+        (DType::zero(), -DType::zero()),
+        (-DType::zero(), DType::zero()),
+    ] {
+        for i in 0..len {
+            for j in i + 1..len {
+                // The zeros are the min (max) among ones (minus ones), or all values are zero
+                for other in [DType::one(), -DType::one(), zero_i] {
+                    let mut data = vec![other; len];
+                    (data[i], data[j]) = (zero_i, zero_j);
+                    let (argmin, argmax) = unsafe { SIMD::argminmax(&data) };
+                    assert_eq!((argmin, argmax), SCALAR::argminmax(&data));
+                    assert_eq!(argmin, unsafe { SIMD::argmin(&data) });
+                    assert_eq!(argmax, unsafe { SIMD::argmax(&data) });
+                    if other != -DType::one() {
+                        assert_eq!(argmin, if other == zero_i { 0 } else { i });
+                    }
+                    if other != DType::one() {
+                        assert_eq!(argmax, if other == zero_i { 0 } else { i });
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Test whether NaNs are handled correctly - in this case, they should be ignored.
 #[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
