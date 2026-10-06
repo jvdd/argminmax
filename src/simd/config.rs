@@ -84,12 +84,10 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX2<DTypeStrategy> {
 // - uints (see simd_u*.rs files) - Int DTypeStrategy
 // - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
 // - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
-#[cfg(feature = "nightly_simd")]
 pub struct AVX512<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
-#[cfg(feature = "nightly_simd")]
 impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
     /// AVX512 register size is 512 bits
     /// https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#AVX-512
@@ -156,7 +154,6 @@ mod tests {
     fn test_lane_size_8bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
         assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_8, 16);
         assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_8, 32);
-        #[cfg(feature = "nightly_simd")]
         assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_8, 64);
         assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_8, 16);
     }
@@ -165,7 +162,6 @@ mod tests {
     fn test_lane_size_16bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
         assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_16, 8);
         assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_16, 16);
-        #[cfg(feature = "nightly_simd")]
         assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_16, 32);
         assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_16, 8);
     }
@@ -174,7 +170,6 @@ mod tests {
     fn test_lane_size_32bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
         assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_32, 4);
         assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_32, 8);
-        #[cfg(feature = "nightly_simd")]
         assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_32, 16);
         assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_32, 4);
     }
@@ -183,7 +178,6 @@ mod tests {
     fn test_lane_size_64bit_dtype<DTypeStrategy>(#[case] _dtype_strategy: DTypeStrategy) {
         assert_eq!(SSE::<DTypeStrategy>::LANE_SIZE_64, 2);
         assert_eq!(AVX2::<DTypeStrategy>::LANE_SIZE_64, 4);
-        #[cfg(feature = "nightly_simd")]
         assert_eq!(AVX512::<DTypeStrategy>::LANE_SIZE_64, 8);
         assert_eq!(NEON::<DTypeStrategy>::LANE_SIZE_64, 2);
     }

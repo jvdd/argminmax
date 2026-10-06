@@ -3,6 +3,7 @@ name = "argminmax"
 version = "0.6.3"
 authors = ["Jeroen Van Der Donckt"]
 edition = "2021"
+rust-version = "1.89"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/jvdd/argminmax"
