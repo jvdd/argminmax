@@ -66,7 +66,38 @@ jobs:
         run: cargo test --verbose --all-features
       - name: Run tests (release) - all features
         run: cargo test --verbose --all-features --release
-  
+
+  Test_SDE:
+    # Hosted runners do not always have AVX512, so we also run the tests on CPUs
+    # emulated by the Intel Software Development Emulator (SDE)
+    runs-on: ubuntu-latest
+    env:
+      SDE_DIR: sde-external-10.13.1-2026-07-28-lin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Cache Dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Intel SDE
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -sSfL --retry 3 -O https://downloadmirror.intel.com/924984/$SDE_DIR.tar.xz
+          echo "94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50  $SDE_DIR.tar.xz" | sha256sum -c
+          tar -xf $SDE_DIR.tar.xz
+          # CPUID of Skylake-SP without AVX512BW, AVX512VL and AVX512DQ (leaf 7, EBX bits 30, 31 and 17)
+          sed -E 's/^(00000007 00000000 => 00000000 )d39fffbf/\1139dffbf/' $SDE_DIR/misc/cpuid/skx/cpuid.def > avx512f-only.def
+          grep -q '^00000007 00000000 => 00000000 139dffbf' avx512f-only.def
+          echo "SDE=$PWD/$SDE_DIR/sde64" >> $GITHUB_ENV
+          echo "AVX512F_ONLY_CPUID=$PWD/avx512f-only.def" >> $GITHUB_ENV
+
+      - name: Run tests on Sapphire Rapids (AVX512)
+        run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$SDE -spr --" cargo test --features half
+      - name: Run tests on a CPU with AVX512F but without AVX512BW
+        run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$SDE -cpuid_in $AVX512F_ONLY_CPUID -chip_check_cpuid 1 --" cargo test --features half
+
   Bench:
     runs-on: ${{ matrix.os }}
     strategy:
