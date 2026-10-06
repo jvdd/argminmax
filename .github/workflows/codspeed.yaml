@@ -1,3 +1,5 @@
+# Simulation mode: deterministic instruction counts, free on GitHub-hosted runners.
+# Its emulated CPU has no AVX-512, so only the SSE/AVX2 paths are measured on x86.
 name: CodSpeed Benchmarks
 
 on:
@@ -9,41 +11,34 @@ on:
   # performance analysis in order to generate initial data.
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write # public repo: the upload authenticates with OIDC, not a token
+
 jobs:
   Benchmarks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('Cargo.toml') }}
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-      - name: Setup Rust
-        run: |
-          rustup update nightly --no-self-update
-          rustup default nightly
+        run: rustup toolchain install --no-self-update
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-codspeed (with cache)
         uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-codspeed
+          version: "^5" # major must match codspeed-criterion-compat in Cargo.toml
 
       - name: Build the benchmark target(s)
-        run: cargo codspeed build --features half
+        run: cargo codspeed build -m simulation --features half
 
-      - uses: CodSpeedHQ/action@v3
+      - uses: CodSpeedHQ/action@v5
         name: Run benchmarks
         with:
+          mode: simulation
           run: cargo codspeed run

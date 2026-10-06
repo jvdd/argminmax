@@ -35,8 +35,7 @@ half = { version = "2.7", default-features = false, features=["num-traits"] }
 rstest = { version = "0.26", default-features = false }
 rstest_reuse = { version = "0.7", default-features = false }
 rand = { version = "0.10", default-features = false }
-codspeed-criterion-compat = "4.7.0"
-criterion = "0.8.2"
+codspeed-criterion-compat = "5.0.2"
 dev_utils = { path = "dev_utils" }
 
 
