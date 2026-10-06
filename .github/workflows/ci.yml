@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
 
       - name: Rust toolchain info
         run: |
@@ -33,7 +33,7 @@ jobs:
   Check_Stable:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: Set up Rust
         run: rustup override set stable
@@ -53,10 +53,10 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
 
       - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
       
       - name: Run tests (debug) - no default features
         run: cargo test --verbose --no-default-features
@@ -76,10 +76,10 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
 
       - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
       
       - name: Run benchmarks
         run: cargo bench --quiet --message-format=short  --all-features | grep "time:"
@@ -110,7 +110,7 @@ jobs:
           - wasm32-unknown-unknown
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
       - name: Setup Rust
         run: |
           rustup toolchain install --no-self-update
