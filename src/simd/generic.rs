@@ -421,27 +421,13 @@ where
     /// Note that this method is not overflow safe, as it assumes that the array length
     /// is <= MAX_INDEX. The `_overflow_safe_core_argmin` method is overflow safe.
     ///
+    /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
+    /// the computations for the maximum.
+    ///
     #[inline(always)]
     unsafe fn _core_argmin(arr: &[ScalarDType]) -> (usize, ScalarDType) {
-        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
-        let mut new_index = Self::INITIAL_INDEX; // Index we will increment in the loop
-        let (mut index_low, mut values_low) = Self::_initialize_index_values_low(arr_ptr);
-
-        for _ in 0..arr.len() / LANE_SIZE - 1 {
-            // Increment the index
-            new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
-            // Load the next chunk of data
-            arr_ptr = arr_ptr.add(LANE_SIZE);
-            let new_values = Self::_mm_loadu(arr_ptr);
-
-            // Update the lowest values and index
-            let mask_low = Self::_mm_cmplt(new_values, values_low);
-            values_low = Self::_mm_blendv(values_low, new_values, mask_low);
-            index_low = Self::_mm_blendv(index_low, new_index, mask_low);
-        }
-
-        // Get the min index and corresponding value from the SIMD vectors and return
-        Self::_horiz_min(index_low, values_low)
+        let (min_index, min_value, _, _) = Self::_core_argminmax(arr);
+        (min_index, min_value)
     }
 
     /// Core argmax algorithm - returns (argmax, max)
@@ -454,27 +440,13 @@ where
     /// Note that this method is not overflow safe, as it assumes that the array length
     /// is <= MAX_INDEX. The `_overflow_safe_core_argmax` method is overflow safe.
     ///
+    /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
+    /// the computations for the minimum.
+    ///
     #[inline(always)]
     unsafe fn _core_argmax(arr: &[ScalarDType]) -> (usize, ScalarDType) {
-        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
-        let mut new_index = Self::INITIAL_INDEX; // Index we will increment in the loop
-        let (mut index_high, mut values_high) = Self::_initialize_index_values_high(arr_ptr);
-
-        for _ in 0..arr.len() / LANE_SIZE - 1 {
-            // Increment the index
-            new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
-            // Load the next chunk of data
-            arr_ptr = arr_ptr.add(LANE_SIZE);
-            let new_values = Self::_mm_loadu(arr_ptr);
-
-            // Update the highest values and index
-            let mask_high = Self::_mm_cmpgt(new_values, values_high);
-            values_high = Self::_mm_blendv(values_high, new_values, mask_high);
-            index_high = Self::_mm_blendv(index_high, new_index, mask_high);
-        }
-
-        // Get the max index and corresponding value from the SIMD vectors and return
-        Self::_horiz_max(index_high, values_high)
+        let (_, _, max_index, max_value) = Self::_core_argminmax(arr);
+        (max_index, max_value)
     }
 
     /// Overflow-safe core argminmax algorithm - returns (argmin, min, argmax, max)
