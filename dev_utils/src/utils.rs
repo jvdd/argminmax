@@ -60,10 +60,11 @@ macro_rules! impl_full_range_uniform_float {
 
                 fn get_random_array(n: usize) -> Vec<Self> {
                     // Generate random integers and transmute to floats to avoid
-                    // range overflow issues with Uniform distribution for floats
+                    // range overflow issues with Uniform distribution for floats.
+                    // NaNs and infinities are replaced by 0 to stay within [MIN, MAX].
                     let rand_arr_int: Vec<$t_int> = <$t_int>::get_random_array(n);
                     let rand_arr_float: Vec<Self> = unsafe { std::mem::transmute(rand_arr_int) };
-                    rand_arr_float.iter().map(|x| if x.is_nan() { <$t>::zero() } else { *x }).collect()
+                    rand_arr_float.iter().map(|x| if x.is_finite() { *x } else { <$t>::zero() }).collect()
                 }
             }
         )*
