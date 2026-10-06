@@ -99,3 +99,8 @@ harness = false
 [[bench]]
 name = "bench_u64"
 harness = false
+
+[[bench]]
+name = "bench_masked"
+harness = false
+required-features = ["float"]
