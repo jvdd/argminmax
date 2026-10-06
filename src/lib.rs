@@ -266,6 +266,21 @@ impl_nb_bits!(f32 f64);
 #[cfg(feature = "half")]
 impl_nb_bits!(f16);
 
+/// Returns whether the CPU supports the AVX512 implementation for `T`:
+/// 8 and 16-bit data types need AVX512BW, 32 and 64-bit data types need AVX512F.
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    feature = "nightly_simd"
+))]
+#[inline(always)]
+fn avx512_supported<T: DTypeInfo>() -> bool {
+    if T::NB_BITS <= 16 {
+        is_x86_feature_detected!("avx512bw")
+    } else {
+        is_x86_feature_detected!("avx512f")
+    }
+}
+
 // ------------------------------ &[T] ------------------------------
 
 /// Macro for implementing ArgMinMax for signed and unsigned integers
@@ -283,14 +298,8 @@ macro_rules! impl_argminmax_int {
                             return unsafe { SSE::<Int>::argminmax(self) }
                         }
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$int_type>::NB_BITS <= 16) {
-                                // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
-                                return unsafe { AVX512::<Int>::argminmax(self) }
-                            }
-                            else if is_x86_feature_detected!("avx512f") {  // TODO: check if avx512bw is included in avx512f
-                                return unsafe { AVX512::<Int>::argminmax(self) }
-                            }
+                        if avx512_supported::<$int_type>() {
+                            return unsafe { AVX512::<Int>::argminmax(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<Int>::argminmax(self) }
@@ -329,13 +338,8 @@ macro_rules! impl_argminmax_int {
                             return unsafe { SSE::<Int>::argmin(self) }
                         }
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$int_type>::NB_BITS <= 16) {
-                                // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
-                                return unsafe { AVX512::<Int>::argmin(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<Int>::argmin(self) }
-                            }
+                        if avx512_supported::<$int_type>() {
+                            return unsafe { AVX512::<Int>::argmin(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<Int>::argmin(self) }
@@ -372,13 +376,8 @@ macro_rules! impl_argminmax_int {
                             return unsafe { SSE::<Int>::argmax(self) }
                         }
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$int_type>::NB_BITS <= 16) {
-                                // BW (ByteWord) instructions are needed for 8 or 16-bit avx512
-                                return unsafe { AVX512::<Int>::argmax(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<Int>::argmax(self) }
-                            }
+                        if avx512_supported::<$int_type>() {
+                            return unsafe { AVX512::<Int>::argmax(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<Int>::argmax(self) }
@@ -423,13 +422,8 @@ macro_rules! impl_argminmax_float {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
-                                // BW (ByteWord) instructions are needed for 16-bit avx512
-                                return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
-                            }
+                        if avx512_supported::<$float_type>() {
+                            return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             // f16 requires avx2
@@ -462,13 +456,8 @@ macro_rules! impl_argminmax_float {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
-                                // BW (ByteWord) instructions are needed for 16-bit avx512
-                                return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
-                            }
+                        if avx512_supported::<$float_type>() {
+                            return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             // f16 requires avx2
@@ -501,13 +490,8 @@ macro_rules! impl_argminmax_float {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
-                                // BW (ByteWord) instructions are needed for 16-bit avx512
-                                return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
-                            }
+                        if avx512_supported::<$float_type>() {
+                            return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             // f16 requires avx2
@@ -542,13 +526,8 @@ macro_rules! impl_argminmax_float {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
-                                // BW (ByteWord) instructions are needed for 16-bit avx512
-                                return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
-                            }
+                        if avx512_supported::<$float_type>() {
+                            return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<FloatReturnNaN>::argminmax(self) }
@@ -579,13 +558,8 @@ macro_rules! impl_argminmax_float {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
-                                // BW (ByteWord) instructions are needed for 16-bit avx512
-                                return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
-                            }
+                        if avx512_supported::<$float_type>() {
+                            return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<FloatReturnNaN>::argmin(self) }
@@ -616,13 +590,8 @@ macro_rules! impl_argminmax_float {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
                         #[cfg(feature = "nightly_simd")]
-                        {
-                            if is_x86_feature_detected!("avx512bw") & (<$float_type>::NB_BITS == 16) {
-                                // BW (ByteWord) instructions are needed for 16-bit avx512
-                                return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
-                            } else if is_x86_feature_detected!("avx512f") {
-                                return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
-                            }
+                        if avx512_supported::<$float_type>() {
+                            return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
                         }
                         if is_x86_feature_detected!("avx2") {
                             return unsafe { AVX2::<FloatReturnNaN>::argmax(self) }

@@ -685,7 +685,10 @@ where
     /// `(min_index, max_index)`.
     ///
     /// # Safety
-    /// This function is unsafe because unsafe SIMD operations are used.  
+    /// The caller must ensure that the CPU supports the target features that this
+    /// instruction set requires for the data type (see the docs of the instruction set
+    /// struct), e.g. with `is_x86_feature_detected!`. Calling this function on a CPU
+    /// without these features is undefined behavior.
     /// See SIMD operations for more information:
     /// - [`x86` SIMD docs](https://doc.rust-lang.org/core/arch/x86/index.html)
     /// - [`x86_64` SIMD docs](https://doc.rust-lang.org/core/arch/x86_64/index.html)
@@ -721,7 +724,10 @@ where
     /// The index of the minimum value in the slice.
     ///
     /// # Safety
-    /// This function is unsafe because unsafe SIMD operations are used.  
+    /// The caller must ensure that the CPU supports the target features that this
+    /// instruction set requires for the data type (see the docs of the instruction set
+    /// struct), e.g. with `is_x86_feature_detected!`. Calling this function on a CPU
+    /// without these features is undefined behavior.
     /// See SIMD operations for more information:
     /// - [`x86` SIMD docs](https://doc.rust-lang.org/core/arch/x86/index.html)
     /// - [`x86_64` SIMD docs](https://doc.rust-lang.org/core/arch/x86_64/index.html)
@@ -757,7 +763,10 @@ where
     /// The index of the maximum value in the slice.
     ///
     /// # Safety
-    /// This function is unsafe because unsafe SIMD operations are used.  
+    /// The caller must ensure that the CPU supports the target features that this
+    /// instruction set requires for the data type (see the docs of the instruction set
+    /// struct), e.g. with `is_x86_feature_detected!`. Calling this function on a CPU
+    /// without these features is undefined behavior.
     /// See SIMD operations for more information:
     /// - [`x86` SIMD docs](https://doc.rust-lang.org/core/arch/x86/index.html)
     /// - [`x86_64` SIMD docs](https://doc.rust-lang.org/core/arch/x86_64/index.html)
