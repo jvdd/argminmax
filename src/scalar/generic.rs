@@ -17,18 +17,16 @@ use super::super::dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
 trait SCALARInit<ScalarDType: Copy + PartialOrd> {
     const _RETURN_AT_NAN: bool;
 
-    /// Initialize the initial value for the min and max values
+    // Initialize the initial value for the min and max values
 
     fn _init_min(start_value: ScalarDType) -> ScalarDType;
 
     fn _init_max(start_value: ScalarDType) -> ScalarDType;
 
     /// Check if we should allow the updating the value(s) with the first non-NaN value
-
     fn _allow_first_non_nan_update(start_value: ScalarDType) -> bool;
 
     /// Nan check
-
     fn _nan_check(v: ScalarDType) -> bool;
 }
 
@@ -77,7 +75,7 @@ pub struct SCALAR<DTypeStrategy> {
     pub(crate) _dtype_strategy: std::marker::PhantomData<DTypeStrategy>,
 }
 
-/// ------- Implement the SCALARInit trait for the different DTypeStrategy -------
+// ------- Implement the SCALARInit trait for the different DTypeStrategy -------
 
 impl<ScalarDType> SCALARInit<ScalarDType> for SCALAR<Int>
 where
@@ -170,7 +168,7 @@ where
     }
 }
 
-/// ------- Implement the ScalarArgMinMax trait for the different DTypeStrategy -------
+// ------- Implement the ScalarArgMinMax trait for the different DTypeStrategy -------
 
 macro_rules! impl_scalar {
     ($dtype_strategy:ty, $($dtype:ty),*) => {

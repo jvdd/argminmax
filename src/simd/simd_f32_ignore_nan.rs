@@ -4,6 +4,7 @@
 /// - *only* NaN values in the array
 /// - *only* +/- infinity values in the array
 /// - *only* NaN and +/- infinity values in the array
+///
 /// In these cases, index 0 is returned.
 ///
 /// NaN values are ignored and treated as if they are not present in the array.
@@ -94,7 +95,7 @@ mod avx_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m256 {
-            _mm256_loadu_ps(data as *const f32)
+            _mm256_loadu_ps(data)
         }
 
         #[inline(always)]
@@ -162,7 +163,7 @@ mod sse_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m128 {
-            _mm_loadu_ps(data as *const f32)
+            _mm_loadu_ps(data)
         }
 
         #[inline(always)]
@@ -233,7 +234,7 @@ mod avx512_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> __m512 {
-            _mm512_loadu_ps(data as *const f32)
+            _mm512_loadu_ps(data)
         }
 
         #[inline(always)]
@@ -303,7 +304,7 @@ mod neon_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f32) -> float32x4_t {
-            vld1q_f32(data as *const f32)
+            vld1q_f32(data)
         }
 
         #[inline(always)]

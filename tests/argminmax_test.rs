@@ -112,6 +112,11 @@ where
 
 /// Test the ArgMinMax trait for the default implementations: slice and vec
 #[cfg(test)]
+#[allow(
+    clippy::needless_borrow,
+    clippy::unnecessary_mut_passed,
+    reason = "tests the (mutably) borrowed receivers"
+)]
 mod default_test {
     use super::*;
 
@@ -265,6 +270,11 @@ mod default_test {
 /// Test the ArgMinMax trait for the ndarray implementation: Array1 and ArrayView1
 #[cfg(feature = "ndarray")]
 #[cfg(test)]
+#[allow(
+    clippy::needless_borrow,
+    clippy::unnecessary_mut_passed,
+    reason = "tests the (mutably) borrowed receivers"
+)]
 mod ndarray_tests {
     use super::*;
 
@@ -437,6 +447,7 @@ mod ndarray_tests {
 
 #[cfg(feature = "arrow")]
 #[cfg(test)]
+#[allow(clippy::needless_borrow, reason = "tests the borrowed receivers")]
 mod arrow_tests {
     use super::*;
 
@@ -592,6 +603,7 @@ mod arrow_tests {
 
 #[cfg(feature = "arrow2")]
 #[cfg(test)]
+#[allow(clippy::needless_borrow, reason = "tests the borrowed receivers")]
 mod arrow2_tests {
     use super::*;
 

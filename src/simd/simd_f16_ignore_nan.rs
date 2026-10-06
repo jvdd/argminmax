@@ -4,6 +4,7 @@
 /// - *only* NaN values in the array
 /// - *only* +/- infinity values in the array
 /// - *only* NaN and +/- infinity values in the array
+///
 /// In these cases, index 0 is returned.
 ///
 /// NaN values are ignored and treated as if they are not present in the array.

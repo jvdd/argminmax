@@ -1,16 +1,17 @@
-/// Implementation of the argminmax operations for f64 that ignores NaN values.
-/// This implementation returns the index of the minimum and maximum values.
-/// However, unexpected behavior may occur when there are
-/// - *only* NaN values in the array
-/// - *only* +/- infinity values in the array
-/// - *only* NaN and +/- infinity values in the array
-/// In these cases, index 0 is returned.
-///
-/// NaN values are ignored and treated as if they are not present in the array.
-/// To realize this we create an initial SIMD register with values +/- infinity.
-/// As comparisons with NaN always return false, it is guaranteed that no NaN values
-/// are added to the accumulating SIMD register.
-///
+//! Implementation of the argminmax operations for f64 that ignores NaN values.
+//! This implementation returns the index of the minimum and maximum values.
+//! However, unexpected behavior may occur when there are
+//! - *only* NaN values in the array
+//! - *only* +/- infinity values in the array
+//! - *only* NaN and +/- infinity values in the array
+//!
+//! In these cases, index 0 is returned.
+//!
+//! NaN values are ignored and treated as if they are not present in the array.
+//! To realize this we create an initial SIMD register with values +/- infinity.
+//! As comparisons with NaN always return false, it is guaranteed that no NaN values
+//! are added to the accumulating SIMD register.
+//!
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",))]
 use super::config::SIMDInstructionSet;
@@ -77,7 +78,7 @@ mod avx_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m256d {
-            _mm256_loadu_pd(data as *const f64)
+            _mm256_loadu_pd(data)
         }
 
         #[inline(always)]
@@ -144,7 +145,7 @@ mod sse_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m128d {
-            _mm_loadu_pd(data as *const f64)
+            _mm_loadu_pd(data)
         }
 
         #[inline(always)]
@@ -214,7 +215,7 @@ mod avx512_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> __m512d {
-            _mm512_loadu_pd(data as *const f64)
+            _mm512_loadu_pd(data)
         }
 
         #[inline(always)]
@@ -299,7 +300,7 @@ mod neon_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const f64) -> float64x2_t {
-            vld1q_f64(data as *const f64)
+            vld1q_f64(data)
         }
 
         #[inline(always)]

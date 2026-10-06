@@ -132,9 +132,6 @@ mod tests {
     use rstest::rstest;
     use rstest_reuse::{self, *};
 
-    #[cfg(feature = "half")]
-    use half::f16;
-
     // The DTypeStrategy should not influence the lane size
     #[cfg(any(feature = "float", feature = "half"))]
     #[template]

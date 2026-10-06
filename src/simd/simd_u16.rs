@@ -511,7 +511,7 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const u16) -> uint16x8_t {
-            vld1q_u16(data as *const u16)
+            vld1q_u16(data)
         }
 
         #[inline(always)]

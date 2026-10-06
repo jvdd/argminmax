@@ -92,7 +92,7 @@ where
         Self::MAX_INDEX - Self::MAX_INDEX % LANE_SIZE
     }
 
-    /// ----------------- SIMD operations necessary for ignoring NaNs ------------------
+    // ----------------- SIMD operations necessary for ignoring NaNs ------------------
 
     #[inline(always)]
     unsafe fn _mm_set1(_value: ScalarDType) -> SIMDVecDtype {
@@ -134,7 +134,7 @@ where
 {
     const IGNORE_NAN: bool = false;
 
-    /// Initialization for _core_argminmax
+    // Initialization for _core_argminmax
 
     #[inline(always)]
     unsafe fn _initialize_index_values_low(
@@ -152,7 +152,7 @@ where
         (Self::INITIAL_INDEX, Self::_mm_loadu(arr_ptr))
     }
 
-    /// Initialization for _overflow_safe_core_argminmax
+    // Initialization for _overflow_safe_core_argminmax
 
     #[inline(always)]
     fn _initialize_min_value(arr: &[ScalarDType]) -> ScalarDType {
@@ -164,7 +164,7 @@ where
         unsafe { *arr.get_unchecked(0) }
     }
 
-    /// Checks
+    // Checks
 
     /// Return case for the algorithm
     #[inline(always)]
@@ -352,6 +352,7 @@ where
     ///
     /// This method asserts:
     /// - the array length is a multiple of LANE_SIZE
+    ///
     /// This method assumes:
     /// - the array length is <= MAX_INDEX
     ///
@@ -415,6 +416,7 @@ where
     ///
     /// This method asserts:
     /// - the array length is a multiple of LANE_SIZE
+    ///
     /// This method assumes:
     /// - the array length is <= MAX_INDEX
     ///
@@ -448,6 +450,7 @@ where
     ///
     /// This method asserts:
     /// - the array length is a multiple of LANE_SIZE
+    ///
     /// This method assumes:
     /// - the array length is <= MAX_INDEX
     ///

@@ -313,7 +313,7 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> __m512i {
-            _mm512_loadu_epi16(data as *const i16)
+            _mm512_loadu_epi16(data)
         }
 
         #[inline(always)]
@@ -440,7 +440,7 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _mm_loadu(data: *const i16) -> int16x8_t {
-            vld1q_s16(data as *const i16)
+            vld1q_s16(data)
         }
 
         #[inline(always)]

@@ -78,11 +78,6 @@
     )
 )]
 
-// It is necessary to import this at the root of the crate
-// See: https://github.com/la10736/rstest/tree/master/rstest_reuse#use-rstest_resuse-at-the-top-of-your-crate
-#[cfg(test)]
-use rstest_reuse;
-
 // #[macro_use]
 // extern crate lazy_static;
 
