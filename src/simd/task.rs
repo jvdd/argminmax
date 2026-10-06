@@ -1,5 +1,10 @@
 use std::cmp::Ordering;
 
+use num_traits::Bounded;
+
+use crate::scalar::ScalarArgMinMax;
+use crate::validity::{first_valid_eq, merge_max, merge_min, scalar_masked, FoundMinMax};
+
 #[inline(always)]
 pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: &[T],
@@ -236,7 +241,7 @@ fn find_final_index_max<T: Copy + PartialOrd>(
 /// - If neither value is NaN, returns the min_index and max_index
 ///
 /// If ignoring NaNs: returns the min_index and max_index
-fn get_correct_argminmax_result<T: Copy + PartialOrd>(
+pub(crate) fn get_correct_argminmax_result<T: Copy + PartialOrd>(
     min_index: usize,
     min_value: T,
     max_index: usize,
@@ -260,6 +265,53 @@ fn get_correct_argminmax_result<T: Copy + PartialOrd>(
         }
     }
     (min_index, max_index)
+}
+
+/// Masked counterpart of the `*_generic` functions above: returns the (argmin, min) if
+/// `MIN` and the (argmax, max) if `MAX` of the valid elements.
+/// The (masked) SIMD core runs on chunks of at most `chunk_size` elements (to avoid
+/// overflow), the (masked) scalar implementation runs on the remainder.
+#[inline(always)]
+pub(crate) fn masked_generic<T, SCALAR, const MIN: bool, const MAX: bool>(
+    arr: &[T],
+    validity: &[u8],
+    offset: usize,
+    lane_size: usize,
+    chunk_size: usize,
+    core_masked: unsafe fn(&[T], &[u8], usize) -> FoundMinMax<T>,
+) -> FoundMinMax<T>
+where
+    T: Copy + PartialOrd + Bounded,
+    SCALAR: ScalarArgMinMax<T>,
+{
+    let simd_len = arr.len() - arr.len() % lane_size;
+    let (mut min, mut max) = (None, None);
+    for start in (0..simd_len).step_by(chunk_size) {
+        let chunk = &arr[start..simd_len.min(start + chunk_size)];
+        let chunk_offset = offset + start;
+        let (mut chunk_min, mut chunk_max) = unsafe { core_masked(chunk, validity, chunk_offset) };
+        // When the core returns the neutral value, all valid values are >= (<=) it: the
+        // min (max) is then the first valid element that equals it (if there is one).
+        if chunk_min.is_some_and(|(_, v)| v == T::max_value()) {
+            chunk_min =
+                first_valid_eq(chunk, validity, chunk_offset, T::max_value()).or_else(|| {
+                    scalar_masked::<T, SCALAR, true, false>(chunk, validity, chunk_offset).0
+                });
+        }
+        if chunk_max.is_some_and(|(_, v)| v == T::min_value()) {
+            chunk_max =
+                first_valid_eq(chunk, validity, chunk_offset, T::min_value()).or_else(|| {
+                    scalar_masked::<T, SCALAR, false, true>(chunk, validity, chunk_offset).1
+                });
+        }
+        min = merge_min::<T, SCALAR>(min, chunk_min.map(|(i, v)| (start + i, v)));
+        max = merge_max::<T, SCALAR>(max, chunk_max.map(|(i, v)| (start + i, v)));
+    }
+    let (rem_min, rem_max) =
+        scalar_masked::<T, SCALAR, MIN, MAX>(&arr[simd_len..], validity, offset + simd_len);
+    min = merge_min::<T, SCALAR>(min, rem_min.map(|(i, v)| (simd_len + i, v)));
+    max = merge_max::<T, SCALAR>(max, rem_max.map(|(i, v)| (simd_len + i, v)));
+    (min, max)
 }
 
 // ------------ Other helper functions

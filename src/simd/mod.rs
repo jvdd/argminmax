@@ -7,6 +7,8 @@ mod generic;
 pub use generic::*;
 // Helper mod
 mod task;
+mod validity;
+pub use validity::*;
 
 // --- SIMD implementations ---
 

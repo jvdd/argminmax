@@ -25,7 +25,7 @@
 
 ⚡ **Runtime CPU feature detection** is used to select the most efficient implementation for the current CPU. This means that the same binary can be used on different CPUs without recompilation. 
 
-👀 The SIMD implementation contains **no if checks**, ensuring that the runtime of the function is independent of the input data its order (best-case = worst-case = average-case).
+👀 The SIMD inner loop contains **no if checks**, ensuring that its runtime is independent of the input data its order (best-case = worst-case = average-case).
 
 🪄 **Efficient support for f16 and uints**: through bitwise operations, f16 (optional<sup>2</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 
@@ -83,6 +83,19 @@ Provides the following functions:
 When dealing with NaNs, `NaNArgMinMax` its functions return the first NaN its index. For more info see [Limitations](#limitations).
 
 > Tip 💡: if you know that there are no NaNs in your the array, we advise you to use `ArgMinMax` as this should be 5-30% faster than `NaNArgMinMax`.
+
+### `ArgMinMaxMasked` & `NaNArgMinMaxMasked`
+
+The same as `ArgMinMax` & `NaNArgMinMax`, but skipping the null elements that an [Arrow validity bitmap](https://arrow.apache.org/docs/format/Columnar.html#validity-bitmaps) (and its bit offset) marks. Their functions (`argminmax_masked`, `nanargminmax_masked`, ...) return `None` when there are no valid elements. Unlike `ArgMinMax`, they also handle valid values that are only NaNs and/or infinities (see [Limitations](#limitations)): e.g., the index of the first valid value is returned when all valid values are NaN.
+
+```rust
+use argminmax::ArgMinMaxMasked;
+
+let arr: Vec<i32> = vec![-5, 3, 9, 4];
+let validity: [u8; 1] = [0b0110]; // only the elements 1 and 2 are valid
+
+assert_eq!(arr.argminmax_masked(&validity, 0), Some((1, 2)));
+```
 
 
 ## Features

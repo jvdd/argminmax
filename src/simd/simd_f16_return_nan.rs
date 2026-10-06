@@ -226,6 +226,15 @@ mod avx2 {
         unsafe fn argmax(data: &[f16]) -> usize {
             Self::argminmax(data).1
         }
+
+        #[target_feature(enable = "avx2")]
+        unsafe fn argminmax_masked(
+            data: &[f16],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
+        }
     }
 }
 
@@ -363,6 +372,15 @@ mod sse {
 
         unsafe fn argmax(data: &[f16]) -> usize {
             Self::argminmax(data).1
+        }
+
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax_masked(
+            data: &[f16],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
         }
     }
 }
@@ -516,6 +534,15 @@ mod avx512 {
         unsafe fn argmax(data: &[f16]) -> usize {
             Self::argminmax(data).1
         }
+
+        #[target_feature(enable = "avx512bw")]
+        unsafe fn argminmax_masked(
+            data: &[f16],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
+        }
     }
 }
 
@@ -660,6 +687,15 @@ mod neon {
 
         unsafe fn argmax(data: &[f16]) -> usize {
             Self::argminmax(data).1
+        }
+
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax_masked(
+            data: &[f16],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
         }
     }
 }

@@ -1,7 +1,9 @@
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Bounded};
 
 use super::task::*;
+use super::validity::SIMDValidity;
 use crate::scalar::ScalarArgMinMax;
+use crate::validity::{assert_validity_len, validity_word, FoundMinMax};
 
 // ---------------------------------- SIMD operations ----------------------------------
 
@@ -678,6 +680,73 @@ where
         // 3. Return the min/max index and corresponding value
         (max_index, max_value)
     }
+
+    /// Core masked algorithm - returns the (argmin, min) if `MIN` and the (argmax, max)
+    /// if `MAX` of the valid elements (see `crate::validity` for the validity bitmap).
+    ///
+    /// The null lanes are replaced by a neutral value (the max value of the data type
+    /// for the min, the min value for the max), which never replaces the running min /
+    /// max. Thus, the returned value is the neutral value iff no valid value is below
+    /// (above) it, in which case the returned index is meaningless.
+    ///
+    /// This method asserts:
+    /// - the array length is a multiple of LANE_SIZE
+    ///
+    /// This method assumes:
+    /// - the array length is <= MAX_INDEX
+    /// - the validity bitmap has (at least) `offset + arr.len()` bits
+    ///
+    #[inline(always)]
+    unsafe fn _core_masked<const MIN: bool, const MAX: bool>(
+        arr: &[ScalarDType],
+        validity: &[u8],
+        offset: usize,
+    ) -> FoundMinMax<ScalarDType>
+    where
+        Self: SIMDValidity<SIMDMaskDtype, LANE_SIZE>,
+        ScalarDType: Bounded,
+    {
+        assert_eq!(arr.len() % LANE_SIZE, 0);
+        let neutral_low = Self::_mm_loadu([ScalarDType::max_value(); LANE_SIZE].as_ptr());
+        let neutral_high = Self::_mm_loadu([ScalarDType::min_value(); LANE_SIZE].as_ptr());
+
+        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
+        let mut new_index = Self::INITIAL_INDEX; // Index we will increment in the loop
+        let (mut index_low, mut values_low) = (Self::INITIAL_INDEX, neutral_low);
+        let (mut index_high, mut values_high) = (Self::INITIAL_INDEX, neutral_high);
+
+        for start in (0..arr.len()).step_by(64) {
+            let bits = validity_word(validity, offset, start);
+            for lane in (0..64.min(arr.len() - start)).step_by(LANE_SIZE) {
+                let valid = Self::_mm_validity_mask(bits >> lane);
+                let new_values = Self::_mm_loadu(arr_ptr);
+
+                if MIN {
+                    // Update the lowest values and index
+                    let new_low = Self::_mm_blendv(neutral_low, new_values, valid);
+                    let mask_low = Self::_mm_cmplt(new_low, values_low);
+                    values_low = Self::_mm_blendv(values_low, new_low, mask_low);
+                    index_low = Self::_mm_blendv(index_low, new_index, mask_low);
+                }
+                if MAX {
+                    // Update the highest values and index
+                    let new_high = Self::_mm_blendv(neutral_high, new_values, valid);
+                    let mask_high = Self::_mm_cmpgt(new_high, values_high);
+                    values_high = Self::_mm_blendv(values_high, new_high, mask_high);
+                    index_high = Self::_mm_blendv(index_high, new_index, mask_high);
+                }
+
+                // Increment the index and the array pointer
+                new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
+                arr_ptr = arr_ptr.add(LANE_SIZE);
+            }
+        }
+
+        // Get the min/max index and corresponding value from the SIMD vectors and return
+        let min = MIN.then(|| Self::_horiz_min(index_low, values_low));
+        let max = MAX.then(|| Self::_horiz_max(index_high, values_high));
+        (min, max)
+    }
 }
 
 /// Implement SIMDCore where SIMDOps & SIMDInit are implemented
@@ -829,6 +898,146 @@ where
             Self::IGNORE_NAN,                 // Ignore NaNs - if false -> return NaN
         )
     }
+
+    /// Get the index of the minimum and maximum values in the slice, skipping the null
+    /// elements.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    /// - `validity` - the validity bitmap: element `i` is valid (not null) iff bit
+    ///   `offset + i` is set (in the [Arrow format](https://arrow.apache.org/docs/format/Columnar.html#validity-bitmaps)).
+    /// - `offset` - the bit offset of the first element in the validity bitmap.
+    ///
+    /// # Returns
+    /// A tuple of the index of the minimum and maximum valid values in the slice
+    /// `(min_index, max_index)`, or `None` when there are no valid values.
+    ///
+    /// # Panics
+    /// When the validity bitmap has less than `offset + data.len()` bits.
+    ///
+    /// # Safety
+    /// The caller must ensure that the CPU supports the target features that this
+    /// instruction set requires for the data type (see the docs of the instruction set
+    /// struct), e.g. with `is_x86_feature_detected!`. Calling this function on a CPU
+    /// without these features is undefined behavior.
+    ///
+    unsafe fn argminmax_masked(
+        data: &[ScalarDType],
+        validity: &[u8],
+        offset: usize,
+    ) -> Option<(usize, usize)> {
+        // The SIMD implementations override this (see `impl_SIMDArgMinMax!`)
+        SCALAR::argminmax_masked(data, validity, offset)
+    }
+
+    // Is necessary to have a separate function for this so we can call it in the
+    // argminmax_masked function when we add the target feature to the function.
+    #[doc(hidden)]
+    #[inline(always)]
+    unsafe fn _argminmax_masked(
+        data: &[ScalarDType],
+        validity: &[u8],
+        offset: usize,
+    ) -> Option<(usize, usize)>
+    where
+        Self: SIMDValidity<SIMDMaskDtype, LANE_SIZE>,
+        ScalarDType: Bounded,
+    {
+        assert_validity_len(validity, offset, data.len());
+        let (min, max) = masked_generic::<_, SCALAR, true, true>(
+            data,
+            validity,
+            offset,
+            LANE_SIZE,
+            Self::_get_overflow_lane_size_limit(),
+            Self::_core_masked::<true, true>, // SIMD operation
+        );
+        let ((min_index, min_value), (max_index, max_value)) = (min?, max?);
+        Some(get_correct_argminmax_result(
+            min_index,
+            min_value,
+            max_index,
+            max_value,
+            Self::_nan_check, // NaN check - true if value is NaN
+            Self::IGNORE_NAN, // Ignore NaNs - if false -> return NaN
+        ))
+    }
+
+    /// Get the index of the minimum value in the slice, skipping the null elements.
+    ///
+    /// See [`argminmax_masked`](SIMDArgMinMax::argminmax_masked) for the arguments and
+    /// the panics.
+    ///
+    /// # Returns
+    /// The index of the minimum valid value in the slice, or `None` when there are no
+    /// valid values.
+    ///
+    /// # Safety
+    /// See [`argminmax_masked`](SIMDArgMinMax::argminmax_masked).
+    ///
+    unsafe fn argmin_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize> {
+        // Used by the return NaN implementations (see above), the others override this
+        Self::argminmax_masked(data, validity, offset).map(|(min_index, _)| min_index)
+    }
+
+    // Is necessary to have a separate function for this so we can call it in the
+    // argmin_masked function when we add the target feature to the function.
+    #[doc(hidden)]
+    #[inline(always)]
+    unsafe fn _argmin_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize>
+    where
+        Self: SIMDValidity<SIMDMaskDtype, LANE_SIZE>,
+        ScalarDType: Bounded,
+    {
+        assert_validity_len(validity, offset, data.len());
+        let (min, _) = masked_generic::<_, SCALAR, true, false>(
+            data,
+            validity,
+            offset,
+            LANE_SIZE,
+            Self::_get_overflow_lane_size_limit(),
+            Self::_core_masked::<true, false>, // SIMD operation
+        );
+        Some(min?.0)
+    }
+
+    /// Get the index of the maximum value in the slice, skipping the null elements.
+    ///
+    /// See [`argminmax_masked`](SIMDArgMinMax::argminmax_masked) for the arguments and
+    /// the panics.
+    ///
+    /// # Returns
+    /// The index of the maximum valid value in the slice, or `None` when there are no
+    /// valid values.
+    ///
+    /// # Safety
+    /// See [`argminmax_masked`](SIMDArgMinMax::argminmax_masked).
+    ///
+    unsafe fn argmax_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize> {
+        // Used by the return NaN implementations (see above), the others override this
+        Self::argminmax_masked(data, validity, offset).map(|(_, max_index)| max_index)
+    }
+
+    // Is necessary to have a separate function for this so we can call it in the
+    // argmax_masked function when we add the target feature to the function.
+    #[doc(hidden)]
+    #[inline(always)]
+    unsafe fn _argmax_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize>
+    where
+        Self: SIMDValidity<SIMDMaskDtype, LANE_SIZE>,
+        ScalarDType: Bounded,
+    {
+        assert_validity_len(validity, offset, data.len());
+        let (_, max) = masked_generic::<_, SCALAR, false, true>(
+            data,
+            validity,
+            offset,
+            LANE_SIZE,
+            Self::_get_overflow_lane_size_limit(),
+            Self::_core_masked::<false, true>, // SIMD operation
+        );
+        Some(max?.0)
+    }
 }
 
 #[cfg(any(
@@ -864,6 +1073,33 @@ macro_rules! impl_SIMDArgMinMax {
             unsafe fn argmax(data: &[$scalar_dtype]) -> usize {
                 Self::_argmax(data)
                 // Self::_argminmax(data).1
+            }
+
+            #[target_feature(enable = $target)]
+            unsafe fn argminmax_masked(
+                data: &[$scalar_dtype],
+                validity: &[u8],
+                offset: usize,
+            ) -> Option<(usize, usize)> {
+                Self::_argminmax_masked(data, validity, offset)
+            }
+
+            #[target_feature(enable = $target)]
+            unsafe fn argmin_masked(
+                data: &[$scalar_dtype],
+                validity: &[u8],
+                offset: usize,
+            ) -> Option<usize> {
+                Self::_argmin_masked(data, validity, offset)
+            }
+
+            #[target_feature(enable = $target)]
+            unsafe fn argmax_masked(
+                data: &[$scalar_dtype],
+                validity: &[u8],
+                offset: usize,
+            ) -> Option<usize> {
+                Self::_argmax_masked(data, validity, offset)
             }
         }
     };
