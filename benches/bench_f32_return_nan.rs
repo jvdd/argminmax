@@ -1,3 +1,9 @@
+// 32-bit ARM feature detection is still unstable
+#![cfg_attr(
+    all(target_arch = "arm", feature = "nightly_simd"),
+    feature(stdarch_arm_feature_detection)
+)]
+
 use argminmax::NaNArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
@@ -6,7 +12,10 @@ use argminmax::dtype_strategy::FloatReturnNaN;
 use argminmax::scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use argminmax::simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64"
+))]
 use argminmax::simd::{SIMDArgMinMax, NEON};
 
 // _rn stands for "return nan"
@@ -77,19 +86,19 @@ fn argminmax_rn_f32_random_array_long(c: &mut Criterion) {
             b.iter(|| unsafe { AVX512::<FloatReturnNaN>::argmax(black_box(data)) })
         });
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
     if std::arch::is_arm_feature_detected!("neon") {
         c.bench_function("neon_f32_argminmax_rn", |b| {
             b.iter(|| unsafe { NEON::<FloatReturnNaN>::argminmax(black_box(data)) })
         });
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
     if std::arch::is_arm_feature_detected!("neon") {
         c.bench_function("neon_f32_argmin_rn", |b| {
             b.iter(|| unsafe { NEON::<FloatReturnNaN>::argmin(black_box(data)) })
         });
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
     if std::arch::is_arm_feature_detected!("neon") {
         c.bench_function("neon_f32_argmax_rn", |b| {
             b.iter(|| unsafe { NEON::<FloatReturnNaN>::argmax(black_box(data)) })

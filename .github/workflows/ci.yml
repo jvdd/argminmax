@@ -32,15 +32,14 @@ jobs:
         run: cargo clippy --all --all-targets --no-default-features -- -D warnings
       # The SIMD code is cfg-gated per architecture, so clippy only lints it when
       # compiling for that architecture (x86_64 is linted above).
-      # On armv7 we skip the benches, as these use the unstable is_arm_feature_detected!
       - name: Add the aarch64 and armv7 targets
         run: rustup target add aarch64-unknown-linux-gnu armv7-unknown-linux-gnueabihf
       - name: check with clippy - aarch64 (NEON)
         run: cargo clippy --all --all-targets --all-features --target aarch64-unknown-linux-gnu -- -D warnings
       - name: check with clippy - armv7 (NEON with nightly_simd)
-        run: cargo clippy --all --lib --tests --all-features --target armv7-unknown-linux-gnueabihf -- -D warnings
+        run: cargo clippy --all --all-targets --all-features --target armv7-unknown-linux-gnueabihf -- -D warnings
       - name: check with clippy - armv7 (no SIMD)
-        run: cargo clippy --all --lib --tests --no-default-features --features "half,float" --target armv7-unknown-linux-gnueabihf -- -D warnings
+        run: cargo clippy --all --all-targets --no-default-features --features "half,float" --target armv7-unknown-linux-gnueabihf -- -D warnings
 
   Check_Stable:
     runs-on: ${{ matrix.os }}
