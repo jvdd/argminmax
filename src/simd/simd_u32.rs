@@ -257,7 +257,6 @@ mod sse {
 // -------------------------------------- AVX512 ---------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[cfg(feature = "nightly_simd")]
 mod avx512 {
     use super::super::config::AVX512;
     use super::*;
@@ -428,7 +427,6 @@ mod tests {
     use std::marker::PhantomData;
 
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[cfg(feature = "nightly_simd")]
     use crate::simd::config::AVX512;
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     use crate::simd::config::NEON;
@@ -458,7 +456,7 @@ mod tests {
     #[rstest]
     #[case::sse(SSE {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("sse4.1"))]
     #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx2"))]
-    #[cfg_attr(feature = "nightly_simd", case::avx512(AVX512 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx512f")))]
+    #[case::avx512(AVX512 {_dtype_strategy: PhantomData::<Int>}, is_x86_feature_detected!("avx512f"))]
     fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
         #[case] simd_available: bool,

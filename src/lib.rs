@@ -31,7 +31,7 @@
 //! # Features
 //! This crate has several features.
 //!
-//! - **`nightly_simd`** *(default)* - enables the use of AVX512 & (often) NEON SIMD instructions (requires a nightly compiler).
+//! - **`nightly_simd`** *(default)* - enables NEON SIMD instructions on 32-bit ARM (requires a nightly compiler; no effect on other architectures).
 //! - **`float`** *(default)* - enables the traits for floats (`f32` and `f64`).
 //! - **`half`** - enables the traits for `f16` (requires the [`half`](https://crates.io/crates/half) crate).
 //! - **`ndarray`** - adds the traits to [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html) (requires the `ndarray` crate).
@@ -68,32 +68,15 @@
 //!```
 //!
 
-// Enable SIMD nightly features when on nightly_simd enabled
-#![cfg_attr(feature = "nightly_simd", feature(cfg_version))]
-// ------- version 1.78 and above
-#![cfg_attr(
-    all(
-        feature = "nightly_simd",
-        any(target_arch = "x86_64", target_arch = "x86")
-    ),
-    cfg_attr(version("1.78"), feature(stdarch_x86_avx512))
-)]
+// NEON on 32-bit ARM is still unstable (AVX512 & aarch64 NEON are stable)
 #![cfg_attr(
     all(feature = "nightly_simd", target_arch = "arm"),
-    cfg_attr(
-        version("1.78"),
-        feature(stdarch_arm_neon_intrinsics),
-        feature(stdarch_arm_feature_detection)
+    feature(
+        stdarch_arm_neon_intrinsics,
+        stdarch_arm_feature_detection,
+        arm_target_feature
     )
 )]
-// ------- version 1.77 and below
-#![cfg_attr(
-    feature = "nightly_simd",
-    cfg_attr(not(version("1.78")), feature(stdsimd))
-)]
-// ------- any version
-#![cfg_attr(feature = "nightly_simd", feature(avx512_target_feature))]
-#![cfg_attr(feature = "nightly_simd", feature(arm_target_feature))]
 
 // It is necessary to import this at the root of the crate
 // See: https://github.com/la10736/rstest/tree/master/rstest_reuse#use-rstest_resuse-at-the-top-of-your-crate
@@ -112,10 +95,7 @@ pub(crate) use dtype_strategy::Int;
 pub(crate) use dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
 pub(crate) use scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[cfg(feature = "nightly_simd")]
-pub(crate) use simd::AVX512;
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-pub(crate) use simd::{SIMDArgMinMax, AVX2, SSE};
+pub(crate) use simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
 #[cfg(any(
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64"
@@ -268,10 +248,7 @@ impl_nb_bits!(f16);
 
 /// Returns whether the CPU supports the AVX512 implementation for `T`:
 /// 8 and 16-bit data types need AVX512BW, 32 and 64-bit data types need AVX512F.
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    feature = "nightly_simd"
-))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn avx512_supported<T: DTypeInfo>() -> bool {
     if T::NB_BITS <= 16 {
@@ -297,7 +274,6 @@ macro_rules! impl_argminmax_int {
                             // 8-bit numbers are best handled by SSE4.1
                             return unsafe { SSE::<Int>::argminmax(self) }
                         }
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$int_type>() {
                             return unsafe { AVX512::<Int>::argminmax(self) }
                         }
@@ -337,7 +313,6 @@ macro_rules! impl_argminmax_int {
                             // 8-bit numbers are best handled by SSE4.1
                             return unsafe { SSE::<Int>::argmin(self) }
                         }
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$int_type>() {
                             return unsafe { AVX512::<Int>::argmin(self) }
                         }
@@ -375,7 +350,6 @@ macro_rules! impl_argminmax_int {
                             // 8-bit numbers are best handled by SSE4.1
                             return unsafe { SSE::<Int>::argmax(self) }
                         }
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$int_type>() {
                             return unsafe { AVX512::<Int>::argmax(self) }
                         }
@@ -421,7 +395,6 @@ macro_rules! impl_argminmax_float {
                 fn argminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$float_type>() {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argminmax(self) }
                         }
@@ -455,7 +428,6 @@ macro_rules! impl_argminmax_float {
                 fn argmin(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$float_type>() {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmin(self) }
                         }
@@ -489,7 +461,6 @@ macro_rules! impl_argminmax_float {
                 fn argmax(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$float_type>() {
                             return unsafe { AVX512::<FloatIgnoreNaN>::argmax(self) }
                         }
@@ -525,7 +496,6 @@ macro_rules! impl_argminmax_float {
                 fn nanargminmax(&self) -> (usize, usize) {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$float_type>() {
                             return unsafe { AVX512::<FloatReturnNaN>::argminmax(self) }
                         }
@@ -557,7 +527,6 @@ macro_rules! impl_argminmax_float {
                 fn nanargmin(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$float_type>() {
                             return unsafe { AVX512::<FloatReturnNaN>::argmin(self) }
                         }
@@ -589,7 +558,6 @@ macro_rules! impl_argminmax_float {
                 fn nanargmax(&self) -> usize {
                     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                     {
-                        #[cfg(feature = "nightly_simd")]
                         if avx512_supported::<$float_type>() {
                             return unsafe { AVX512::<FloatReturnNaN>::argmax(self) }
                         }
