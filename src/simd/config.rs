@@ -28,6 +28,8 @@ pub(crate) trait SIMDInstructionSet {
 ///
 /// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
 ///
+/// Requires `sse4.1` (`sse4.2` for 64-bit data types).
+///
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
 // - uints (see simd_u*.rs files) - Int DTypeStrategy
@@ -49,7 +51,7 @@ impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
 ///
 /// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
 ///
-/// Note that [AVX](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions) is enough for f32 and f64, but we need AVX2 for all other data types.
+/// Requires `avx2` ([AVX](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions) is enough for f32 and f64 when ignoring NaNs).
 ///
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
@@ -74,6 +76,8 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX2<DTypeStrategy> {
 /// Type that implements the [SIMDArgMinMax](crate::SIMDArgMinMax) trait.
 ///
 /// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
+///
+/// Requires `avx512bw` for 8 and 16-bit data types and `avx512f` for 32 and 64-bit data types.
 ///
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
@@ -102,6 +106,8 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
 ///
 /// Note: there are no NEON instructions for 64-bit numbers, so for 64-bit numbers we
 /// fall back to the scalar implementation.
+///
+/// Requires `neon`.
 ///
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
