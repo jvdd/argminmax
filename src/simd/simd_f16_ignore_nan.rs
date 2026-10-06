@@ -148,9 +148,10 @@ mod avx2_ignore_nan {
     }
 
     #[inline(always)]
-    unsafe fn _non_nan_check(f16_as_m256i: __m256i) -> __m256i {
-        // on a scalar: (v & 0x7FFF) > 0x7C00
-        let abs_value = _mm256_and_si256(f16_as_m256i, LOWER_15_MASK);
+    unsafe fn _non_nan_check(ord_i16: __m256i) -> __m256i {
+        // The values are ordinal i16 values: recover the absolute f16 value first
+        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
+        let abs_value = _mm256_xor_si256(ord_i16, _mm256_srai_epi16(ord_i16, BIT_SHIFT));
         _mm256_cmpgt_epi16(NAN_MASK, abs_value)
     }
 
@@ -307,9 +308,10 @@ mod sse_ignore_nan {
     }
 
     #[inline(always)]
-    unsafe fn _non_nan_check(f16_as_m128i: __m128i) -> __m128i {
-        // on a scalar: (v & 0x7FFF) > 0x7C00
-        let abs_value = _mm_and_si128(f16_as_m128i, LOWER_15_MASK);
+    unsafe fn _non_nan_check(ord_i16: __m128i) -> __m128i {
+        // The values are ordinal i16 values: recover the absolute f16 value first
+        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
+        let abs_value = _mm_xor_si128(ord_i16, _mm_srai_epi16(ord_i16, BIT_SHIFT));
         _mm_cmplt_epi16(abs_value, NAN_MASK)
     }
 
@@ -456,9 +458,10 @@ mod avx512_ignore_nan {
     }
 
     #[inline(always)]
-    unsafe fn _non_nan_check(f16_as_m512i: __m512i) -> u32 {
-        // on a scalar: (v & 0x7FFF) < 0x7C00
-        let abs_value = _mm512_and_si512(f16_as_m512i, LOWER_15_MASK);
+    unsafe fn _non_nan_check(ord_i16: __m512i) -> u32 {
+        // The values are ordinal i16 values: recover the absolute f16 value first
+        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
+        let abs_value = _mm512_xor_si512(ord_i16, _mm512_srai_epi16(ord_i16, BIT_SHIFT as u32));
         _mm512_cmplt_epi16_mask(abs_value, NAN_MASK)
     }
 
@@ -621,9 +624,10 @@ mod neon_ignore_nan {
     }
 
     #[inline(always)]
-    unsafe fn _non_nan_check(f16_as_int16x8: int16x8_t) -> uint16x8_t {
-        // on a scalar: (v & 0x7FFF) > 0x7C00
-        let abs_value = vandq_s16(f16_as_int16x8, LOWER_15_MASK);
+    unsafe fn _non_nan_check(ord_i16: int16x8_t) -> uint16x8_t {
+        // The values are ordinal i16 values: recover the absolute f16 value first
+        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
+        let abs_value = veorq_s16(ord_i16, vshrq_n_s16(ord_i16, BIT_SHIFT));
         vcltq_s16(abs_value, NAN_MASK)
     }
 

@@ -299,232 +299,245 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     SCALAR: ScalarArgMinMax<DType>,
     SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
 {
-    // Case 1: NaN is the first element
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[0] = DType::nan();
+    // Test both signs, as e.g. on x86 0.0 / 0.0 returns a negative NaN
+    for nan in [DType::nan(), -DType::nan()] {
+        // Case 1: NaN is the first element
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[0] = nan;
 
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert!(argmin_index != 0);
-    assert!(argmin_index_single != 0);
-    assert!(argmax_index != 0);
-    assert!(argmax_index_single != 0);
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert!(argmin_index != 0);
+        assert!(argmin_index_single != 0);
+        assert!(argmax_index != 0);
+        assert!(argmax_index_single != 0);
 
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert!(argmin_simd_index != 0);
-    assert!(argmin_simd_index_single != 0);
-    assert!(argmax_simd_index != 0);
-    assert!(argmax_simd_index_single != 0);
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert!(argmin_simd_index != 0);
+        assert!(argmin_simd_index_single != 0);
+        assert!(argmax_simd_index != 0);
+        assert!(argmax_simd_index_single != 0);
 
-    assert_eq!(argmin_index, argmin_simd_index);
-    assert_eq!(argmin_index, argmin_index_single);
-    assert_eq!(argmin_index, argmin_simd_index_single);
-    assert_eq!(argmax_index, argmax_simd_index);
-    assert_eq!(argmax_index, argmax_index_single);
-    assert_eq!(argmax_index, argmax_simd_index_single);
+        assert_eq!(argmin_index, argmin_simd_index);
+        assert_eq!(argmin_index, argmin_index_single);
+        assert_eq!(argmin_index, argmin_simd_index_single);
+        assert_eq!(argmax_index, argmax_simd_index);
+        assert_eq!(argmax_index, argmax_index_single);
+        assert_eq!(argmax_index, argmax_simd_index_single);
 
-    // Case 1.1 - NaN is the first element, other values are all the same
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[0] = DType::nan();
-    for i in 1..data.len() {
-        data[i] = DType::from(1.0).unwrap();
+        // Case 1.1 - NaN is the first element, other values are all the same
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[0] = nan;
+        for i in 1..data.len() {
+            data[i] = DType::from(1.0).unwrap();
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 1);
+        assert_eq!(argmin_index_single, 1);
+        assert_eq!(argmax_index, 1);
+        assert_eq!(argmax_index_single, 1);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 1);
+        assert_eq!(argmin_simd_index_single, 1);
+        assert_eq!(argmax_simd_index, 1);
+        assert_eq!(argmax_simd_index_single, 1);
+
+        // Case 1.2 - NaN is the first element, other values are monotonic increasing
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[0] = nan;
+        for i in 1..data.len() {
+            data[i] = DType::from(i as f64).unwrap();
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 1);
+        assert_eq!(argmin_index_single, 1);
+        assert_eq!(argmax_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_index_single, FLOAT_ARR_LEN - 1);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 1);
+        assert_eq!(argmin_simd_index_single, 1);
+        assert_eq!(argmax_simd_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_simd_index_single, FLOAT_ARR_LEN - 1);
+
+        // Case 1.3 - NaN is the first element, other values are monotonic decreasing
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[0] = nan;
+        for i in 1..data.len() {
+            data[i] = DType::from((FLOAT_ARR_LEN - i) as f64).unwrap();
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmin_index_single, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_index, 1);
+        assert_eq!(argmax_index_single, 1);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmin_simd_index_single, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_simd_index, 1);
+        assert_eq!(argmax_simd_index_single, 1);
+
+        // Case 2: first 100 elements are NaN
+        for i in 0..100 {
+            data[i] = nan;
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert!(argmin_index > 99);
+        assert!(argmin_index_single > 99);
+        assert!(argmax_index > 99);
+        assert!(argmax_index_single > 99);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert!(argmin_simd_index > 99);
+        assert!(argmin_simd_index_single > 99);
+        assert!(argmax_simd_index > 99);
+        assert!(argmax_simd_index_single > 99);
+
+        assert_eq!(argmin_index, argmin_simd_index);
+        assert_eq!(argmin_index, argmin_index_single);
+        assert_eq!(argmin_index, argmin_simd_index_single);
+        assert_eq!(argmax_index, argmax_simd_index);
+        assert_eq!(argmax_index, argmax_index_single);
+        assert_eq!(argmax_index, argmax_simd_index_single);
+
+        // Case 3: NaN is the last element
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[FLOAT_ARR_LEN - 1] = nan;
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert!(argmin_index != 1026);
+        assert!(argmin_index_single != 1026);
+        assert!(argmax_index != 1026);
+        assert!(argmax_index_single != 1026);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert!(argmin_simd_index != 1026);
+        assert!(argmin_simd_index_single != 1026);
+        assert!(argmax_simd_index != 1026);
+        assert!(argmax_simd_index_single != 1026);
+
+        assert_eq!(argmin_index, argmin_simd_index);
+        assert_eq!(argmin_index, argmin_index_single);
+        assert_eq!(argmin_index, argmin_simd_index_single);
+        assert_eq!(argmax_index, argmax_simd_index);
+        assert_eq!(argmax_index, argmax_index_single);
+        assert_eq!(argmax_index, argmax_simd_index_single);
+
+        // Case 4: last 100 elements are NaN
+        for i in 0..100 {
+            data[FLOAT_ARR_LEN - 1 - i] = nan;
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert!(argmin_index < FLOAT_ARR_LEN - 100);
+        assert!(argmin_index_single < FLOAT_ARR_LEN - 100);
+        assert!(argmax_index < FLOAT_ARR_LEN - 100);
+        assert!(argmax_index_single < FLOAT_ARR_LEN - 100);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert!(argmin_simd_index < FLOAT_ARR_LEN - 100);
+        assert!(argmin_simd_index_single < FLOAT_ARR_LEN - 100);
+        assert!(argmax_simd_index < FLOAT_ARR_LEN - 100);
+        assert!(argmax_simd_index_single < FLOAT_ARR_LEN - 100);
+
+        assert_eq!(argmin_index, argmin_simd_index);
+        assert_eq!(argmin_index, argmin_index_single);
+        assert_eq!(argmin_index, argmin_simd_index_single);
+        assert_eq!(argmax_index, argmax_simd_index);
+        assert_eq!(argmax_index, argmax_index_single);
+        assert_eq!(argmax_index, argmax_simd_index_single);
+
+        // Case 5: NaN is somewhere in the middle element
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[123] = nan;
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert!(argmin_index != 123);
+        assert!(argmin_index_single != 123);
+        assert!(argmax_index != 123);
+        assert!(argmax_index_single != 123);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert!(argmin_simd_index != 123);
+        assert!(argmin_simd_index_single != 123);
+        assert!(argmax_simd_index != 123);
+        assert!(argmax_simd_index_single != 123);
+
+        assert_eq!(argmin_index, argmin_simd_index);
+        assert_eq!(argmin_index, argmin_index_single);
+        assert_eq!(argmin_index, argmin_simd_index_single);
+        assert_eq!(argmax_index, argmax_simd_index);
+        assert_eq!(argmax_index, argmax_index_single);
+        assert_eq!(argmax_index, argmax_simd_index_single);
+
+        // Case 6: all elements are NaN
+        for i in 0..data.len() {
+            data[i] = nan;
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 0);
+        assert_eq!(argmin_index_single, 0);
+        assert_eq!(argmax_index, 0);
+        assert_eq!(argmax_index_single, 0);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 0);
+        assert_eq!(argmin_simd_index_single, 0);
+        assert_eq!(argmax_simd_index, 0);
+        assert_eq!(argmax_simd_index_single, 0);
     }
 
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 1);
-    assert_eq!(argmin_index_single, 1);
-    assert_eq!(argmax_index, 1);
-    assert_eq!(argmax_index_single, 1);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 1);
-    assert_eq!(argmin_simd_index_single, 1);
-    assert_eq!(argmax_simd_index, 1);
-    assert_eq!(argmax_simd_index_single, 1);
-
-    // Case 1.2 - NaN is the first element, other values are monotonic increasing
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[0] = DType::nan();
-    for i in 1..data.len() {
-        data[i] = DType::from(i as f64).unwrap();
+    // Case 7: negative zero & negative subnormal values are no NaNs
+    let subnormal = DType::min_positive_value() / DType::from(2.0).unwrap();
+    for value in [-DType::zero(), -subnormal] {
+        let mut data: Vec<DType> = vec![DType::one(); FLOAT_ARR_LEN];
+        data[123] = value;
+        assert_eq!(SCALAR::argmin(&data), 123);
+        assert_eq!(unsafe { SIMD::argmin(&data) }, 123);
+        assert_eq!(unsafe { SIMD::argminmax(&data) }.0, 123);
     }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 1);
-    assert_eq!(argmin_index_single, 1);
-    assert_eq!(argmax_index, FLOAT_ARR_LEN - 1);
-    assert_eq!(argmax_index_single, FLOAT_ARR_LEN - 1);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 1);
-    assert_eq!(argmin_simd_index_single, 1);
-    assert_eq!(argmax_simd_index, FLOAT_ARR_LEN - 1);
-    assert_eq!(argmax_simd_index_single, FLOAT_ARR_LEN - 1);
-
-    // Case 1.3 - NaN is the first element, other values are monotonic decreasing
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[0] = DType::nan();
-    for i in 1..data.len() {
-        data[i] = DType::from((FLOAT_ARR_LEN - i) as f64).unwrap();
-    }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, FLOAT_ARR_LEN - 1);
-    assert_eq!(argmin_index_single, FLOAT_ARR_LEN - 1);
-    assert_eq!(argmax_index, 1);
-    assert_eq!(argmax_index_single, 1);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, FLOAT_ARR_LEN - 1);
-    assert_eq!(argmin_simd_index_single, FLOAT_ARR_LEN - 1);
-    assert_eq!(argmax_simd_index, 1);
-    assert_eq!(argmax_simd_index_single, 1);
-
-    // Case 2: first 100 elements are NaN
-    for i in 0..100 {
-        data[i] = DType::nan();
-    }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert!(argmin_index > 99);
-    assert!(argmin_index_single > 99);
-    assert!(argmax_index > 99);
-    assert!(argmax_index_single > 99);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert!(argmin_simd_index > 99);
-    assert!(argmin_simd_index_single > 99);
-    assert!(argmax_simd_index > 99);
-    assert!(argmax_simd_index_single > 99);
-
-    assert_eq!(argmin_index, argmin_simd_index);
-    assert_eq!(argmin_index, argmin_index_single);
-    assert_eq!(argmin_index, argmin_simd_index_single);
-    assert_eq!(argmax_index, argmax_simd_index);
-    assert_eq!(argmax_index, argmax_index_single);
-    assert_eq!(argmax_index, argmax_simd_index_single);
-
-    // Case 3: NaN is the last element
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[FLOAT_ARR_LEN - 1] = DType::nan();
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert!(argmin_index != 1026);
-    assert!(argmin_index_single != 1026);
-    assert!(argmax_index != 1026);
-    assert!(argmax_index_single != 1026);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert!(argmin_simd_index != 1026);
-    assert!(argmin_simd_index_single != 1026);
-    assert!(argmax_simd_index != 1026);
-    assert!(argmax_simd_index_single != 1026);
-
-    assert_eq!(argmin_index, argmin_simd_index);
-    assert_eq!(argmin_index, argmin_index_single);
-    assert_eq!(argmin_index, argmin_simd_index_single);
-    assert_eq!(argmax_index, argmax_simd_index);
-    assert_eq!(argmax_index, argmax_index_single);
-    assert_eq!(argmax_index, argmax_simd_index_single);
-
-    // Case 4: last 100 elements are NaN
-    for i in 0..100 {
-        data[FLOAT_ARR_LEN - 1 - i] = DType::nan();
-    }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert!(argmin_index < FLOAT_ARR_LEN - 100);
-    assert!(argmin_index_single < FLOAT_ARR_LEN - 100);
-    assert!(argmax_index < FLOAT_ARR_LEN - 100);
-    assert!(argmax_index_single < FLOAT_ARR_LEN - 100);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert!(argmin_simd_index < FLOAT_ARR_LEN - 100);
-    assert!(argmin_simd_index_single < FLOAT_ARR_LEN - 100);
-    assert!(argmax_simd_index < FLOAT_ARR_LEN - 100);
-    assert!(argmax_simd_index_single < FLOAT_ARR_LEN - 100);
-
-    assert_eq!(argmin_index, argmin_simd_index);
-    assert_eq!(argmin_index, argmin_index_single);
-    assert_eq!(argmin_index, argmin_simd_index_single);
-    assert_eq!(argmax_index, argmax_simd_index);
-    assert_eq!(argmax_index, argmax_index_single);
-    assert_eq!(argmax_index, argmax_simd_index_single);
-
-    // Case 5: NaN is somewhere in the middle element
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[123] = DType::nan();
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert!(argmin_index != 123);
-    assert!(argmin_index_single != 123);
-    assert!(argmax_index != 123);
-    assert!(argmax_index_single != 123);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert!(argmin_simd_index != 123);
-    assert!(argmin_simd_index_single != 123);
-    assert!(argmax_simd_index != 123);
-    assert!(argmax_simd_index_single != 123);
-
-    assert_eq!(argmin_index, argmin_simd_index);
-    assert_eq!(argmin_index, argmin_index_single);
-    assert_eq!(argmin_index, argmin_simd_index_single);
-    assert_eq!(argmax_index, argmax_simd_index);
-    assert_eq!(argmax_index, argmax_index_single);
-    assert_eq!(argmax_index, argmax_simd_index_single);
-
-    // Case 6: all elements are NaN
-    for i in 0..data.len() {
-        data[i] = DType::nan();
-    }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 0);
-    assert_eq!(argmin_index_single, 0);
-    assert_eq!(argmax_index, 0);
-    assert_eq!(argmax_index_single, 0);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 0);
-    assert_eq!(argmin_simd_index_single, 0);
-    assert_eq!(argmax_simd_index, 0);
-    assert_eq!(argmax_simd_index_single, 0);
 }
 
 /// Test whether NaNs are handled correctly - in this case, the index of the first NaN
@@ -542,167 +555,170 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     SCALAR: ScalarArgMinMax<DType>,
     SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
 {
-    // Case 1: NaN is the first element
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[0] = DType::nan();
+    // Test both signs, as e.g. on x86 0.0 / 0.0 returns a negative NaN
+    for nan in [DType::nan(), -DType::nan()] {
+        // Case 1: NaN is the first element
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[0] = nan;
 
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 0);
-    assert_eq!(argmin_index_single, 0);
-    assert_eq!(argmax_index, 0);
-    assert_eq!(argmax_index_single, 0);
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 0);
+        assert_eq!(argmin_index_single, 0);
+        assert_eq!(argmax_index, 0);
+        assert_eq!(argmax_index_single, 0);
 
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 0);
-    assert_eq!(argmin_simd_index_single, 0);
-    assert_eq!(argmax_simd_index, 0);
-    assert_eq!(argmax_simd_index_single, 0);
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 0);
+        assert_eq!(argmin_simd_index_single, 0);
+        assert_eq!(argmax_simd_index, 0);
+        assert_eq!(argmax_simd_index_single, 0);
 
-    // Case 2: first 100 elements are NaN
-    for i in 0..100 {
-        data[i] = DType::nan();
+        // Case 2: first 100 elements are NaN
+        for i in 0..100 {
+            data[i] = nan;
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 0);
+        assert_eq!(argmin_index_single, 0);
+        assert_eq!(argmax_index, 0);
+        assert_eq!(argmax_index_single, 0);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 0);
+        assert_eq!(argmin_simd_index_single, 0);
+        assert_eq!(argmax_simd_index, 0);
+        assert_eq!(argmax_simd_index_single, 0);
+
+        // Case 3: NaN is the last element
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[FLOAT_ARR_LEN - 1] = nan;
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 1026);
+        assert_eq!(argmin_index_single, 1026);
+        assert_eq!(argmax_index, 1026);
+        assert_eq!(argmax_index_single, 1026);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 1026);
+        assert_eq!(argmin_simd_index_single, 1026);
+        assert_eq!(argmax_simd_index, 1026);
+        assert_eq!(argmax_simd_index_single, 1026);
+
+        // Case 4: last 100 elements are NaN
+        for i in 0..100 {
+            data[FLOAT_ARR_LEN - 1 - i] = nan;
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, FLOAT_ARR_LEN - 100);
+        assert_eq!(argmin_index_single, FLOAT_ARR_LEN - 100);
+        assert_eq!(argmax_index, FLOAT_ARR_LEN - 100);
+        assert_eq!(argmax_index_single, FLOAT_ARR_LEN - 100);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, FLOAT_ARR_LEN - 100);
+        assert_eq!(argmin_simd_index_single, FLOAT_ARR_LEN - 100);
+        assert_eq!(argmax_simd_index, FLOAT_ARR_LEN - 100);
+        assert_eq!(argmax_simd_index_single, FLOAT_ARR_LEN - 100);
+
+        // Case 5: NaN is somewhere in the middle element
+        let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
+        data[123] = nan;
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 123);
+        assert_eq!(argmin_index_single, 123);
+        assert_eq!(argmax_index, 123);
+        assert_eq!(argmax_index_single, 123);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 123);
+        assert_eq!(argmin_simd_index_single, 123);
+        assert_eq!(argmax_simd_index, 123);
+        assert_eq!(argmax_simd_index_single, 123);
+
+        // Case 6: NaN in the middle of the array and last 100 elements are NaN
+        for i in 0..100 {
+            data[FLOAT_ARR_LEN - 1 - i] = nan;
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 123);
+        assert_eq!(argmin_index_single, 123);
+        assert_eq!(argmax_index, 123);
+        assert_eq!(argmax_index_single, 123);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 123);
+        assert_eq!(argmin_simd_index_single, 123);
+        assert_eq!(argmax_simd_index, 123);
+        assert_eq!(argmax_simd_index_single, 123);
+
+        // Case 7: all elements are NaN
+        for i in 0..data.len() {
+            data[i] = nan;
+        }
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 0);
+        assert_eq!(argmin_index_single, 0);
+        assert_eq!(argmax_index, 0);
+        assert_eq!(argmax_index_single, 0);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 0);
+        assert_eq!(argmin_simd_index_single, 0);
+        assert_eq!(argmax_simd_index, 0);
+        assert_eq!(argmax_simd_index_single, 0);
+
+        // Case 8: array exact multiple of LANE_SIZE and only 1 element is NaN
+        let mut data: Vec<DType> = get_data(128);
+        data[17] = nan;
+
+        let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
+        let argmin_index_single = SCALAR::argmin(&data);
+        let argmax_index_single = SCALAR::argmax(&data);
+        assert_eq!(argmin_index, 17);
+        assert_eq!(argmin_index_single, 17);
+        assert_eq!(argmax_index, 17);
+        assert_eq!(argmax_index_single, 17);
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
+        let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
+        assert_eq!(argmin_simd_index, 17);
+        assert_eq!(argmin_simd_index_single, 17);
+        assert_eq!(argmax_simd_index, 17);
+        assert_eq!(argmax_simd_index_single, 17);
     }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 0);
-    assert_eq!(argmin_index_single, 0);
-    assert_eq!(argmax_index, 0);
-    assert_eq!(argmax_index_single, 0);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 0);
-    assert_eq!(argmin_simd_index_single, 0);
-    assert_eq!(argmax_simd_index, 0);
-    assert_eq!(argmax_simd_index_single, 0);
-
-    // Case 3: NaN is the last element
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[FLOAT_ARR_LEN - 1] = DType::nan();
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 1026);
-    assert_eq!(argmin_index_single, 1026);
-    assert_eq!(argmax_index, 1026);
-    assert_eq!(argmax_index_single, 1026);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 1026);
-    assert_eq!(argmin_simd_index_single, 1026);
-    assert_eq!(argmax_simd_index, 1026);
-    assert_eq!(argmax_simd_index_single, 1026);
-
-    // Case 4: last 100 elements are NaN
-    for i in 0..100 {
-        data[FLOAT_ARR_LEN - 1 - i] = DType::nan();
-    }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, FLOAT_ARR_LEN - 100);
-    assert_eq!(argmin_index_single, FLOAT_ARR_LEN - 100);
-    assert_eq!(argmax_index, FLOAT_ARR_LEN - 100);
-    assert_eq!(argmax_index_single, FLOAT_ARR_LEN - 100);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, FLOAT_ARR_LEN - 100);
-    assert_eq!(argmin_simd_index_single, FLOAT_ARR_LEN - 100);
-    assert_eq!(argmax_simd_index, FLOAT_ARR_LEN - 100);
-    assert_eq!(argmax_simd_index_single, FLOAT_ARR_LEN - 100);
-
-    // Case 5: NaN is somewhere in the middle element
-    let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
-    data[123] = DType::nan();
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 123);
-    assert_eq!(argmin_index_single, 123);
-    assert_eq!(argmax_index, 123);
-    assert_eq!(argmax_index_single, 123);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 123);
-    assert_eq!(argmin_simd_index_single, 123);
-    assert_eq!(argmax_simd_index, 123);
-    assert_eq!(argmax_simd_index_single, 123);
-
-    // Case 6: NaN in the middle of the array and last 100 elements are NaN
-    for i in 0..100 {
-        data[FLOAT_ARR_LEN - 1 - i] = DType::nan();
-    }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 123);
-    assert_eq!(argmin_index_single, 123);
-    assert_eq!(argmax_index, 123);
-    assert_eq!(argmax_index_single, 123);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 123);
-    assert_eq!(argmin_simd_index_single, 123);
-    assert_eq!(argmax_simd_index, 123);
-    assert_eq!(argmax_simd_index_single, 123);
-
-    // Case 7: all elements are NaN
-    for i in 0..data.len() {
-        data[i] = DType::nan();
-    }
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 0);
-    assert_eq!(argmin_index_single, 0);
-    assert_eq!(argmax_index, 0);
-    assert_eq!(argmax_index_single, 0);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 0);
-    assert_eq!(argmin_simd_index_single, 0);
-    assert_eq!(argmax_simd_index, 0);
-    assert_eq!(argmax_simd_index_single, 0);
-
-    // Case 8: array exact multiple of LANE_SIZE and only 1 element is NaN
-    let mut data: Vec<DType> = get_data(128);
-    data[17] = DType::nan();
-
-    let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
-    let argmin_index_single = SCALAR::argmin(&data);
-    let argmax_index_single = SCALAR::argmax(&data);
-    assert_eq!(argmin_index, 17);
-    assert_eq!(argmin_index_single, 17);
-    assert_eq!(argmax_index, 17);
-    assert_eq!(argmax_index_single, 17);
-
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
-    let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
-    let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-    assert_eq!(argmin_simd_index, 17);
-    assert_eq!(argmin_simd_index_single, 17);
-    assert_eq!(argmax_simd_index, 17);
-    assert_eq!(argmax_simd_index_single, 17);
 }
