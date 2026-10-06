@@ -645,7 +645,8 @@ mod ndarray_tests {
 mod arrow_tests {
     use super::*;
 
-    use arrow::array::PrimitiveArray;
+    use arrow::array::{Array, Int32Array, PrimitiveArray};
+    use arrow::buffer::NullBuffer;
     use arrow::datatypes::*;
 
     #[cfg(feature = "float")]
@@ -707,7 +708,7 @@ mod arrow_tests {
         #[case] max: T,
     ) where
         T: Copy + FromPrimitive + AsPrimitive<usize>,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
@@ -738,7 +739,7 @@ mod arrow_tests {
         #[case] max: T,
     ) where
         T: Copy + FromPrimitive + AsPrimitive<usize>,
-        for<'a> &'a [T]: NaNArgMinMax,
+        for<'a> &'a [T]: NaNArgMinMax + NaNArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
@@ -768,7 +769,7 @@ mod arrow_tests {
         #[case] _max: T,
     ) where
         T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
@@ -795,5 +796,119 @@ mod arrow_tests {
             assert_eq!(max_slice, data.argmax());
             assert_eq!(max_slice, arrow.argmax());
         }
+    }
+
+    /// Returns an array with the given values and validity. Unlike `From<Vec<Option<T>>>`,
+    /// which stores 0 in the null elements, this keeps their values.
+    fn with_nulls<A: ArrowPrimitiveType>(data: &[A::Native], valid: &[bool]) -> PrimitiveArray<A> {
+        PrimitiveArray::new(data.to_vec().into(), Some(NullBuffer::from(valid)))
+    }
+
+    /// Asserts that `f` panics because all values are null
+    fn assert_all_null_panic<R>(f: impl FnOnce() -> R) {
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f))
+            .err()
+            .expect("no panic");
+        let message = (panic.downcast_ref::<String>().map(String::as_str))
+            .or(panic.downcast_ref::<&str>().copied());
+        assert_eq!(message, Some("All values are null"));
+    }
+
+    #[test]
+    fn test_argminmax_arrow_edge_cases() {
+        let arrow = Int32Array::from(vec![Some(1), None, Some(5), Some(3), Some(7), None]);
+        // A slice keeps its null buffer, also when that has no nulls
+        let no_nulls = arrow.slice(2, 3); // [5, 3, 7]
+        assert!(no_nulls
+            .nulls()
+            .is_some_and(|nulls| nulls.null_count() == 0));
+        assert_eq!(no_nulls.argminmax(), (1, 2));
+        // The indices are relative to the (repeatedly) sliced array
+        let sliced = arrow.slice(1, 5).slice(1, 4); // [5, 3, 7, null]
+        assert_eq!(sliced.argminmax(), (1, 2));
+        // An empty array panics (with or without a null buffer)
+        let empty = Int32Array::from(Vec::<i32>::new());
+        assert!(std::panic::catch_unwind(|| empty.argmin()).is_err());
+        let empty = arrow.slice(1, 0);
+        assert!(std::panic::catch_unwind(|| empty.argmin()).is_err());
+    }
+
+    #[test]
+    fn test_argmin_null_count_check() {
+        // The documented way to get `None` (instead of a panic) when all values are null
+        let argmin =
+            |arrow: &Int32Array| (arrow.null_count() < arrow.len()).then(|| arrow.argmin());
+        assert_eq!(argmin(&Int32Array::from(vec![None, None])), None);
+        assert_eq!(argmin(&Int32Array::from(Vec::<i32>::new())), None);
+        assert_eq!(
+            argmin(&Int32Array::from(vec![None, Some(3), Some(1)])),
+            Some(2)
+        );
+    }
+
+    #[apply(dtypes_arrow)]
+    fn test_argminmax_arrow_nulls<T, ArrowDataType>(
+        #[case] _dtype: ArrowDataType, // used to infer the arrow data type
+        #[case] min: T,
+        #[case] max: T,
+    ) where
+        T: Copy + PartialOrd + SampleUniformFullRange,
+        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
+        ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
+    {
+        for nulls in [1, 128, 230] {
+            let mut data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
+            let (_, valid) = get_random_validity(RANDOM_ARR_LENGTH, 0, nulls);
+            // The null elements hold the extreme values of the data type
+            for i in (0..RANDOM_ARR_LENGTH).filter(|&i| !valid[i]) {
+                data[i] = [min, max][i % 2];
+            }
+            let arrow: PrimitiveArray<ArrowDataType> = with_nulls(&data, &valid);
+            // The validity bitmap of a slice has an offset
+            for offset in [0, 13] {
+                let arrow = arrow.slice(offset, RANDOM_ARR_LENGTH - offset);
+                let (data, valid) = (&data[offset..], &valid[offset..]);
+                let min = masked_reference(data, valid, true, |a, b| a < b).unwrap();
+                let max = masked_reference(data, valid, true, |a, b| a > b).unwrap();
+                assert_eq!(arrow.argminmax(), (min, max));
+                assert_eq!(arrow.argmin(), min);
+                assert_eq!(arrow.argmax(), max);
+            }
+        }
+        // Only nulls: panics (as for an empty array)
+        let arrow: PrimitiveArray<ArrowDataType> = with_nulls(&[max; 100], &[false; 100]);
+        assert_all_null_panic(|| arrow.argminmax());
+        assert_all_null_panic(|| arrow.argmin());
+        assert_all_null_panic(|| arrow.argmax());
+    }
+
+    #[cfg(feature = "float")]
+    #[apply(dtypes_arrow_with_nan)]
+    fn test_argminmax_arrow_nulls_nan<T, ArrowDataType>(
+        #[case] _dtype: ArrowDataType, // used to infer the arrow data type
+        #[case] _min: T,
+        #[case] _max: T,
+    ) where
+        T: num_traits::float::FloatCore + SampleUniformFullRange,
+        for<'a> &'a [T]: NaNArgMinMax + NaNArgMinMaxMasked,
+        ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
+    {
+        let mut data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
+        let (_, mut valid) = get_random_validity(RANDOM_ARR_LENGTH, 0, 128);
+        // A null NaN before a valid NaN
+        (data[20], valid[20]) = (T::nan(), false);
+        (data[30], valid[30]) = (T::nan(), true);
+        let arrow: PrimitiveArray<ArrowDataType> = with_nulls(&data, &valid);
+        for offset in [0, 13] {
+            let arrow = arrow.slice(offset, RANDOM_ARR_LENGTH - offset);
+            assert_eq!(arrow.nanargminmax(), (30 - offset, 30 - offset));
+            assert_eq!(arrow.nanargmin(), 30 - offset);
+            assert_eq!(arrow.nanargmax(), 30 - offset);
+        }
+        // Only nulls: panics (as for an empty array)
+        let arrow: PrimitiveArray<ArrowDataType> = with_nulls(&[T::nan(); 100], &[false; 100]);
+        assert_all_null_panic(|| arrow.nanargminmax());
+        assert_all_null_panic(|| arrow.nanargmin());
+        assert_all_null_panic(|| arrow.nanargmax());
     }
 }

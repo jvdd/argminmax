@@ -103,7 +103,8 @@ assert_eq!(arr.argminmax_masked(&validity, 0), Some((1, 2)));
 - **"nightly_simd"**: enables the use of non-stable SIMD intrinsics (`NEON` on 32-bit ARM), which are only available on nightly Rust.
 - **"half"**: support `f16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
 - **"ndarray"**: add `ArgMinMax` trait to [`ndarray`](https://docs.rs/ndarray/latest/ndarray) its `Array1` & `ArrayView1`.
-- **"arrow"**: add `ArgMinMax` trait to [`arrow`](https://docs.rs/arrow/latest/arrow) its `PrimitiveArray`.
+- **"arrow"**: add `ArgMinMax` trait to [`arrow`](https://docs.rs/arrow/latest/arrow) its `PrimitiveArray` (skipping the nulls).
+  - ❗ The functions panic when all values are null (as for an empty array). To get an `Option` instead, check the null count first: `(array.null_count() < array.len()).then(|| array.argmin())`.
 
 ## Benchmarks
 

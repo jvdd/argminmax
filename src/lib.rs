@@ -40,7 +40,9 @@
 //! - **`nightly_simd`** - enables NEON SIMD instructions on 32-bit ARM (requires a nightly compiler; no effect on other architectures).
 //! - **`half`** - enables the traits for `f16` (requires the [`half`](https://crates.io/crates/half) crate).
 //! - **`ndarray`** - adds the traits to [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html) (requires the `ndarray` crate).
-//! - **`arrow`** - adds the traits to [`arrow::array::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html) (requires the `arrow` crate).
+//! - **`arrow`** - adds the traits to [`arrow::array::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html), skipping the nulls (requires the `arrow` crate).
+//!
+//! For `arrow`, the functions panic when all values are null (as for an empty array). To get an `Option` instead, check the null count first, e.g. `(array.null_count() < array.len()).then(|| array.argmin())`, or use the [`ArgMinMaxMasked`](trait.ArgMinMaxMasked.html) & [`NaNArgMinMaxMasked`](trait.NaNArgMinMaxMasked.html) methods on the values and the validity bitmap, which return `None`.
 //!
 //!
 //! # Examples
@@ -804,25 +806,40 @@ mod ndarray_impl {
 #[cfg(feature = "arrow")]
 mod arrow_impl {
     use super::*;
-    use arrow::array::PrimitiveArray;
+    use arrow::array::{Array, PrimitiveArray};
 
-    // Use the slice implementation
+    /// Calls `$masked` on the values with the validity bitmap and its offset when the
+    /// array contains nulls, else `$unmasked` on the values. Panics when all values are
+    /// null (as `$unmasked` panics for an empty array).
+    macro_rules! skip_nulls {
+        ($array:expr, $masked:ident, $unmasked:ident) => {{
+            let values = $array.values().as_ref();
+            match $array.nulls().filter(|nulls| nulls.null_count() > 0) {
+                Some(nulls) => values
+                    .$masked(nulls.validity(), nulls.offset())
+                    .expect("All values are null"),
+                None => values.$unmasked(),
+            }
+        }};
+    }
+
+    // Use the slice implementation, skipping the nulls if there are any
     // -> implement for T where slice implementation available for T::Native
     impl<T> ArgMinMax for PrimitiveArray<T>
     where
         T: arrow::datatypes::ArrowNumericType,
-        for<'a> &'a [T::Native]: ArgMinMax,
+        for<'a> &'a [T::Native]: ArgMinMax + ArgMinMaxMasked,
     {
         fn argminmax(&self) -> (usize, usize) {
-            self.values().as_ref().argminmax()
+            skip_nulls!(self, argminmax_masked, argminmax)
         }
 
         fn argmin(&self) -> usize {
-            self.values().as_ref().argmin()
+            skip_nulls!(self, argmin_masked, argmin)
         }
 
         fn argmax(&self) -> usize {
-            self.values().as_ref().argmax()
+            skip_nulls!(self, argmax_masked, argmax)
         }
     }
 
@@ -830,18 +847,18 @@ mod arrow_impl {
     impl<T> NaNArgMinMax for PrimitiveArray<T>
     where
         T: arrow::datatypes::ArrowNumericType,
-        for<'a> &'a [T::Native]: NaNArgMinMax,
+        for<'a> &'a [T::Native]: NaNArgMinMax + NaNArgMinMaxMasked,
     {
         fn nanargminmax(&self) -> (usize, usize) {
-            self.values().as_ref().nanargminmax()
+            skip_nulls!(self, nanargminmax_masked, nanargminmax)
         }
 
         fn nanargmin(&self) -> usize {
-            self.values().as_ref().nanargmin()
+            skip_nulls!(self, nanargmin_masked, nanargmin)
         }
 
         fn nanargmax(&self) -> usize {
-            self.values().as_ref().nanargmax()
+            skip_nulls!(self, nanargmax_masked, nanargmax)
         }
     }
 }
