@@ -54,10 +54,12 @@ fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
 #[case::int16(i16::MIN, i16::MAX)]
 #[case::int32(i32::MIN, i32::MAX)]
 #[case::int64(i64::MIN, i64::MAX)]
+#[case::int128(i128::MIN, i128::MAX)]
 #[case::uint8(u8::MIN, u8::MAX)]
 #[case::uint16(u16::MIN, u16::MAX)]
 #[case::uint32(u32::MIN, u32::MAX)]
 #[case::uint64(u64::MIN, u64::MAX)]
+#[case::uint128(u128::MIN, u128::MAX)]
 fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 
 #[cfg(all(feature = "float", feature = "half"))]
@@ -70,10 +72,12 @@ fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 #[case::int16(i16::MIN, i16::MAX)]
 #[case::int32(i32::MIN, i32::MAX)]
 #[case::int64(i64::MIN, i64::MAX)]
+#[case::int128(i128::MIN, i128::MAX)]
 #[case::uint8(u8::MIN, u8::MAX)]
 #[case::uint16(u16::MIN, u16::MAX)]
 #[case::uint32(u32::MIN, u32::MAX)]
 #[case::uint64(u64::MIN, u64::MAX)]
+#[case::uint128(u128::MIN, u128::MAX)]
 fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 
 #[cfg(not(feature = "float"))]
@@ -84,10 +88,12 @@ fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 #[case::int16(i16::MIN, i16::MAX)]
 #[case::int32(i32::MIN, i32::MAX)]
 #[case::int64(i64::MIN, i64::MAX)]
+#[case::int128(i128::MIN, i128::MAX)]
 #[case::uint8(u8::MIN, u8::MAX)]
 #[case::uint16(u16::MIN, u16::MAX)]
 #[case::uint32(u32::MIN, u32::MAX)]
 #[case::uint64(u64::MIN, u64::MAX)]
+#[case::uint128(u128::MIN, u128::MAX)]
 fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 
 // ----- Helpers -----
@@ -464,6 +470,7 @@ mod arrow_tests {
     #[case::int16(Int16Type {}, i16::MIN, i16::MAX)]
     #[case::int32(Int32Type {}, i32::MIN, i32::MAX)]
     #[case::int64(Int64Type {}, i64::MIN, i64::MAX)]
+    #[case::decimal128(Decimal128Type {}, i128::MIN, i128::MAX)]
     #[case::uint8(UInt8Type {}, u8::MIN, u8::MAX)]
     #[case::uint16(UInt16Type {}, u16::MIN, u16::MAX)]
     #[case::uint32(UInt32Type {}, u32::MIN, u32::MAX)]
@@ -481,6 +488,7 @@ mod arrow_tests {
     #[case::int16(Int16Type {}, i16::MIN, i16::MAX)]
     #[case::int32(Int32Type {}, i32::MIN, i32::MAX)]
     #[case::int64(Int64Type {}, i64::MIN, i64::MAX)]
+    #[case::decimal128(Decimal128Type {}, i128::MIN, i128::MAX)]
     #[case::uint8(UInt8Type {}, u8::MIN, u8::MAX)]
     #[case::uint16(UInt16Type {}, u16::MIN, u16::MAX)]
     #[case::uint32(UInt32Type {}, u32::MIN, u32::MAX)]
@@ -598,9 +606,9 @@ mod arrow2_tests {
     use arrow2::array::PrimitiveArray;
     use arrow2::types::NativeType;
 
-    // Float and skip half (even if half feature is enabled)
-    // arrow2::types::f16 has its dedicated test
-    #[cfg(all(feature = "float", feature = "half"))]
+    // Same as dtypes, but without u128 (no arrow2 NativeType) and without f16
+    // (arrow2::types::f16 has its dedicated test)
+    #[cfg(feature = "float")]
     #[template]
     #[rstest]
     #[case::float32(f32::MIN, f32::MAX)]
@@ -609,15 +617,26 @@ mod arrow2_tests {
     #[case::int16(i16::MIN, i16::MAX)]
     #[case::int32(i32::MIN, i32::MAX)]
     #[case::int64(i64::MIN, i64::MAX)]
+    #[case::int128(i128::MIN, i128::MAX)]
     #[case::uint8(u8::MIN, u8::MAX)]
     #[case::uint16(u16::MIN, u16::MAX)]
     #[case::uint32(u32::MIN, u32::MAX)]
     #[case::uint64(u64::MIN, u64::MAX)]
     fn dtypes_arrow2<T>(#[case] min: T, #[case] max: T) {}
 
-    // Shadow dtypes_arrow2 with dtypes if half feature is not enabled
-    #[cfg(not(feature = "half"))]
-    use super::dtypes as dtypes_arrow2;
+    #[cfg(not(feature = "float"))]
+    #[template]
+    #[rstest]
+    #[case::int8(i8::MIN, i8::MAX)]
+    #[case::int16(i16::MIN, i16::MAX)]
+    #[case::int32(i32::MIN, i32::MAX)]
+    #[case::int64(i64::MIN, i64::MAX)]
+    #[case::int128(i128::MIN, i128::MAX)]
+    #[case::uint8(u8::MIN, u8::MAX)]
+    #[case::uint16(u16::MIN, u16::MAX)]
+    #[case::uint32(u32::MIN, u32::MAX)]
+    #[case::uint64(u64::MIN, u64::MAX)]
+    fn dtypes_arrow2<T>(#[case] min: T, #[case] max: T) {}
 
     // Float and not half
     // arrow2::types::f16 has its dedicated test
