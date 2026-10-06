@@ -1,15 +1,15 @@
-/// Implementation of the argminmax operations for u16.
-/// As there are no SIMD instructions for uints (on x86 & x86_64) we transform the u16
-/// values to i16 ordinal values:
-///     ord_i16 = v ^ -0x8000
-///
-/// This transformation is a bijection, i.e. it is reversible:
-///     v = ord_i16 ^ -0x8000
-///
-/// Through this transformation we can perform the argminmax operations using SIMD on
-/// the ordinal integer values and then transform the result back to the original u16
-/// values.
-///
+//! Implementation of the argminmax operations for u16.
+//! As there are no SIMD instructions for uints (on x86 & x86_64) we transform the u16
+//! values to i16 ordinal values:
+//!     ord_i16 = v ^ -0x8000
+//!
+//! This transformation is a bijection, i.e. it is reversible:
+//!     v = ord_i16 ^ -0x8000
+//!
+//! Through this transformation we can perform the argminmax operations using SIMD on
+//! the ordinal integer values and then transform the result back to the original u16
+//! values.
+//!
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

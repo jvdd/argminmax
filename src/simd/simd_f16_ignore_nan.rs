@@ -1,31 +1,31 @@
-/// Implementation of the argminmax operations for f32 that ignores NaN values.
-/// This implementation returns the index of the minimum and maximum values.
-/// However, unexpected behavior may occur when there are
-/// - *only* NaN values in the array
-/// - *only* +/- infinity values in the array
-/// - *only* NaN and +/- infinity values in the array
-///
-/// In these cases, index 0 is returned.
-///
-/// NaN values are ignored and treated as if they are not present in the array.
-/// To realize this we create an initial SIMD register with values +/- infinity.
-/// As comparisons with NaN always return false, it is guaranteed that no NaN values
-/// are added to the accumulating SIMD register.
-///
-/// As there currently are no f16 SIMD instructions, we use the i16 SIMD instructions
-/// and reinterpret the f16 values as i16 values. This is possible because we transform
-/// the f16 values to ordinal i16 values:
-///     ord_i16 = ((v >> 15) & 0x7FFFFFFF) ^ v
-///
-/// This transformation is a bijection, i.e. it is reversible:
-///     v = ((ord_i16 >> 15) & 0x7FFFFFFF) ^ ord_i16
-///
-/// Through this transformation we can perform the argminmax operations on the ordinal
-/// integer values and then transform the result back to the original f16 values.
-///
-/// Note that most x86 CPUs do not support f16 instructions - making this implementation
-/// multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
-///
+//! Implementation of the argminmax operations for f32 that ignores NaN values.
+//! This implementation returns the index of the minimum and maximum values.
+//! However, unexpected behavior may occur when there are
+//! - *only* NaN values in the array
+//! - *only* +/- infinity values in the array
+//! - *only* NaN and +/- infinity values in the array
+//!
+//! In these cases, index 0 is returned.
+//!
+//! NaN values are ignored and treated as if they are not present in the array.
+//! To realize this we create an initial SIMD register with values +/- infinity.
+//! As comparisons with NaN always return false, it is guaranteed that no NaN values
+//! are added to the accumulating SIMD register.
+//!
+//! As there currently are no f16 SIMD instructions, we use the i16 SIMD instructions
+//! and reinterpret the f16 values as i16 values. This is possible because we transform
+//! the f16 values to ordinal i16 values:
+//!     ord_i16 = ((v >> 15) & 0x7FFFFFFF) ^ v
+//!
+//! This transformation is a bijection, i.e. it is reversible:
+//!     v = ((ord_i16 >> 15) & 0x7FFFFFFF) ^ ord_i16
+//!
+//! Through this transformation we can perform the argminmax operations on the ordinal
+//! integer values and then transform the result back to the original f16 values.
+//!
+//! Note that most x86 CPUs do not support f16 instructions - making this implementation
+//! multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
+//!
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

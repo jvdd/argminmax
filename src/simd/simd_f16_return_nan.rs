@@ -1,32 +1,32 @@
-/// Implementation of the argminmax operations for f16 where NaN values take precedence.
-/// This implementation returns the index of the first* NaN value if any are present,
-/// otherwise it returns the index of the minimum and maximum values.
-///
-/// To serve this functionality we transform the f16 values to ordinal i16 values:
-///     ord_i16 = ((v >> 15) & 0x7FFFFFFF) ^ v
-///
-/// This transformation is a bijection, i.e. it is reversible:
-///     v = ((ord_i16 >> 15) & 0x7FFFFFFF) ^ ord_i16
-///
-/// Through this transformation we can perform the argminmax operations on the ordinal
-/// integer values and then transform the result back to the original f16 values.
-/// This transformation is necessary because comparisons with NaN values are always false.
-/// So unless we perform ! <=  as gt and ! >=  as lt the argminmax operations will not
-/// add NaN values to the accumulating SIMD register. And as le and ge are significantly
-/// more expensive than lt and gt we use this efficient bitwise transformation.
-///
-/// Note that most x86 CPUs do not support f16 instructions - making this implementation
-/// multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
-///
-///
-/// ---
-///
-/// *Note: the first NaN value is only returned iff all NaN values have the same bit
-/// representation. When NaN values have different bit representations then the index of
-/// the highest / lowest ord_i16 is returned for the
-/// SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
-/// necessarily the index of the first NaN value.
-///
+//! Implementation of the argminmax operations for f16 where NaN values take precedence.
+//! This implementation returns the index of the first* NaN value if any are present,
+//! otherwise it returns the index of the minimum and maximum values.
+//!
+//! To serve this functionality we transform the f16 values to ordinal i16 values:
+//!     ord_i16 = ((v >> 15) & 0x7FFFFFFF) ^ v
+//!
+//! This transformation is a bijection, i.e. it is reversible:
+//!     v = ((ord_i16 >> 15) & 0x7FFFFFFF) ^ ord_i16
+//!
+//! Through this transformation we can perform the argminmax operations on the ordinal
+//! integer values and then transform the result back to the original f16 values.
+//! This transformation is necessary because comparisons with NaN values are always false.
+//! So unless we perform ! <=  as gt and ! >=  as lt the argminmax operations will not
+//! add NaN values to the accumulating SIMD register. And as le and ge are significantly
+//! more expensive than lt and gt we use this efficient bitwise transformation.
+//!
+//! Note that most x86 CPUs do not support f16 instructions - making this implementation
+//! multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
+//!
+//!
+//! ---
+//!
+//! *Note: the first NaN value is only returned iff all NaN values have the same bit
+//! representation. When NaN values have different bit representations then the index of
+//! the highest / lowest ord_i16 is returned for the
+//! SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
+//! necessarily the index of the first NaN value.
+//!
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

@@ -1,33 +1,33 @@
-/// Implementation of the argminmax operations for f32 where NaN values take precedence.
-/// This implementation returns the index of the first* NaN value if any are present,
-/// otherwise it returns the index of the minimum and maximum values.
-///
-/// To serve this functionality we transform the f32 values to ordinal i32 values:
-///     ord_i32 = ((v >> 31) & 0x7FFFFFFF) ^ v
-///
-/// This transformation is a bijection, i.e. it is reversible:
-///     v = ((ord_i32 >> 31) & 0x7FFFFFFF) ^ ord_i32
-///
-/// Through this transformation we can perform the argminmax operations on the ordinal
-/// integer values and then transform the result back to the original f32 values.
-/// This transformation is necessary because comparisons with NaN values are always false.
-/// So unless we perform ! <=  as gt and ! >=  as lt the argminmax operations will not
-/// add NaN values to the accumulating SIMD register. And as le and ge are significantly
-/// more expensive than lt and gt we use this efficient bitwise transformation.
-///
-/// Also comparing integers is faster than comparing floats:
-///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_ps&ig_expand=902
-///   - https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi32&ig_expand=1084
-///
-///
-/// ---
-///
-/// *Note: the first NaN value is only returned iff all NaN values have the same bit
-/// representation. When NaN values have different bit representations then the index of
-/// the highest / lowest ord_i32 is returned for the
-/// SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
-/// necessarily the index of the first NaN value.
-///
+//! Implementation of the argminmax operations for f32 where NaN values take precedence.
+//! This implementation returns the index of the first* NaN value if any are present,
+//! otherwise it returns the index of the minimum and maximum values.
+//!
+//! To serve this functionality we transform the f32 values to ordinal i32 values:
+//!     ord_i32 = ((v >> 31) & 0x7FFFFFFF) ^ v
+//!
+//! This transformation is a bijection, i.e. it is reversible:
+//!     v = ((ord_i32 >> 31) & 0x7FFFFFFF) ^ ord_i32
+//!
+//! Through this transformation we can perform the argminmax operations on the ordinal
+//! integer values and then transform the result back to the original f32 values.
+//! This transformation is necessary because comparisons with NaN values are always false.
+//! So unless we perform ! <=  as gt and ! >=  as lt the argminmax operations will not
+//! add NaN values to the accumulating SIMD register. And as le and ge are significantly
+//! more expensive than lt and gt we use this efficient bitwise transformation.
+//!
+//! Also comparing integers is faster than comparing floats:
+//!   - <https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_ps&ig_expand=902>
+//!   - <https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi32&ig_expand=1084>
+//!
+//!
+//! ---
+//!
+//! *Note: the first NaN value is only returned iff all NaN values have the same bit
+//! representation. When NaN values have different bit representations then the index of
+//! the highest / lowest ord_i32 is returned for the
+//! SIMDOps::_get_overflow_lane_size_limit() chunk of the data - which is not
+//! necessarily the index of the first NaN value.
+//!
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

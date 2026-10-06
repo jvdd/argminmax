@@ -1,17 +1,17 @@
-/// Implementation of the argminmax operations for f32 that ignores NaN values.
-/// This implementation returns the index of the minimum and maximum values.
-/// However, unexpected behavior may occur when there are
-/// - *only* NaN values in the array
-/// - *only* +/- infinity values in the array
-/// - *only* NaN and +/- infinity values in the array
-///
-/// In these cases, index 0 is returned.
-///
-/// NaN values are ignored and treated as if they are not present in the array.
-/// To realize this we create an initial SIMD register with values +/- infinity.
-/// As comparisons with NaN always return false, it is guaranteed that no NaN values
-/// are added to the accumulating SIMD register.
-///
+//! Implementation of the argminmax operations for f32 that ignores NaN values.
+//! This implementation returns the index of the minimum and maximum values.
+//! However, unexpected behavior may occur when there are
+//! - *only* NaN values in the array
+//! - *only* +/- infinity values in the array
+//! - *only* NaN and +/- infinity values in the array
+//!
+//! In these cases, index 0 is returned.
+//!
+//! NaN values are ignored and treated as if they are not present in the array.
+//! To realize this we create an initial SIMD register with values +/- infinity.
+//! As comparisons with NaN always return false, it is guaranteed that no NaN values
+//! are added to the accumulating SIMD register.
+//!
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

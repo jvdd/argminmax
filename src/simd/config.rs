@@ -1,10 +1,10 @@
-/// This module contains structs and traits that are used to configure the SIMD
-/// implementation. The structs are used to store the register size and the trait is
-/// used to get the lane size for a given datatype.
-///
-/// More info on SIMD:
-/// https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#target-features
-///
+//! This module contains structs and traits that are used to configure the SIMD
+//! implementation. The structs are used to store the register size and the trait is
+//! used to get the lane size for a given datatype.
+//!
+//! More info on SIMD:
+//! <https://github.com/rust-lang/portable-simd/blob/master/beginners-guide.md#target-features>
+//!
 use std::marker::PhantomData;
 
 /// SIMD instruction set trait - used to store the register size and get the lane size
