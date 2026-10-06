@@ -220,6 +220,13 @@ pub trait NaNArgMinMax {
 
 // ---- Helper macros ----
 
+// Only used for the SIMD dispatch below
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
 trait DTypeInfo {
     const NB_BITS: usize;
 }
@@ -229,6 +236,12 @@ macro_rules! impl_nb_bits {
     // $data_type is the data type (e.g. i32)
     // you can pass multiple types (separated by commas) to this macro
     ($($data_type:ty)*) => ($(
+        #[cfg(any(
+            target_arch = "x86",
+            target_arch = "x86_64",
+            all(target_arch = "arm", feature = "nightly_simd"),
+            target_arch = "aarch64",
+        ))]
         impl DTypeInfo for $data_type {
             const NB_BITS: usize = std::mem::size_of::<$data_type>() * 8;
         }

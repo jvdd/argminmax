@@ -9,6 +9,14 @@ use std::marker::PhantomData;
 
 /// SIMD instruction set trait - used to store the register size and get the lane size
 /// for a given datatype
+// Only used by the SIMD implementations (and the tests below)
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+    test,
+))]
 pub(crate) trait SIMDInstructionSet {
     /// The size of the register in bits
     const REGISTER_SIZE: usize;
@@ -17,6 +25,13 @@ pub(crate) trait SIMDInstructionSet {
     const LANE_SIZE_8: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u8>() * 8);
     const LANE_SIZE_16: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u16>() * 8);
     const LANE_SIZE_32: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u32>() * 8);
+    // 32-bit ARM has no SIMD implementation for 64-bit data types
+    #[cfg(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        test
+    ))]
     const LANE_SIZE_64: usize = Self::REGISTER_SIZE / (std::mem::size_of::<u64>() * 8);
 }
 
@@ -39,6 +54,13 @@ pub struct SSE<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+    test,
+))]
 impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
     /// SSE register size is 128 bits
     /// https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions#Registers
@@ -64,6 +86,13 @@ pub struct AVX2<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+    test,
+))]
 impl<DTypeStrategy> SIMDInstructionSet for AVX2<DTypeStrategy> {
     /// AVX(2) register size is 256 bits
     /// AVX:  https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions
@@ -88,6 +117,13 @@ pub struct AVX512<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+    test,
+))]
 impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
     /// AVX512 register size is 512 bits
     /// https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#AVX-512
@@ -116,6 +152,13 @@ pub struct NEON<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
 
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+    test,
+))]
 impl<DTypeStrategy> SIMDInstructionSet for NEON<DTypeStrategy> {
     /// NEON register size is 128 bits
     /// https://en.wikipedia.org/wiki/ARM_architecture#Advanced_SIMD_(Neon)
