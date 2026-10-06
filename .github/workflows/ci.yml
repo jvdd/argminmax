@@ -216,6 +216,8 @@ jobs:
         run: |
           rustup override set stable
           rustup target add ${{ matrix.target }}
+      - name: Build (release) - default features
+        run: cargo build --target ${{ matrix.target }} --release
       - name: Build (release) - no default features
         run: cargo build --target ${{ matrix.target }} --release --no-default-features
       - name: Build (release) - only float

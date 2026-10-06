@@ -29,7 +29,7 @@
 
 🪄 **Efficient support for f16 and uints**: through (bijective aka symmetric) bitwise operations, f16 (optional<sup>1</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 
-> <i><sup>1</sup> for <code>NEON</code> on 32-bit ARM you should enable the (default) `"nightly_simd"` feature (requires nightly Rust).</i>  
+> <i><sup>1</sup> for <code>NEON</code> on 32-bit ARM you should enable the `"nightly_simd"` feature (requires nightly Rust).</i>  
 > <i><sup>2</sup> for <code>f16</code> you should enable the `"half"` feature.</i>  
 > <i><sup>3</sup> for <code>f32</code> and <code>f64</code> you should enable the (default) `"float"` feature.</i>  
 > <i><sup>4</sup> for <code>ndarray::ArrayBase</code> you should enable the `"ndarray"` feature.</i>  
@@ -86,8 +86,8 @@ When dealing with NaNs, `NaNArgMinMax` its functions return the first NaN its in
 
 
 ## Features
-- [default] **"nightly_simd"**: enables the use of non-stable SIMD intrinsics (`NEON` on 32-bit ARM), which are only available on nightly Rust.
 - [default] **"float"**: support `f32` and `f64` argminmax (uses NaN-handling - [see below](#limitations)).
+- **"nightly_simd"**: enables the use of non-stable SIMD intrinsics (`NEON` on 32-bit ARM), which are only available on nightly Rust.
 - **"half"**: support `f16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
 - **"ndarray"**: add `ArgMinMax` trait to [`ndarray`](https://docs.rs/ndarray/latest/ndarray) its `Array1` & `ArrayView1`.
 - **"arrow"**: add `ArgMinMax` trait to [`arrow`](https://docs.rs/arrow/latest/arrow) its `PrimitiveArray`.
