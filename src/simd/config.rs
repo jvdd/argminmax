@@ -28,7 +28,7 @@ pub(crate) trait SIMDInstructionSet {
 ///
 /// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
 ///
-/// Requires `sse4.1` (`sse4.2` for 64-bit data types).
+/// Requires `sse4.1` (`sse4.2` for `i64`, `u64` and for `f64` when returning NaNs).
 ///
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
@@ -51,7 +51,7 @@ impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
 ///
 /// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
 ///
-/// Requires `avx2` ([AVX](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions) is enough for f32 and f64 when ignoring NaNs).
+/// Requires `avx2` (`avx` is enough for `f32` and `f64` when ignoring NaNs).
 ///
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
@@ -104,8 +104,8 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
 ///
 /// This struct implements the SIMDArgMinMax trait for the different data types and their [datatype strategies](crate::dtype_strategy).
 ///
-/// Note: there are no NEON instructions for 64-bit numbers, so for 64-bit numbers we
-/// fall back to the scalar implementation.
+/// Note: on 32-bit ARM, there are no NEON instructions for 64-bit numbers, so for 64-bit
+/// numbers we fall back to the scalar implementation.
 ///
 /// Requires `neon`.
 ///
