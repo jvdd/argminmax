@@ -31,8 +31,8 @@
 //! # Features
 //! This crate has several features.
 //!
-//! - **`nightly_simd`** *(default)* - enables NEON SIMD instructions on 32-bit ARM (requires a nightly compiler; no effect on other architectures).
 //! - **`float`** *(default)* - enables the traits for floats (`f32` and `f64`).
+//! - **`nightly_simd`** - enables NEON SIMD instructions on 32-bit ARM (requires a nightly compiler; no effect on other architectures).
 //! - **`half`** - enables the traits for `f16` (requires the [`half`](https://crates.io/crates/half) crate).
 //! - **`ndarray`** - adds the traits to [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html) (requires the `ndarray` crate).
 //! - **`arrow`** - adds the traits to [`arrow::array::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html) (requires the `arrow` crate).

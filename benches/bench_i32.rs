@@ -1,3 +1,9 @@
+// 32-bit ARM feature detection is still unstable
+#![cfg_attr(
+    all(target_arch = "arm", feature = "nightly_simd"),
+    feature(stdarch_arm_feature_detection)
+)]
+
 use argminmax::ArgMinMax;
 use codspeed_criterion_compat::*;
 use dev_utils::{config, utils};
@@ -5,7 +11,10 @@ use dev_utils::{config, utils};
 use argminmax::scalar::{ScalarArgMinMax, SCALAR};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use argminmax::simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64"
+))]
 use argminmax::simd::{SIMDArgMinMax, NEON};
 
 fn argminmax_i32_random_array_long(c: &mut Criterion) {
@@ -74,19 +83,19 @@ fn argminmax_i32_random_array_long(c: &mut Criterion) {
             b.iter(|| unsafe { AVX512::argmax(black_box(data)) })
         });
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
     if std::arch::is_arm_feature_detected!("neon") {
         c.bench_function("neon_i32_argminmax", |b| {
             b.iter(|| unsafe { NEON::argminmax(black_box(data)) })
         });
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
     if std::arch::is_arm_feature_detected!("neon") {
         c.bench_function("neon_i32_argmin", |b| {
             b.iter(|| unsafe { NEON::argmin(black_box(data)) })
         });
     }
-    #[cfg(target_arch = "arm")]
+    #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
     if std::arch::is_arm_feature_detected!("neon") {
         c.bench_function("neon_i32_argmax", |b| {
             b.iter(|| unsafe { NEON::argmax(black_box(data)) })
