@@ -282,7 +282,7 @@ macro_rules! impl_scalar {
     };
 }
 
-impl_scalar!(Int, i8, i16, i32, i64, u8, u16, u32, u64);
+impl_scalar!(Int, i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
 #[cfg(feature = "float")]
 impl_scalar!(FloatReturnNaN, f32, f64);
 #[cfg(feature = "float")]
@@ -335,5 +335,71 @@ impl ScalarArgMinMax<f16> for SCALAR<FloatIgnoreNaN> {
     #[inline(always)]
     fn argmax(arr: &[f16]) -> usize {
         scalar_argmax_f16_ignore_nan(arr)
+    }
+}
+
+// ======================================= TESTS =======================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Compare SCALAR<Int> with the first index of the min / max value, for every
+    /// rotation of `data` (so the extremes and ties occur at every position).
+    fn check_all_rotations<T: Ord + Copy>(mut data: Vec<T>)
+    where
+        SCALAR<Int>: ScalarArgMinMax<T>,
+    {
+        for _ in 0..data.len() {
+            let min = data.iter().min().unwrap();
+            let max = data.iter().max().unwrap();
+            let argmin = data.iter().position(|v| v == min).unwrap();
+            let argmax = data.iter().position(|v| v == max).unwrap();
+            assert_eq!(SCALAR::<Int>::argminmax(&data), (argmin, argmax));
+            assert_eq!(SCALAR::<Int>::argmin(&data), argmin);
+            assert_eq!(SCALAR::<Int>::argmax(&data), argmax);
+            data.rotate_left(1);
+        }
+    }
+
+    #[test]
+    fn test_i128_extremes_and_ties() {
+        // Values that only differ in the high or in the low 64 bits + duplicate MIN/MAX
+        check_all_rotations(vec![
+            0,
+            -1,
+            1,
+            i64::MIN as i128,
+            i64::MAX as i128,
+            u64::MAX as i128,
+            1 << 64,
+            -(1 << 64),
+            i128::MIN,
+            i128::MAX,
+            i128::MIN + 1,
+            i128::MAX - 1,
+            i128::MIN,
+            i128::MAX,
+        ]);
+        check_all_rotations(vec![i128::MIN; 3]);
+    }
+
+    #[test]
+    fn test_u128_extremes_and_ties() {
+        // Values that only differ in the high or in the low 64 bits + duplicate MIN/MAX
+        check_all_rotations(vec![
+            1,
+            u64::MAX as u128,
+            1 << 64,
+            (1 << 64) + 1,
+            (1 << 127) - 1,
+            1 << 127,
+            u128::MIN,
+            u128::MAX,
+            u128::MAX - 1,
+            u128::MIN,
+            u128::MAX,
+        ]);
+        check_all_rotations(vec![u128::MAX; 3]);
     }
 }

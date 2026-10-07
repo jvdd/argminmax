@@ -8,14 +8,16 @@
 //! - `x86` / `x86_64`: [`SSE`](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions), [`AVX2`](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Advanced_Vector_Extensions_2), [`AVX512`](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#AVX-512)
 //! - `arm` / `aarch64`: [`NEON`](https://en.wikipedia.org/wiki/ARM_architecture#Advanced_SIMD_(Neon))
 //!
+//! `i128` and `u128` always use the scalar implementation.
+//!
 //! # Description
 //!
 //! This crate provides two traits: [`ArgMinMax`](trait.ArgMinMax.html) and [`NaNArgMinMax`](trait.NaNArgMinMax.html).
 //!
 //! These traits are implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html) and [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html).  
 //! - For [`ArgMinMax`](trait.ArgMinMax.html) the supported data types are
-//!   - ints: `i8`, `i16`, `i32`, `i64`
-//!   - uints: `u8`, `u16`, `u32`, `u64`
+//!   - ints: `i8`, `i16`, `i32`, `i64`, `i128`
+//!   - uints: `u8`, `u16`, `u32`, `u64`, `u128`
 //!   - floats: `f16`, `f32`, `f64` (see [Features](#features))
 //! - For [`NaNArgMinMax`](trait.NaNArgMinMax.html) the supported data types are
 //!   - floats: `f16`, `f32`, `f64` (see [Features](#features))
@@ -598,8 +600,34 @@ macro_rules! impl_argminmax_float {
     };
 }
 
+/// Macro for implementing ArgMinMax for integers that only have a scalar implementation
+macro_rules! impl_argminmax_int_scalar {
+    // $int_type is the integer data type of the array (e.g. i128)
+    // you can pass multiple types (separated by commas) to this macro
+    ($($int_type:ty),*) => {
+        $(
+            impl ArgMinMax for &[$int_type] {
+                fn argminmax(&self) -> (usize, usize) {
+                    SCALAR::<Int>::argminmax(self)
+                }
+
+                fn argmin(&self) -> usize {
+                    SCALAR::<Int>::argmin(self)
+                }
+
+                fn argmax(&self) -> usize {
+                    SCALAR::<Int>::argmax(self)
+                }
+            }
+        )*
+    };
+}
+
 // Implement ArgMinMax for (non-optional) integer rust primitive types
 impl_argminmax_int!(i8, i16, i32, i64, u8, u16, u32, u64);
+// 128-bit integers are scalar-only: a SIMD prototype only paid off for in-cache data
+// on AVX512 (see #75)
+impl_argminmax_int_scalar!(i128, u128);
 // Implement for (optional) float rust primitive types
 #[cfg(feature = "float")]
 impl_argminmax_float!(f32, f64);
