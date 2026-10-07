@@ -8,8 +8,13 @@ use half::f16;
 
 #[inline(always)]
 fn f16_to_i16ord(x: f16) -> i16 {
-    let x = unsafe { std::mem::transmute::<f16, i16>(x) };
-    ((x >> 15) & 0x7FFF) ^ x
+    // v if v >= 0 else i16::MIN - v: -0.0 and 0.0 are both 0
+    let v = x.to_bits() as i16;
+    if v < 0 {
+        i16::MIN - v
+    } else {
+        v
+    }
 }
 
 // ------- Float Return NaN -------

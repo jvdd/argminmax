@@ -15,10 +15,11 @@
 //! As there currently are no f16 SIMD instructions, we use the i16 SIMD instructions
 //! and reinterpret the f16 values as i16 values. This is possible because we transform
 //! the f16 values to ordinal i16 values:
-//!     ord_i16 = ((v >> 15) & 0x7FFFFFFF) ^ v
+//!     ord_i16 = v               if v >= 0 (as i16)
+//!     ord_i16 = i16::MIN - v    otherwise (i.e., minus the magnitude)
 //!
-//! This transformation is a bijection, i.e. it is reversible:
-//!     v = ((ord_i16 >> 15) & 0x7FFFFFFF) ^ ord_i16
+//! This transformation is reversible (with the same formula), except that -0.0 and 0.0
+//! are both mapped to 0 (as these are equal).
 //!
 //! Through this transformation we can perform the argminmax operations on the ordinal
 //! integer values and then transform the result back to the original f16 values.
@@ -88,20 +89,6 @@ use super::super::dtype_strategy::FloatIgnoreNaN;
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-const BIT_SHIFT: i32 = 15;
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
-const MASK_VALUE: i16 = 0x7FFF; // i16::MAX - masks everything but the sign bit
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
 const NAN_VALUE: i16 = 0x7C00; // absolute values above this are NaN
 
 #[cfg(any(
@@ -112,7 +99,12 @@ const NAN_VALUE: i16 = 0x7C00; // absolute values above this are NaN
 ))]
 #[inline(always)]
 fn _i16ord_to_f16(ord_i16: i16) -> f16 {
-    let v = ((ord_i16 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i16;
+    // The same formula as the transformation (0.0 is returned for -0.0)
+    let v = if ord_i16 < 0 {
+        i16::MIN - ord_i16
+    } else {
+        ord_i16
+    };
     f16::from_bits(v as u16)
 }
 
@@ -132,28 +124,20 @@ mod avx2_ignore_nan {
     use super::*;
 
     const LANE_SIZE: usize = AVX2::<FloatIgnoreNaN>::LANE_SIZE_16;
-    const LOWER_15_MASK: __m256i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const LOWER_15_MASK: __m256i = unsafe { std::mem::transmute([i16::MAX; LANE_SIZE]) };
     const NAN_MASK: __m256i = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
-        // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = _mm256_srai_epi16(f16_as_m256i, BIT_SHIFT);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, LOWER_15_MASK);
-        _mm256_xor_si256(sign_bit_masked, f16_as_m256i)
-        // TODO: investigate if this is faster
-        // _mm256_xor_si256(
-        //     _mm256_srai_epi16(f16_as_m256i, 15),
-        //     _mm256_and_si256(f16_as_m256i, LOWER_15_MASK),
-        // )
+        // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
+        _mm256_sign_epi16(_mm256_and_si256(f16_as_m256i, LOWER_15_MASK), f16_as_m256i)
     }
 
     #[inline(always)]
     unsafe fn _non_nan_check(ord_i16: __m256i) -> __m256i {
-        // The values are ordinal i16 values: recover the absolute f16 value first
-        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
-        let abs_value = _mm256_xor_si256(ord_i16, _mm256_srai_epi16(ord_i16, BIT_SHIFT));
-        _mm256_cmpgt_epi16(NAN_MASK, abs_value)
+        // The absolute value of the ordinal i16 value is the magnitude of the f16 value
+        // on a scalar: abs(ord) < 0x7C01
+        _mm256_cmpgt_epi16(NAN_MASK, _mm256_abs_epi16(ord_i16))
     }
 
     #[inline(always)]
@@ -297,23 +281,20 @@ mod sse_ignore_nan {
     use super::*;
 
     const LANE_SIZE: usize = SSE::<FloatIgnoreNaN>::LANE_SIZE_16;
-    const LOWER_15_MASK: __m128i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const LOWER_15_MASK: __m128i = unsafe { std::mem::transmute([i16::MAX; LANE_SIZE]) };
     const NAN_MASK: __m128i = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m128i_to_i16ord(f16_as_m128i: __m128i) -> __m128i {
-        // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = _mm_srai_epi16(f16_as_m128i, BIT_SHIFT);
-        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, LOWER_15_MASK);
-        _mm_xor_si128(sign_bit_masked, f16_as_m128i)
+        // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
+        _mm_sign_epi16(_mm_and_si128(f16_as_m128i, LOWER_15_MASK), f16_as_m128i)
     }
 
     #[inline(always)]
     unsafe fn _non_nan_check(ord_i16: __m128i) -> __m128i {
-        // The values are ordinal i16 values: recover the absolute f16 value first
-        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
-        let abs_value = _mm_xor_si128(ord_i16, _mm_srai_epi16(ord_i16, BIT_SHIFT));
-        _mm_cmplt_epi16(abs_value, NAN_MASK)
+        // The absolute value of the ordinal i16 value is the magnitude of the f16 value
+        // on a scalar: abs(ord) < 0x7C01
+        _mm_cmplt_epi16(_mm_abs_epi16(ord_i16), NAN_MASK)
     }
 
     #[inline(always)]
@@ -446,23 +427,21 @@ mod avx512_ignore_nan {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::<FloatIgnoreNaN>::LANE_SIZE_16;
-    const LOWER_15_MASK: __m512i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: __m512i = unsafe { std::mem::transmute([i16::MIN; LANE_SIZE]) };
     const NAN_MASK: __m512i = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m521i_to_i16ord(f16_as_m512i: __m512i) -> __m512i {
-        // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = _mm512_srai_epi16(f16_as_m512i, BIT_SHIFT as u32);
-        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, LOWER_15_MASK);
-        _mm512_xor_si512(f16_as_m512i, sign_bit_masked)
+        // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
+        let negative = _mm512_cmplt_epi16_mask(f16_as_m512i, _mm512_setzero_si512());
+        _mm512_mask_sub_epi16(f16_as_m512i, negative, SIGN_BIT, f16_as_m512i)
     }
 
     #[inline(always)]
     unsafe fn _non_nan_check(ord_i16: __m512i) -> u32 {
-        // The values are ordinal i16 values: recover the absolute f16 value first
-        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
-        let abs_value = _mm512_xor_si512(ord_i16, _mm512_srai_epi16(ord_i16, BIT_SHIFT as u32));
-        _mm512_cmplt_epi16_mask(abs_value, NAN_MASK)
+        // The absolute value of the ordinal i16 value is the magnitude of the f16 value
+        // on a scalar: abs(ord) < 0x7C01
+        _mm512_cmplt_epi16_mask(_mm512_abs_epi16(ord_i16), NAN_MASK)
     }
 
     #[inline(always)]
@@ -612,23 +591,24 @@ mod neon_ignore_nan {
     use super::*;
 
     const LANE_SIZE: usize = NEON::<FloatIgnoreNaN>::LANE_SIZE_16;
-    const LOWER_15_MASK: int16x8_t = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: int16x8_t = unsafe { std::mem::transmute([i16::MIN; LANE_SIZE]) };
     const NAN_MASK: int16x8_t = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_int16x8_to_i16ord(f16_as_int16x8: int16x8_t) -> int16x8_t {
-        // on a scalar: ((v >> 15) & 0x7FFF) ^ v
-        let sign_bit_shifted = vshrq_n_s16(f16_as_int16x8, BIT_SHIFT);
-        let sign_bit_masked = vandq_s16(sign_bit_shifted, LOWER_15_MASK);
-        veorq_s16(f16_as_int16x8, sign_bit_masked)
+        // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
+        // = abs(v) ^ (v & i16::MIN), as abs wraps around (abs(i16::MIN) = i16::MIN)
+        veorq_s16(
+            vabsq_s16(f16_as_int16x8),
+            vandq_s16(f16_as_int16x8, SIGN_BIT),
+        )
     }
 
     #[inline(always)]
     unsafe fn _non_nan_check(ord_i16: int16x8_t) -> uint16x8_t {
-        // The values are ordinal i16 values: recover the absolute f16 value first
-        // on a scalar: (ord ^ (ord >> 15)) < 0x7C01
-        let abs_value = veorq_s16(ord_i16, vshrq_n_s16(ord_i16, BIT_SHIFT));
-        vcltq_s16(abs_value, NAN_MASK)
+        // The absolute value of the ordinal i16 value is the magnitude of the f16 value
+        // on a scalar: abs(ord) < 0x7C01
+        vcltq_s16(vabsq_s16(ord_i16), NAN_MASK)
     }
 
     #[inline(always)]
@@ -781,7 +761,9 @@ mod tests {
         test_return_same_result_argminmax,
     };
     // Float specific tests
-    use super::super::test_utils::{test_ignore_nans_argminmax, test_return_infs_argminmax};
+    use super::super::test_utils::{
+        test_ignore_nans_argminmax, test_return_infs_argminmax, test_signed_zeros_argminmax,
+    };
 
     use dev_utils::utils;
 
@@ -900,5 +882,20 @@ mod tests {
             return;
         }
         test_ignore_nans_argminmax(get_array_f16, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_signed_zeros<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
     }
 }
