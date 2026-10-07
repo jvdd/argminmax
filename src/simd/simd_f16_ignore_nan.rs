@@ -132,6 +132,10 @@ mod avx2_ignore_nan {
         const INDEX_INCREMENT: __m256i =
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
+        // With groups, `argminmax` is 13-19% slower (the NaN-masked comparisons limit
+        // the throughput of this loop), and `argmin` / `argmax` only 2% (i7-1185G7) to
+        // 16% (Ryzen 9 5950X) faster
+        const GROUP_VECTORS: bool = false;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [f16; LANE_SIZE] {
@@ -289,6 +293,9 @@ mod sse_ignore_nan {
         const INDEX_INCREMENT: __m128i =
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
+        // The NaN-masked comparisons limit the throughput of this loop, so grouping the
+        // vectors only adds work (13-15% slower on an i7-1185G7)
+        const GROUP_VECTORS: bool = false;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [f16; LANE_SIZE] {

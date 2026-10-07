@@ -245,6 +245,10 @@ mod sse {
         const INDEX_INCREMENT: __m128i =
             unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
+        // The overflow-safe loop restarts every 112 elements (7 vectors), which leaves
+        // one group per restart: the groups do not help here (up to 4% slower on an
+        // i7-1185G7, neutral on a Ryzen 9 5950X)
+        const GROUP_VECTORS: bool = false;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [u8; LANE_SIZE] {
