@@ -2,11 +2,13 @@
 //! This implementation returns the index of the first* NaN value if any are present,
 //! otherwise it returns the index of the minimum and maximum values.
 //!
-//! To serve this functionality we transform the f32 values to ordinal i32 values:
-//!     ord_i32 = ((v >> 31) & 0x7FFFFFFF) ^ v
+//! To serve this functionality we transform the f32 values to ordinal i32 values, by
+//! applying the sign bit to the magnitude (the other bits):
+//!     ord_i32 = v               if v >= 0 (as i32)
+//!     ord_i32 = i32::MIN - v    otherwise (i.e., minus the magnitude)
 //!
-//! This transformation is a bijection, i.e. it is reversible:
-//!     v = ((ord_i32 >> 31) & 0x7FFFFFFF) ^ ord_i32
+//! This transformation is reversible (with the same formula), except that -0.0 and 0.0
+//! are both mapped to 0 (as these are equal).
 //!
 //! Through this transformation we can perform the argminmax operations on the ordinal
 //! integer values and then transform the result back to the original f32 values.
@@ -81,24 +83,14 @@ use super::task::{max_index_value, min_index_value};
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-const BIT_SHIFT: i32 = 31;
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
-const MASK_VALUE: i32 = 0x7FFFFFFF; // i32::MAX - masks everything but the sign bit
-
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
 #[inline(always)]
 fn _i32ord_to_f32(ord_i32: i32) -> f32 {
-    let v = ((ord_i32 >> BIT_SHIFT) & MASK_VALUE) ^ ord_i32;
+    // The same formula as the transformation (0.0 is returned for -0.0)
+    let v = if ord_i32 < 0 {
+        i32::MIN - ord_i32
+    } else {
+        ord_i32
+    };
     f32::from_bits(v as u32)
 }
 
@@ -118,14 +110,12 @@ mod avx2 {
     use super::*;
 
     const LANE_SIZE: usize = AVX2::<FloatReturnNaN>::LANE_SIZE_32;
-    const LOWER_31_MASK: __m256i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const LOWER_31_MASK: __m256i = unsafe { std::mem::transmute([i32::MAX; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f32_as_m256i_to_i32ord(f32_as_m256i: __m256i) -> __m256i {
-        // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
-        let sign_bit_shifted = _mm256_srai_epi32(f32_as_m256i, BIT_SHIFT);
-        let sign_bit_masked = _mm256_and_si256(sign_bit_shifted, LOWER_31_MASK);
-        _mm256_xor_si256(sign_bit_masked, f32_as_m256i)
+        // on a scalar: v if v >= 0 else i32::MIN - v (-0.0 and 0.0 are both 0)
+        _mm256_sign_epi32(_mm256_and_si256(f32_as_m256i, LOWER_31_MASK), f32_as_m256i)
     }
 
     #[inline(always)]
@@ -218,14 +208,12 @@ mod sse {
     use super::*;
 
     const LANE_SIZE: usize = SSE::<FloatReturnNaN>::LANE_SIZE_32;
-    const LOWER_31_MASK: __m128i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const LOWER_31_MASK: __m128i = unsafe { std::mem::transmute([i32::MAX; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f32_as_m128i_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
-        // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
-        let sign_bit_shifted = _mm_srai_epi32(f32_as_m128i, BIT_SHIFT);
-        let sign_bit_masked = _mm_and_si128(sign_bit_shifted, LOWER_31_MASK);
-        _mm_xor_si128(sign_bit_masked, f32_as_m128i)
+        // on a scalar: v if v >= 0 else i32::MIN - v (-0.0 and 0.0 are both 0)
+        _mm_sign_epi32(_mm_and_si128(f32_as_m128i, LOWER_31_MASK), f32_as_m128i)
     }
 
     #[inline(always)]
@@ -317,14 +305,13 @@ mod avx512 {
     use super::*;
 
     const LANE_SIZE: usize = AVX512::<FloatReturnNaN>::LANE_SIZE_32;
-    const LOWER_31_MASK: __m512i = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: __m512i = unsafe { std::mem::transmute([i32::MIN; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f32_as_m512i_to_i32ord(f32_as_m512i: __m512i) -> __m512i {
-        // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
-        let sign_bit_shifted = _mm512_srai_epi32(f32_as_m512i, BIT_SHIFT as u32);
-        let sign_bit_masked = _mm512_and_si512(sign_bit_shifted, LOWER_31_MASK);
-        _mm512_xor_si512(sign_bit_masked, f32_as_m512i)
+        // on a scalar: v if v >= 0 else i32::MIN - v (-0.0 and 0.0 are both 0)
+        let negative = _mm512_cmplt_epi32_mask(f32_as_m512i, _mm512_setzero_si512());
+        _mm512_mask_sub_epi32(f32_as_m512i, negative, SIGN_BIT, f32_as_m512i)
     }
 
     #[inline(always)]
@@ -424,14 +411,16 @@ mod neon {
     use super::*;
 
     const LANE_SIZE: usize = NEON::<FloatReturnNaN>::LANE_SIZE_32;
-    const LOWER_31_MASK: int32x4_t = unsafe { std::mem::transmute([MASK_VALUE; LANE_SIZE]) };
+    const SIGN_BIT: int32x4_t = unsafe { std::mem::transmute([i32::MIN; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f32_as_int32x4_to_i32ord(f32_as_int32x4: int32x4_t) -> int32x4_t {
-        // on a scalar: ((v >> 31) & 0x7FFFFFFF) ^ v
-        let sign_bit_shifted = vshrq_n_s32(f32_as_int32x4, BIT_SHIFT);
-        let sign_bit_masked = vandq_s32(sign_bit_shifted, LOWER_31_MASK);
-        veorq_s32(sign_bit_masked, f32_as_int32x4)
+        // on a scalar: v if v >= 0 else i32::MIN - v (-0.0 and 0.0 are both 0)
+        // = abs(v) ^ (v & i32::MIN), as abs wraps around (abs(i32::MIN) = i32::MIN)
+        veorq_s32(
+            vabsq_s32(f32_as_int32x4),
+            vandq_s32(f32_as_int32x4, SIGN_BIT),
+        )
     }
 
     #[inline(always)]
@@ -541,7 +530,9 @@ mod tests {
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
     // Float specific tests
-    use super::super::test_utils::{test_return_infs_argminmax, test_return_nans_argminmax};
+    use super::super::test_utils::{
+        test_return_infs_argminmax, test_return_nans_argminmax, test_signed_zeros_argminmax,
+    };
 
     use dev_utils::utils;
 
@@ -630,6 +621,21 @@ mod tests {
             return;
         }
         test_return_infs_argminmax(get_array_f32, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_signed_zeros<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]

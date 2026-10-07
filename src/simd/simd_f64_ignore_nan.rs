@@ -371,7 +371,9 @@ mod tests {
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
     // Float specific tests
-    use super::super::test_utils::{test_ignore_nans_argminmax, test_return_infs_argminmax};
+    use super::super::test_utils::{
+        test_ignore_nans_argminmax, test_return_infs_argminmax, test_signed_zeros_argminmax,
+    };
 
     use dev_utils::utils;
 
@@ -460,6 +462,21 @@ mod tests {
             return;
         }
         test_return_infs_argminmax(get_array_f64, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_signed_zeros<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f64, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatIgnoreNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
