@@ -184,19 +184,19 @@ jobs:
           rustup toolchain install --no-self-update
           rustup target add ${{ matrix.target }}
 
-      # NOTE: `arrow` and `arrow2` are intentionally excluded from the wasm32
-      # build. They pull in `ahash` -> `getrandom`, and getrandom >=0.3
+      # NOTE: `arrow` is intentionally excluded from the wasm32
+      # build. It pulls in `ahash` -> `getrandom`, and getrandom >=0.3
       # deliberately fails to compile on `wasm32-unknown-unknown` unless the
       # final binary selects a randomness backend (e.g. via
       # `--cfg getrandom_backend="wasm_js"`). argminmax itself uses no
       # randomness, so this is a downstream/binary-level choice that a library
       # cannot (and should not) make. Apache Arrow on bare
       # `wasm32-unknown-unknown` is not a supported scenario, so we build every
-      # argminmax-owned feature here except those two integrations.
+      # argminmax-owned feature here except that integration.
       - name: Build (release) - all features
         if: matrix.target != 'wasm32-unknown-unknown'
         run: cargo build --target ${{ matrix.target }} --release --all-features
-      - name: Build (release) - all features (excl. arrow/arrow2 on wasm)
+      - name: Build (release) - all features (excl. arrow on wasm)
         if: matrix.target == 'wasm32-unknown-unknown'
         run: cargo build --target ${{ matrix.target }} --release --features "half,ndarray"
       - name: Build (release) - default features

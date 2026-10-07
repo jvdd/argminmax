@@ -19,23 +19,22 @@
 
 <!-- This project uses [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) to compute argmin and argmax in a single function.   -->
 
-🚀 The functions are generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>2</sup>, `f32`<sup>2</sup>, `f64`<sup>3</sup>, `i8`, `i16`, `i32`, `i64`, `i128`<sup>7</sup>, `u8`, `u16`, `u32`, `u64`, `u128`<sup>7</sup>.
+🚀 The functions are generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>2</sup>, `f32`<sup>3</sup>, `f64`<sup>3</sup>, `i8`, `i16`, `i32`, `i64`, `i128`<sup>6</sup>, `u8`, `u16`, `u32`, `u64`, `u128`<sup>6</sup>.
 
-🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>4</sup>, apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>5</sup> and [`arrow2::PrimitiveArray`](https://docs.rs/arrow2/latest/arrow2/array/struct.PrimitiveArray.html)<sup>6</sup>.
+🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>4</sup> and apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>5</sup>.
 
 ⚡ **Runtime CPU feature detection** is used to select the most efficient implementation for the current CPU. This means that the same binary can be used on different CPUs without recompilation. 
 
 👀 The SIMD implementation contains **no if checks**, ensuring that the runtime of the function is independent of the input data its order (best-case = worst-case = average-case).
 
-🪄 **Efficient support for f16 and uints**: through (bijective aka symmetric) bitwise operations, f16 (optional<sup>1</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
+🪄 **Efficient support for f16 and uints**: through (bijective aka symmetric) bitwise operations, f16 (optional<sup>2</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 
 > <i><sup>1</sup> for <code>NEON</code> on 32-bit ARM you should enable the `"nightly_simd"` feature (requires nightly Rust).</i>  
 > <i><sup>2</sup> for <code>f16</code> you should enable the `"half"` feature.</i>  
 > <i><sup>3</sup> for <code>f32</code> and <code>f64</code> you should enable the (default) `"float"` feature.</i>  
 > <i><sup>4</sup> for <code>ndarray::ArrayBase</code> you should enable the `"ndarray"` feature.</i>  
 > <i><sup>5</sup> for <code>arrow::PrimitiveArray</code> you should enable the `"arrow"` feature.</i>  
-> <i><sup>6</sup> for <code>arrow2::PrimitiveArray</code> you should enable the `"arrow2"` feature.</i>  
-> <i><sup>7</sup> <code>i128</code> and <code>u128</code> (e.g., arrow <code>Decimal128</code> arrays) use the scalar implementation.</i>
+> <i><sup>6</sup> <code>i128</code> and <code>u128</code> (e.g., arrow <code>Decimal128</code> arrays) use the scalar implementation.</i>
 
 ## Installing
 
