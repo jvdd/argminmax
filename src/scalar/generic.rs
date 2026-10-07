@@ -284,7 +284,7 @@ macro_rules! impl_scalar {
     };
 }
 
-impl_scalar!(Int, i8, i16, i32, i64, u8, u16, u32, u64, i128, u128);
+impl_scalar!(Int, i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
 #[cfg(feature = "float")]
 impl_scalar!(FloatReturnNaN, f32, f64);
 #[cfg(feature = "float")]
