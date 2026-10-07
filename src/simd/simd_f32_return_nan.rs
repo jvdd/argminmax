@@ -5,7 +5,7 @@
 //! To serve this functionality we transform the f32 values to ordinal i32 values, by
 //! applying the sign bit to the magnitude (the other bits):
 //!     ord_i32 = v               if v >= 0 (as i32)
-//!     ord_i32 = i32::MIN - v      otherwise (i.e., minus the magnitude)
+//!     ord_i32 = i32::MIN - v    otherwise (i.e., minus the magnitude)
 //!
 //! This transformation is reversible (with the same formula), except that -0.0 and 0.0
 //! are both mapped to 0 (as these are equal).
@@ -530,7 +530,9 @@ mod tests {
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
     // Float specific tests
-    use super::super::test_utils::{test_return_infs_argminmax, test_return_nans_argminmax};
+    use super::super::test_utils::{
+        test_return_infs_argminmax, test_return_nans_argminmax, test_signed_zeros_argminmax,
+    };
 
     use dev_utils::utils;
 
@@ -633,7 +635,7 @@ mod tests {
         if !simd_available {
             return;
         }
-        super::super::test_utils::test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
+        test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]

@@ -5,7 +5,7 @@
 //! To serve this functionality we transform the f64 values to ordinal i64 values, by
 //! applying the sign bit to the magnitude (the other bits):
 //!     ord_i64 = v               if v >= 0 (as i64)
-//!     ord_i64 = i64::MIN - v      otherwise (i.e., minus the magnitude)
+//!     ord_i64 = i64::MIN - v    otherwise (i.e., minus the magnitude)
 //!
 //! This transformation is reversible (with the same formula), except that -0.0 and 0.0
 //! are both mapped to 0 (as these are equal).
@@ -96,11 +96,11 @@ mod avx2 {
     #[inline(always)]
     unsafe fn _f64_as_m256i_to_i64ord(f64_as_m256i: __m256i) -> __m256i {
         // on a scalar: v if v >= 0 else i64::MIN - v (-0.0 and 0.0 are both 0)
-        // Select (with the sign bit of v) the negated value for negative v, as
+        // Select (with the sign bit of v) minus the magnitude for negative v, as
         // srai_epi64 (to obtain a mask from the sign bit) is only available on AVX512F
-        let negated = _mm256_castsi256_pd(_mm256_sub_epi64(SIGN_BIT, f64_as_m256i));
+        let minus_magnitude = _mm256_castsi256_pd(_mm256_sub_epi64(SIGN_BIT, f64_as_m256i));
         let v = _mm256_castsi256_pd(f64_as_m256i);
-        _mm256_castpd_si256(_mm256_blendv_pd(v, negated, v))
+        _mm256_castpd_si256(_mm256_blendv_pd(v, minus_magnitude, v))
     }
 
     #[inline(always)]
@@ -197,11 +197,11 @@ mod sse {
     #[inline(always)]
     unsafe fn _f64_as_m128i_to_i64ord(f64_as_m128i: __m128i) -> __m128i {
         // on a scalar: v if v >= 0 else i64::MIN - v (-0.0 and 0.0 are both 0)
-        // Select (with the sign bit of v) the negated value for negative v, as
+        // Select (with the sign bit of v) minus the magnitude for negative v, as
         // srai_epi64 (to obtain a mask from the sign bit) is only available on AVX512F
-        let negated = _mm_castsi128_pd(_mm_sub_epi64(SIGN_BIT, f64_as_m128i));
+        let minus_magnitude = _mm_castsi128_pd(_mm_sub_epi64(SIGN_BIT, f64_as_m128i));
         let v = _mm_castsi128_pd(f64_as_m128i);
-        _mm_castpd_si128(_mm_blendv_pd(v, negated, v))
+        _mm_castpd_si128(_mm_blendv_pd(v, minus_magnitude, v))
     }
 
     #[inline(always)]
@@ -524,7 +524,9 @@ mod tests {
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
     // Float specific tests
-    use super::super::test_utils::{test_return_infs_argminmax, test_return_nans_argminmax};
+    use super::super::test_utils::{
+        test_return_infs_argminmax, test_return_nans_argminmax, test_signed_zeros_argminmax,
+    };
 
     use dev_utils::utils;
 
@@ -627,7 +629,7 @@ mod tests {
         if !simd_available {
             return;
         }
-        super::super::test_utils::test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
+        test_signed_zeros_argminmax(SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
