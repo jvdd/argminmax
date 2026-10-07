@@ -26,9 +26,21 @@ jobs:
         run: cargo check --verbose --all-features
       - name: check with formatting
         run: cargo fmt --all -- --check
-      # TODO: enable clippy once I write docs for all public items
-      # - name: check with clippy
-      #   run: cargo clippy --all --all-targets --all-features -- -D warnings
+      - name: check with clippy
+        run: cargo clippy --all --all-targets --all-features -- -D warnings
+      - name: check with clippy - no default features
+        run: cargo clippy --all --all-targets --no-default-features -- -D warnings
+      # The SIMD code is cfg-gated per architecture, so clippy only lints it when
+      # compiling for that architecture (x86_64 is linted above).
+      # On armv7 we skip the benches, as these use the unstable is_arm_feature_detected!
+      - name: Add the aarch64 and armv7 targets
+        run: rustup target add aarch64-unknown-linux-gnu armv7-unknown-linux-gnueabihf
+      - name: check with clippy - aarch64 (NEON)
+        run: cargo clippy --all --all-targets --all-features --target aarch64-unknown-linux-gnu -- -D warnings
+      - name: check with clippy - armv7 (NEON with nightly_simd)
+        run: cargo clippy --all --lib --tests --all-features --target armv7-unknown-linux-gnueabihf -- -D warnings
+      - name: check with clippy - armv7 (no SIMD)
+        run: cargo clippy --all --lib --tests --no-default-features --features "half,float" --target armv7-unknown-linux-gnueabihf -- -D warnings
 
   Check_Stable:
     runs-on: ${{ matrix.os }}
@@ -172,9 +184,6 @@ jobs:
         run: |
           rustup toolchain install --no-self-update
           rustup target add ${{ matrix.target }}
-          # rustup component add clippy
-      # - name: Run Clippy
-        # run: cargo clippy --all-targets --target ${{ matrix.target }}
 
       # NOTE: `arrow` and `arrow2` are intentionally excluded from the wasm32
       # build. They pull in `ahash` -> `getrandom`, and getrandom >=0.3

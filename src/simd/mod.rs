@@ -39,8 +39,7 @@ mod simd_u8;
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
-    all(target_arch = "arm", feature = "float"), // is stable for f64
-    feature = "nightly_simd"
 ))]
 mod test_utils;

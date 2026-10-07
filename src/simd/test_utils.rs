@@ -7,7 +7,7 @@ use crate::{SIMDArgMinMax, ScalarArgMinMax};
 
 // ------- Generic tests for argminmax
 
-/// The generic tests check whether the scalar and SIMD function return the same result.
+// The generic tests check whether the scalar and SIMD function return the same result.
 
 #[cfg(test)]
 const LONG_ARR_LEN: usize = 8193; // 8192 + 1
@@ -222,9 +222,7 @@ pub(crate) fn test_return_infs_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 {
     let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
     // Case 1: all elements are +inf
-    for i in 0..data.len() {
-        data[i] = DType::infinity();
-    }
+    data.fill(DType::infinity());
 
     let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
     let argmin_index_single = SCALAR::argmin(&data);
@@ -243,9 +241,7 @@ pub(crate) fn test_return_infs_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     assert_eq!(argmax_simd_index_single, 0);
 
     // Case 2: all elements are -inf
-    for i in 0..data.len() {
-        data[i] = DType::neg_infinity();
-    }
+    data.fill(DType::neg_infinity());
 
     let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
     let argmin_index_single = SCALAR::argmin(&data);
@@ -331,9 +327,7 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // Case 1.1 - NaN is the first element, other values are all the same
         let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
         data[0] = nan;
-        for i in 1..data.len() {
-            data[i] = DType::from(1.0).unwrap();
-        }
+        data[1..].fill(DType::from(1.0).unwrap());
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);
@@ -354,8 +348,8 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // Case 1.2 - NaN is the first element, other values are monotonic increasing
         let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
         data[0] = nan;
-        for i in 1..data.len() {
-            data[i] = DType::from(i as f64).unwrap();
+        for (i, v) in data.iter_mut().enumerate().skip(1) {
+            *v = DType::from(i as f64).unwrap();
         }
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
@@ -377,8 +371,8 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // Case 1.3 - NaN is the first element, other values are monotonic decreasing
         let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
         data[0] = nan;
-        for i in 1..data.len() {
-            data[i] = DType::from((FLOAT_ARR_LEN - i) as f64).unwrap();
+        for (i, v) in data.iter_mut().enumerate().skip(1) {
+            *v = DType::from((FLOAT_ARR_LEN - i) as f64).unwrap();
         }
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
@@ -398,9 +392,7 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_simd_index_single, 1);
 
         // Case 2: first 100 elements are NaN
-        for i in 0..100 {
-            data[i] = nan;
-        }
+        data[..100].fill(nan);
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);
@@ -508,9 +500,7 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_index, argmax_simd_index_single);
 
         // Case 6: all elements are NaN
-        for i in 0..data.len() {
-            data[i] = nan;
-        }
+        data.fill(nan);
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);
@@ -578,9 +568,7 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_simd_index_single, 0);
 
         // Case 2: first 100 elements are NaN
-        for i in 0..100 {
-            data[i] = nan;
-        }
+        data[..100].fill(nan);
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);
@@ -681,9 +669,7 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_simd_index_single, 123);
 
         // Case 7: all elements are NaN
-        for i in 0..data.len() {
-            data[i] = nan;
-        }
+        data.fill(nan);
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);

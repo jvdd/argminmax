@@ -53,18 +53,22 @@ required-features = ["half"]
 [[bench]]
 name = "bench_f32_return_nan"
 harness = false
+required-features = ["float"]
 
 [[bench]]
 name = "bench_f32_ignore_nan"
 harness = false
+required-features = ["float"]
 
 [[bench]]
 name = "bench_f64_return_nan"
 harness = false
+required-features = ["float"]
 
 [[bench]]
 name = "bench_f64_ignore_nan"
 harness = false
+required-features = ["float"]
 
 [[bench]]
 name = "bench_i8"
