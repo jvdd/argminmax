@@ -141,10 +141,13 @@ pub(crate) fn scalar_argmin_f16_ignore_nan(arr: &[f16]) -> usize {
     //     1. this is 7-10x faster than using raw f16
     //     2. this is 3x faster than transforming to f32 or f64
     assert!(!arr.is_empty());
-    let mut low_index: usize = 0;
+    // Start from the first non-NaN value (index 0 if all values are NaN), so that the
+    // loop does not have to check whether the first non-NaN value was seen (the
+    // values before it are NaN, which the loop ignores)
+    let mut low_index: usize = arr.iter().position(|v| !v.is_nan()).unwrap_or(0);
     // It is remarkably faster to iterate over the index and use get_unchecked
     // than using .iter().enumerate() (with a fold).
-    let mut low: i16 = f16_to_i16ord(f16::INFINITY);
+    let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
     for i in 0..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
@@ -167,10 +170,13 @@ pub(crate) fn scalar_argmax_f16_ignore_nan(arr: &[f16]) -> usize {
     //     1. this is 7-10x faster than using raw f16
     //     2. this is 3x faster than transforming to f32 or f64
     assert!(!arr.is_empty());
-    let mut high_index: usize = 0;
+    // Start from the first non-NaN value (index 0 if all values are NaN), so that the
+    // loop does not have to check whether the first non-NaN value was seen (the
+    // values before it are NaN, which the loop ignores)
+    let mut high_index: usize = arr.iter().position(|v| !v.is_nan()).unwrap_or(0);
     // It is remarkably faster to iterate over the index and use get_unchecked
     // than using .iter().enumerate() (with a fold).
-    let mut high: i16 = f16_to_i16ord(f16::NEG_INFINITY);
+    let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
     for i in 0..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
@@ -344,5 +350,16 @@ mod tests {
         assert_eq!(argmax_index, argmax_index_f16_single);
         assert_eq!(argmin_index, 0);
         assert_eq!(argmax_index, 0);
+
+        // only NaNs and infinities (the first one is NaN)
+        for inf in [f32::INFINITY, f32::NEG_INFINITY] {
+            let data_f32: Vec<f32> = vec![f32::NAN, inf, inf, f32::NAN];
+            let data_f16: Vec<f16> = data_f32.iter().map(|&x| f16::from_f32(x)).collect();
+            let (argmin_index, argmax_index) = SCALAR::<FloatIgnoreNaN>::argminmax(&data_f32);
+            assert_eq!((argmin_index, argmax_index), (1, 1));
+            assert_eq!(scalar_argminmax_f16_ignore_nan(&data_f16), (1, 1));
+            assert_eq!(scalar_argmin_f16_ignore_nan(&data_f16), 1);
+            assert_eq!(scalar_argmax_f16_ignore_nan(&data_f16), 1);
+        }
     }
 }
