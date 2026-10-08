@@ -1,4 +1,4 @@
-//! Implementation of the argminmax operations for f32 that ignores NaN values.
+//! Implementation of the argminmax operations for f16 that ignores NaN values.
 //! This implementation returns the index of the minimum and maximum values.
 //! However, unexpected behavior may occur when there are
 //! - *only* NaN values in the array
@@ -49,7 +49,7 @@ use super::generic::{
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use crate::SCALAR;
+use crate::{scalar::scalar_f16::i16ord_to_f16, SCALAR};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -97,23 +97,6 @@ const NAN_VALUE: i16 = 0x7C00; // absolute values above this are NaN
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-#[inline(always)]
-fn _i16ord_to_f16(ord_i16: i16) -> f16 {
-    // The same formula as the transformation (0.0 is returned for -0.0)
-    let v = if ord_i16 < 0 {
-        i16::MIN - ord_i16
-    } else {
-        ord_i16
-    };
-    f16::from_bits(v as u16)
-}
-
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
 const MAX_INDEX: usize = i16::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
@@ -126,18 +109,12 @@ mod avx2_ignore_nan {
     const LANE_SIZE: usize = AVX2::<FloatIgnoreNaN>::LANE_SIZE_16;
     const LOWER_15_MASK: __m256i = unsafe { std::mem::transmute([i16::MAX; LANE_SIZE]) };
     const NAN_MASK: __m256i = unsafe { std::mem::transmute([NAN_VALUE + 1; LANE_SIZE]) };
+    const NEG_NAN_MASK: __m256i = unsafe { std::mem::transmute([-NAN_VALUE - 1; LANE_SIZE]) };
 
     #[inline(always)]
     unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
         // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
         _mm256_sign_epi16(_mm256_and_si256(f16_as_m256i, LOWER_15_MASK), f16_as_m256i)
-    }
-
-    #[inline(always)]
-    unsafe fn _non_nan_check(ord_i16: __m256i) -> __m256i {
-        // The absolute value of the ordinal i16 value is the magnitude of the f16 value
-        // on a scalar: abs(ord) < 0x7C01
-        _mm256_cmpgt_epi16(NAN_MASK, _mm256_abs_epi16(ord_i16))
     }
 
     #[inline(always)]
@@ -174,15 +151,21 @@ mod avx2_ignore_nan {
             _mm256_add_epi16(a, b)
         }
 
+        // The NaN check of a is one-sided: b (the accumulated values, which start at
+        // +/- inf) is never NaN, so a > b only holds for a positive NaN (ord > 0x7C00),
+        // and a < b only for a negative NaN (ord < -0x7C00). This saves the abs of the
+        // two-sided check that the other instruction sets use (for which it is not faster).
         #[inline(always)]
         unsafe fn _mm_cmpgt(a: __m256i, b: __m256i) -> __m256i {
-            // TODO for argminmax the non-nan check is avoided twice -> optimize this
-            _mm256_and_si256(_mm256_cmpgt_epi16(a, b), _non_nan_check(a))
+            _mm256_and_si256(_mm256_cmpgt_epi16(a, b), _mm256_cmpgt_epi16(NAN_MASK, a))
         }
 
         #[inline(always)]
         unsafe fn _mm_cmplt(a: __m256i, b: __m256i) -> __m256i {
-            _mm256_and_si256(_mm256_cmpgt_epi16(b, a), _non_nan_check(a))
+            _mm256_and_si256(
+                _mm256_cmpgt_epi16(b, a),
+                _mm256_cmpgt_epi16(a, NEG_NAN_MASK),
+            )
         }
 
         #[inline(always)]
@@ -217,7 +200,7 @@ mod avx2_ignore_nan {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -247,7 +230,7 @@ mod avx2_ignore_nan {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
 
         // --- Necessary for impl_SIMDInit_FloatIgnoreNaN!
@@ -367,7 +350,7 @@ mod sse_ignore_nan {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -395,7 +378,7 @@ mod sse_ignore_nan {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
 
         // --- Necessary for impl_SIMDInit_FloatIgnoreNaN!
@@ -523,7 +506,7 @@ mod avx512_ignore_nan {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -555,7 +538,7 @@ mod avx512_ignore_nan {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
 
         // --- Necessary for impl_SIMDInit_FloatIgnoreNaN!
@@ -681,7 +664,7 @@ mod neon_ignore_nan {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let min_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -709,7 +692,7 @@ mod neon_ignore_nan {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let max_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
 
         #[inline(always)]

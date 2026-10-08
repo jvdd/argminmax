@@ -48,7 +48,7 @@ use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMD
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use crate::SCALAR;
+use crate::{scalar::scalar_f16::i16ord_to_f16, SCALAR};
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
@@ -74,23 +74,6 @@ use half::f16;
     target_arch = "aarch64",
 ))]
 use super::super::dtype_strategy::FloatReturnNaN;
-
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
-#[inline(always)]
-fn _i16ord_to_f16(ord_i16: i16) -> f16 {
-    // The same formula as the transformation (0.0 is returned for -0.0)
-    let v = if ord_i16 < 0 {
-        i16::MIN - ord_i16
-    } else {
-        ord_i16
-    };
-    f16::from_bits(v as u16)
-}
 
 #[cfg(any(
     target_arch = "x86",
@@ -192,7 +175,7 @@ mod avx2 {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -222,7 +205,7 @@ mod avx2 {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
     }
 
@@ -332,7 +315,7 @@ mod sse {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -360,7 +343,7 @@ mod sse {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
     }
 
@@ -480,7 +463,7 @@ mod avx512 {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -512,7 +495,7 @@ mod avx512 {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
     }
 
@@ -629,7 +612,7 @@ mod neon {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let min_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (min_index, _i16ord_to_f16(min_value))
+            (min_index, i16ord_to_f16(min_value))
         }
 
         #[inline(always)]
@@ -657,7 +640,7 @@ mod neon {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let max_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (max_index, _i16ord_to_f16(max_value))
+            (max_index, i16ord_to_f16(max_value))
         }
     }
 

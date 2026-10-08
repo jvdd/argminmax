@@ -6,15 +6,33 @@
 //!
 use half::f16;
 
+/// The order-preserving map between the bits of an f16 (sign and magnitude, as i16) and
+/// i16ord: v if v >= 0, else i16::MIN - v (minus the magnitude). The map is its own
+/// inverse, except that -0.0 and 0.0 are both mapped to 0 (as these are equal).
 #[inline(always)]
-fn f16_to_i16ord(x: f16) -> i16 {
-    // v if v >= 0 else i16::MIN - v: -0.0 and 0.0 are both 0
-    let v = x.to_bits() as i16;
+fn i16ord_map(v: i16) -> i16 {
     if v < 0 {
         i16::MIN - v
     } else {
         v
     }
+}
+
+#[inline(always)]
+fn f16_to_i16ord(x: f16) -> i16 {
+    i16ord_map(x.to_bits() as i16)
+}
+
+/// The inverse of `f16_to_i16ord` (0.0 is returned for -0.0)
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
+#[inline(always)]
+pub(crate) fn i16ord_to_f16(ord_i16: i16) -> f16 {
+    f16::from_bits(i16ord_map(ord_i16) as u16)
 }
 
 // ------- Float Return NaN -------
@@ -108,27 +126,25 @@ pub(crate) fn scalar_argminmax_f16_ignore_nan(arr: &[f16]) -> (usize, usize) {
     //     1. this is 7-10x faster than using raw f16
     //     2. this is 3x faster than transforming to f32 or f64
     assert!(!arr.is_empty());
-    let mut low_index: usize = 0;
-    let mut high_index: usize = 0;
+    // Start from the first non-NaN value, so that the loop does not have to check
+    // whether a non-NaN value was seen
+    let Some(start) = arr.iter().position(|v| !v.is_nan()) else {
+        return (0, 0); // all values are NaN
+    };
+    let mut low_index: usize = start;
+    let mut high_index: usize = start;
+    let mut low: i16 = f16_to_i16ord(arr[start]);
+    let mut high: i16 = low;
     // It is remarkably faster to iterate over the index and use get_unchecked
     // than using .iter().enumerate() (with a fold).
-    let mut low: i16 = f16_to_i16ord(f16::INFINITY);
-    let mut high: i16 = f16_to_i16ord(f16::NEG_INFINITY);
-    let mut first_non_nan_update = true;
-    for i in 0..arr.len() {
+    for i in start + 1..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
             // v is NaN, ignore it (do nothing)
         } else {
             // v is not NaN
             let v: i16 = f16_to_i16ord(v);
-            if first_non_nan_update {
-                low = v;
-                high = v;
-                low_index = i;
-                high_index = i;
-                first_non_nan_update = false;
-            } else if v < low {
+            if v < low {
                 low = v;
                 low_index = i;
             } else if v > high {
@@ -146,14 +162,16 @@ pub(crate) fn scalar_argmin_f16_ignore_nan(arr: &[f16]) -> usize {
     //     1. this is 7-10x faster than using raw f16
     //     2. this is 3x faster than transforming to f32 or f64
     assert!(!arr.is_empty());
-    // Start from the first non-NaN value (index 0 if all values are NaN), so that the
-    // loop does not have to check whether the first non-NaN value was seen (the
-    // values before it are NaN, which the loop ignores)
-    let mut low_index: usize = arr.iter().position(|v| !v.is_nan()).unwrap_or(0);
+    // Start from the first non-NaN value, so that the loop does not have to check
+    // whether a non-NaN value was seen
+    let Some(start) = arr.iter().position(|v| !v.is_nan()) else {
+        return 0; // all values are NaN
+    };
+    let mut low_index: usize = start;
+    let mut low: i16 = f16_to_i16ord(arr[start]);
     // It is remarkably faster to iterate over the index and use get_unchecked
     // than using .iter().enumerate() (with a fold).
-    let mut low: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(low_index) });
-    for i in 0..arr.len() {
+    for i in start + 1..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
             // v is NaN, ignore it (do nothing)
@@ -175,14 +193,16 @@ pub(crate) fn scalar_argmax_f16_ignore_nan(arr: &[f16]) -> usize {
     //     1. this is 7-10x faster than using raw f16
     //     2. this is 3x faster than transforming to f32 or f64
     assert!(!arr.is_empty());
-    // Start from the first non-NaN value (index 0 if all values are NaN), so that the
-    // loop does not have to check whether the first non-NaN value was seen (the
-    // values before it are NaN, which the loop ignores)
-    let mut high_index: usize = arr.iter().position(|v| !v.is_nan()).unwrap_or(0);
+    // Start from the first non-NaN value, so that the loop does not have to check
+    // whether a non-NaN value was seen
+    let Some(start) = arr.iter().position(|v| !v.is_nan()) else {
+        return 0; // all values are NaN
+    };
+    let mut high_index: usize = start;
+    let mut high: i16 = f16_to_i16ord(arr[start]);
     // It is remarkably faster to iterate over the index and use get_unchecked
     // than using .iter().enumerate() (with a fold).
-    let mut high: i16 = f16_to_i16ord(unsafe { *arr.get_unchecked(high_index) });
-    for i in 0..arr.len() {
+    for i in start + 1..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
             // v is NaN, ignore it (do nothing)
