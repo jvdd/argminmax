@@ -459,6 +459,14 @@ mod masked_tests {
         let data: Vec<i32> = vec![0; 9];
         data.argminmax_masked(&[0xFF], 0);
     }
+
+    #[test]
+    #[should_panic(expected = "The validity bitmap is too short")]
+    fn test_argminmax_masked_offset_overflow() {
+        // offset + len overflows
+        let data: Vec<i32> = vec![0];
+        data.argminmax_masked(&[], usize::MAX);
+    }
 }
 
 /// Test the ArgMinMax trait for the ndarray implementation: Array1 and ArrayView1

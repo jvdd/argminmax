@@ -75,5 +75,36 @@ bench_masked!(masked_i64, i64, Int, "sse4.2", "avx2", "avx512f");
 bench_masked!(masked_f32, f32, FloatIgnoreNaN, "sse4.1", "avx", "avx512f");
 bench_masked!(masked_f64, f64, FloatIgnoreNaN, "sse4.1", "avx", "avx512f");
 
-criterion_group!(benches, masked_u8, masked_i16, masked_i32, masked_i64, masked_f32, masked_f64);
+/// The masked argmin of i128, which only has the scalar implementation, and the loop that
+/// Polars uses for a chunk with nulls (`arg_min_numeric_chunked`)
+fn masked_i128(c: &mut Criterion) {
+    let n = config::ARRAY_LENGTH_LONG;
+    let data: &[i128] = &utils::SampleUniformFullRange::get_random_array(n);
+    let validity: &[u8] = &get_validity(n);
+    let is_valid = |i: usize| (validity[i / 8] >> (i % 8)) & 1 == 1;
+    c.bench_function("iter_i128_argmin_masked", |b| {
+        b.iter(|| {
+            black_box(data)
+                .iter()
+                .enumerate()
+                .filter(|&(i, _)| is_valid(i))
+                .reduce(|acc, (i, v)| if v < acc.1 { (i, v) } else { acc })
+                .map(|(i, _)| i)
+        })
+    });
+    c.bench_function("scalar_i128_argmin_masked", |b| {
+        b.iter(|| SCALAR::<Int>::argmin_masked(black_box(data), validity, 0))
+    });
+}
+
+criterion_group!(
+    benches,
+    masked_u8,
+    masked_i16,
+    masked_i32,
+    masked_i64,
+    masked_f32,
+    masked_f64,
+    masked_i128
+);
 criterion_main!(benches);
