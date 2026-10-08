@@ -786,6 +786,8 @@ where
             LANE_SIZE,
             Self::_overflow_safe_core_argmin, // SIMD operation
             SCALAR::argmin,                   // Scalar operation
+            Self::_overflow_safe_core_argmax, // SIMD operation of the opposite pass
+            SCALAR::argmax,                   // Scalar operation of the opposite pass
             Self::_nan_check,                 // NaN check - true if value is NaN
             Self::IGNORE_NAN,                 // Ignore NaNs - if false -> return NaN
         )
@@ -825,6 +827,8 @@ where
             LANE_SIZE,
             Self::_overflow_safe_core_argmax, // SIMD operation
             SCALAR::argmax,                   // Scalar operation
+            Self::_overflow_safe_core_argmin, // SIMD operation of the opposite pass
+            SCALAR::argmin,                   // Scalar operation of the opposite pass
             Self::_nan_check,                 // NaN check - true if value is NaN
             Self::IGNORE_NAN,                 // Ignore NaNs - if false -> return NaN
         )
