@@ -214,7 +214,6 @@ pub trait NaNArgMinMax {
     target_arch = "x86",
     target_arch = "x86_64",
     all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
 ))]
 trait DTypeInfo {
     const NB_BITS: usize;
@@ -229,7 +228,6 @@ macro_rules! impl_nb_bits {
             target_arch = "x86",
             target_arch = "x86_64",
             all(target_arch = "arm", feature = "nightly_simd"),
-            target_arch = "aarch64",
         ))]
         impl DTypeInfo for $data_type {
             const NB_BITS: usize = std::mem::size_of::<$data_type>() * 8;
@@ -370,13 +368,6 @@ macro_rules! impl_argminmax_int {
         $(
             impl ArgMinMax for &[$int_type] {
                 fn argminmax(&self) -> (usize, usize) {
-                    #[cfg(target_arch = "aarch64")]
-                    {
-                        if <$int_type>::NB_BITS == 64 {
-                            // Scalar is faster for 64-bit numbers
-                            return SCALAR::<Int>::argminmax(self);
-                        }
-                    }
                     dispatch!($int_type, Int, argminmax(self))
                 }
 
