@@ -129,6 +129,10 @@ mod avx2_ignore_nan {
         const INDEX_INCREMENT: __m256i =
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
+        // With groups, `argminmax` is 13-19% slower (the NaN-masked comparisons limit
+        // the throughput of this loop), and `argmin` / `argmax` only 2% (i7-1185G7) to
+        // 16% (Ryzen 9 5950X) faster
+        const GROUP_VECTORS: bool = false;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m256i) -> [f16; LANE_SIZE] {
@@ -234,9 +238,7 @@ mod avx2_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m256i {
-            // TODO: can better perhaps?
-            let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
-            _f16_as_m256i_to_i16ord(_mm256_loadu_si256(data.as_ptr() as *const __m256i))
+            _f16_as_m256i_to_i16ord(_mm256_set1_epi16(a.to_bits() as i16))
         }
     }
 
@@ -288,6 +290,9 @@ mod sse_ignore_nan {
         const INDEX_INCREMENT: __m128i =
             unsafe { std::mem::transmute([LANE_SIZE as i16; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
+        // The NaN-masked comparisons limit the throughput of this loop, so grouping the
+        // vectors only adds work (13-15% slower on an i7-1185G7)
+        const GROUP_VECTORS: bool = false;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(_: __m128i) -> [f16; LANE_SIZE] {
@@ -382,8 +387,7 @@ mod sse_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m128i {
-            let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
-            _f16_as_m128i_to_i16ord(_mm_loadu_si128(data.as_ptr() as *const __m128i))
+            _f16_as_m128i_to_i16ord(_mm_set1_epi16(a.to_bits() as i16))
         }
     }
 
@@ -542,8 +546,7 @@ mod avx512_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> __m512i {
-            let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
-            _f16_as_m521i_to_i16ord(_mm512_loadu_si512(data.as_ptr() as *const _))
+            _f16_as_m521i_to_i16ord(_mm512_set1_epi16(a.to_bits() as i16))
         }
     }
 
@@ -694,8 +697,7 @@ mod neon_ignore_nan {
 
         #[inline(always)]
         unsafe fn _mm_set1(a: f16) -> int16x8_t {
-            let data: [f16; LANE_SIZE] = [a; LANE_SIZE];
-            _f16_as_int16x8_to_i16ord(vld1q_s16(data.as_ptr() as *const i16))
+            _f16_as_int16x8_to_i16ord(vdupq_n_s16(a.to_bits() as i16))
         }
     }
 

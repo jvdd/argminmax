@@ -30,6 +30,14 @@ where
     const INITIAL_INDEX: SIMDVecDtype;
     /// Increment value for the SIMD vector
     const INDEX_INCREMENT: SIMDVecDtype;
+    /// Whether `SIMDCore::_core_argminmax` reduces each group of vectors to one
+    /// candidate before comparing it with the running min / max. Disable this where
+    /// measurements show that the groups do not help, e.g., when the loop is limited by
+    /// its throughput rather than by that comparison, or when the overflow-safe loop
+    /// restarts after a few vectors.
+    /// This is a setting of the algorithm rather than an operation, but it is defined
+    /// here as it depends on both the instruction set and the data type.
+    const GROUP_VECTORS: bool = true;
 
     /// Convert a SIMD register to array
     unsafe fn _reg_to_arr(reg: SIMDVecDtype) -> [ScalarDType; LANE_SIZE];
@@ -335,6 +343,10 @@ pub(crate) use impl_SIMDInit_FloatIgnoreNaN; // Now classic paths Just Work™
 
 // ---------------------------------- SIMD algorithm -----------------------------------
 
+/// Number of vectors that `SIMDCore::_core_argminmax` reduces to one candidate before
+/// comparing it with the running min / max.
+pub(crate) const VECTORS_PER_GROUP: usize = 4;
+
 /// The SIMDCore trait (for all data types).
 /// This trait contains the core of the argminmax algorithm.
 ///
@@ -361,54 +373,72 @@ where
     /// Note that this method is not overflow safe, as it assumes that the array length
     /// is <= MAX_INDEX. The `_overflow_safe_core_argminmax` method is overflow safe.
     ///
+    /// Comparing every vector with the running min / max makes each comparison wait for
+    /// the previous one. Instead (unless `GROUP_VECTORS` is false), every group of
+    /// `VECTORS_PER_GROUP` vectors is first reduced to one candidate (which does not
+    /// depend on the running min / max), and only that candidate is compared with the
+    /// running min / max. This allows the CPU to process the vectors of several groups
+    /// at the same time.
+    ///
     #[inline(always)]
     unsafe fn _core_argminmax(arr: &[ScalarDType]) -> (usize, ScalarDType, usize, ScalarDType) {
         assert_eq!(arr.len() % LANE_SIZE, 0);
         // Efficient calculation of argmin and argmax together
 
-        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loop
-        let mut new_index = Self::INITIAL_INDEX; // Index we will increment in the loop
-        let (mut index_low, mut values_low) = Self::_initialize_index_values_low(arr_ptr);
-        let (mut index_high, mut values_high) = Self::_initialize_index_values_high(arr_ptr);
+        let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loops
+        let mut new_index = Self::INITIAL_INDEX; // Index we will increment in the loops
+        let mut low = Self::_initialize_index_values_low(arr_ptr);
+        let mut high = Self::_initialize_index_values_high(arr_ptr);
 
-        // This is (40%-5%) slower than the loop below (depending on the data type)
-        // arr.chunks_exact(LANE_SIZE)
-        //     .into_iter()
-        //     .skip(1)
-        //     .for_each(|step| {
-        //         new_index = Self::_mm_add(new_index, increment);
-
-        //         let new_values = Self::_mm_loadu(step.as_ptr());
-
-        //         let lt_mask = Self::_mm_cmplt(new_values, values_low);
-        //         let gt_mask = Self::_mm_cmpgt(new_values, values_high);
-
-        //         index_low = Self::_mm_blendv(index_low, new_index, lt_mask);
-        //         index_high = Self::_mm_blendv(index_high, new_index, gt_mask);
-
-        //         values_low = Self::_mm_blendv(values_low, new_values, lt_mask);
-        //         values_high = Self::_mm_blendv(values_high, new_values, gt_mask);
-        //     });
-
-        for _ in 0..arr.len() / LANE_SIZE - 1 {
+        let nb_vectors = arr.len() / LANE_SIZE - 1; // the vectors after the first one
+        let nb_groups = if Self::GROUP_VECTORS {
+            nb_vectors / VECTORS_PER_GROUP
+        } else {
+            0
+        };
+        // The index increment from one group to the next. Adding this once per group,
+        // instead of continuing from the last index within the group, keeps the index
+        // additions within a group out of the dependency chain between the groups (the
+        // compiler can not reorder float additions, e.g., for f32 indices).
+        let mut group_index_increment = Self::INDEX_INCREMENT;
+        for _ in 1..VECTORS_PER_GROUP {
+            group_index_increment = Self::_mm_add(group_index_increment, Self::INDEX_INCREMENT);
+        }
+        for _ in 0..nb_groups {
+            // Reduce the next group to its lowest and highest values (and their index)
+            let group_ptr = arr_ptr.add(LANE_SIZE);
+            let mut group_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
+            // Start from the first vector. When ignoring NaNs, its NaNs become +inf
+            // (-inf), which never replaces the running min (max).
+            let (_, values_low) = Self::_initialize_index_values_low(group_ptr);
+            let (_, values_high) = Self::_initialize_index_values_high(group_ptr);
+            let mut group_low = (group_index, values_low);
+            let mut group_high = (group_index, values_high);
+            for i in 1..VECTORS_PER_GROUP {
+                group_index = Self::_mm_add(group_index, Self::INDEX_INCREMENT);
+                let new_values = Self::_mm_loadu(group_ptr.add(i * LANE_SIZE));
+                group_low = Self::_update_low(group_low, (group_index, new_values));
+                group_high = Self::_update_high(group_high, (group_index, new_values));
+            }
+            // Only these candidates are compared with the running min / max
+            low = Self::_update_low(low, group_low);
+            high = Self::_update_high(high, group_high);
+            arr_ptr = arr_ptr.add(VECTORS_PER_GROUP * LANE_SIZE);
+            new_index = Self::_mm_add(new_index, group_index_increment);
+        }
+        // The remaining vectors
+        for _ in 0..nb_vectors - nb_groups * VECTORS_PER_GROUP {
             // Increment the index
             new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
             // Load the next chunk of data
             arr_ptr = arr_ptr.add(LANE_SIZE);
             let new_values = Self::_mm_loadu(arr_ptr);
-
-            // Update the lowest values and index
-            let mask_low = Self::_mm_cmplt(new_values, values_low);
-            values_low = Self::_mm_blendv(values_low, new_values, mask_low);
-            index_low = Self::_mm_blendv(index_low, new_index, mask_low);
-
-            // Update the highest values and index
-            let mask_high = Self::_mm_cmpgt(new_values, values_high);
-            values_high = Self::_mm_blendv(values_high, new_values, mask_high);
-            index_high = Self::_mm_blendv(index_high, new_index, mask_high);
+            low = Self::_update_low(low, (new_index, new_values));
+            high = Self::_update_high(high, (new_index, new_values));
         }
 
         // Get the min/max index and corresponding value from the SIMD vectors and return
+        let ((index_low, values_low), (index_high, values_high)) = (low, high);
         let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
         let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
         (min_index, min_value, max_index, max_value)
@@ -452,6 +482,36 @@ where
     unsafe fn _core_argmax(arr: &[ScalarDType]) -> (usize, ScalarDType) {
         let (_, _, max_index, max_value) = Self::_core_argminmax(arr);
         (max_index, max_value)
+    }
+
+    /// Update the lowest (index, values) with the new (index, values) where these are
+    /// lower. On ties the current values are kept, so the first occurrence wins as long
+    /// as the new values come later in the array.
+    #[inline(always)]
+    unsafe fn _update_low(
+        (index_low, values_low): (SIMDVecDtype, SIMDVecDtype),
+        (new_index, new_values): (SIMDVecDtype, SIMDVecDtype),
+    ) -> (SIMDVecDtype, SIMDVecDtype) {
+        let mask_low = Self::_mm_cmplt(new_values, values_low);
+        // Blend the values first, as the next comparison waits for them
+        let values_low = Self::_mm_blendv(values_low, new_values, mask_low);
+        let index_low = Self::_mm_blendv(index_low, new_index, mask_low);
+        (index_low, values_low)
+    }
+
+    /// Update the highest (index, values) with the new (index, values) where these are
+    /// higher. On ties the current values are kept, so the first occurrence wins as
+    /// long as the new values come later in the array.
+    #[inline(always)]
+    unsafe fn _update_high(
+        (index_high, values_high): (SIMDVecDtype, SIMDVecDtype),
+        (new_index, new_values): (SIMDVecDtype, SIMDVecDtype),
+    ) -> (SIMDVecDtype, SIMDVecDtype) {
+        let mask_high = Self::_mm_cmpgt(new_values, values_high);
+        // Blend the values first, as the next comparison waits for them
+        let values_high = Self::_mm_blendv(values_high, new_values, mask_high);
+        let index_high = Self::_mm_blendv(index_high, new_index, mask_high);
+        (index_high, values_high)
     }
 
     /// Overflow-safe core argminmax algorithm - returns (argmin, min, argmax, max)

@@ -3,6 +3,7 @@ use num_traits::float::FloatCore;
 use num_traits::AsPrimitive;
 use num_traits::{Bounded, One};
 
+use crate::simd::generic::VECTORS_PER_GROUP;
 use crate::{SIMDArgMinMax, ScalarArgMinMax};
 
 // ------- Generic tests for argminmax
@@ -148,6 +149,31 @@ pub(crate) fn test_first_index_identical_values_argminmax<
     assert_eq!(argmin_simd_index_single, 5);
     assert_eq!(argmax_simd_index, 7);
     assert_eq!(argmax_simd_index_single, 7);
+
+    // Case 3: the MIN/MAX value occurs in the same lane of two vectors, for every pair
+    // of vectors (covering the first vector, the groups of vectors and the remaining
+    // vectors)
+    for nb_vectors in 2..=16 {
+        for first in 0..nb_vectors - 1 {
+            for second in first + 1..nb_vectors {
+                let min_lane = (first + second) % LANE_SIZE;
+                let max_lane = (min_lane + 1) % LANE_SIZE;
+                let mut data = vec![DType::one(); nb_vectors * LANE_SIZE];
+                for vector in [first, second] {
+                    data[vector * LANE_SIZE + min_lane] = DType::min_value();
+                    data[vector * LANE_SIZE + max_lane] = DType::max_value();
+                }
+                let argmin_index = first * LANE_SIZE + min_lane;
+                let argmax_index = first * LANE_SIZE + max_lane;
+
+                let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+                assert_eq!(argmin_simd_index, argmin_index);
+                assert_eq!(argmax_simd_index, argmax_index);
+                assert_eq!(unsafe { SIMD::argmin(&data) }, argmin_index);
+                assert_eq!(unsafe { SIMD::argmax(&data) }, argmax_index);
+            }
+        }
+    }
 }
 
 // ------- Overflow test
@@ -161,7 +187,7 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     _simd: SIMD,     // necessary to use SIMD
     arr_len: Option<usize>,
 ) where
-    DType: Copy + PartialOrd + AsPrimitive<usize>,
+    DType: Copy + PartialOrd + AsPrimitive<usize> + One + Bounded,
     SV: Copy, // SIMD vector type
     SM: Copy, // SIMD mask type
     SCALAR: ScalarArgMinMax<DType>,
@@ -197,6 +223,26 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     assert_eq!(argmax_index, argmax_simd_index);
     assert_eq!(argmax_index, argmax_index_single);
     assert_eq!(argmin_index, argmin_simd_index_single);
+
+    // The MIN/MAX value in the last lanes of each of the last vectors of the first chunk
+    // of the overflow-safe loop (the highest indices, in the vectors after the last
+    // group and in the last group), and again in the second chunk: the first
+    // occurrence wins
+    let chunk = SIMD::_get_overflow_lane_size_limit();
+    if 2 * chunk <= arr_len {
+        // (i8/u8 AVX2/AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors)
+        let nb_vectors = (VECTORS_PER_GROUP + 1).min(chunk / LANE_SIZE);
+        for end in (0..nb_vectors).map(|v| chunk - v * LANE_SIZE) {
+            let mut data = vec![DType::one(); 2 * chunk];
+            for start in [0, chunk] {
+                data[start + end - 2] = DType::min_value();
+                data[start + end - 1] = DType::max_value();
+            }
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, (end - 2, end - 1));
+            assert_eq!(unsafe { SIMD::argmin(&data) }, end - 2);
+            assert_eq!(unsafe { SIMD::argmax(&data) }, end - 1);
+        }
+    }
 }
 
 // ------- Float tests for argminmax
@@ -295,7 +341,8 @@ pub(crate) fn test_signed_zeros_argminmax<DType, SCALAR, SIMD, SV, SM, const LAN
     SCALAR: ScalarArgMinMax<DType>,
     SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
 {
-    let len = 2 * LANE_SIZE + 3;
+    // The first vector, a group of vectors, one more vector and a scalar remainder
+    let len = 6 * LANE_SIZE + 3;
     for (zero_i, zero_j) in [
         (DType::zero(), -DType::zero()),
         (-DType::zero(), DType::zero()),
@@ -591,6 +638,22 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmin_simd_index_single, 0);
         assert_eq!(argmax_simd_index, 0);
         assert_eq!(argmax_simd_index_single, 0);
+
+        // Case 6.1 - every other vector is NaN, the MIN/MAX values follow a NaN vector
+        let mut data: Vec<DType> = vec![DType::one(); 16 * LANE_SIZE + 1];
+        for (i, v) in data.iter_mut().enumerate() {
+            if (i / LANE_SIZE) % 2 == 1 {
+                *v = nan;
+            }
+        }
+        data[2 * LANE_SIZE] = DType::min_value();
+        data[2 * LANE_SIZE + 1] = DType::max_value();
+
+        let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
+        assert_eq!(argmin_simd_index, 2 * LANE_SIZE);
+        assert_eq!(argmax_simd_index, 2 * LANE_SIZE + 1);
+        assert_eq!(unsafe { SIMD::argmin(&data) }, 2 * LANE_SIZE);
+        assert_eq!(unsafe { SIMD::argmax(&data) }, 2 * LANE_SIZE + 1);
     }
 
     // Case 7: negative zero & negative subnormal values are no NaNs
