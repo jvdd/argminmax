@@ -345,7 +345,7 @@ pub(crate) use impl_SIMDInit_FloatIgnoreNaN; // Now classic paths Just Work™
 
 /// Number of vectors that `SIMDCore::_core_argminmax` reduces to one candidate before
 /// comparing it with the running min / max.
-const VECTORS_PER_GROUP: usize = 4;
+pub(crate) const VECTORS_PER_GROUP: usize = 4;
 
 /// The SIMDCore trait (for all data types).
 /// This trait contains the core of the argminmax algorithm.

@@ -3,6 +3,7 @@ use num_traits::float::FloatCore;
 use num_traits::AsPrimitive;
 use num_traits::{Bounded, One};
 
+use crate::simd::generic::VECTORS_PER_GROUP;
 use crate::{SIMDArgMinMax, ScalarArgMinMax};
 
 // ------- Generic tests for argminmax
@@ -223,18 +224,22 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     assert_eq!(argmax_index, argmax_index_single);
     assert_eq!(argmin_index, argmin_simd_index_single);
 
-    // The MIN/MAX value in the last lanes of the first chunk of the overflow-safe loop
-    // (the highest indices), and again in the second chunk: the first occurrence wins
+    // The MIN/MAX value in the last lanes of each of the last vectors of the first chunk
+    // of the overflow-safe loop (the highest indices, in the vectors after the last
+    // group and in the last group), and again in the second chunk: the first
+    // occurrence wins
     let chunk = SIMD::_get_overflow_lane_size_limit();
     if 2 * chunk <= arr_len {
-        let mut data = vec![DType::one(); 2 * chunk];
-        for start in [0, chunk] {
-            data[start + chunk - 2] = DType::min_value();
-            data[start + chunk - 1] = DType::max_value();
+        for end in (0..=VECTORS_PER_GROUP).map(|v| chunk - v * LANE_SIZE) {
+            let mut data = vec![DType::one(); 2 * chunk];
+            for start in [0, chunk] {
+                data[start + end - 2] = DType::min_value();
+                data[start + end - 1] = DType::max_value();
+            }
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, (end - 2, end - 1));
+            assert_eq!(unsafe { SIMD::argmin(&data) }, end - 2);
+            assert_eq!(unsafe { SIMD::argmax(&data) }, end - 1);
         }
-        assert_eq!(unsafe { SIMD::argminmax(&data) }, (chunk - 2, chunk - 1));
-        assert_eq!(unsafe { SIMD::argmin(&data) }, chunk - 2);
-        assert_eq!(unsafe { SIMD::argmax(&data) }, chunk - 1);
     }
 }
 
