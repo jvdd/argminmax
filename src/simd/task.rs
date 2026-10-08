@@ -171,7 +171,7 @@ fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the index of the simd result (as the first part
 ///   of the array is passed to the SIMD function)
-/// - If one value is NaN, returns the index of the non-NaN value
+/// - If one value is NaN, returns the index of the NaN value
 /// - If neither value is NaN, returns the index of the min value
 ///
 /// If ignoring NaNs: returns the index of the min value
@@ -202,7 +202,7 @@ fn find_final_index_min<T: Copy + PartialOrd>(
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the index of the simd result (as the first part
 ///   of the array is passed to the SIMD function)
-/// - If one value is NaN, returns the index of the non-NaN value
+/// - If one value is NaN, returns the index of the NaN value
 /// - If neither value is NaN, returns the index of the max value
 ///
 /// If ignoring NaNs: returns the index of the max value
@@ -232,7 +232,7 @@ fn find_final_index_max<T: Copy + PartialOrd>(
 /// Get the correct index(es) for the argmin and argmax functions
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the lowest index twice
-/// - If one value is NaN, returns the index of the non-NaN value twice
+/// - If one value is NaN, returns the index of the NaN value twice
 /// - If neither value is NaN, returns the min_index and max_index
 ///
 /// If ignoring NaNs: returns the min_index and max_index

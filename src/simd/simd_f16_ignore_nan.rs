@@ -6,9 +6,8 @@
 //! To realize this we create an initial SIMD register with values +/- infinity.
 //! As comparisons with NaN always return false, it is guaranteed that no NaN values
 //! are added to the accumulating SIMD register.
-//! When no value is smaller (larger) than the initial +inf (-inf), the initial index 0
-//! is kept, even if it is a NaN: the functions in simd/task.rs then return the first
-//! non-NaN index.
+//! If no value is smaller (larger) than +inf (-inf), index 0 is kept, even for a NaN;
+//! simd/task.rs repairs that.
 //!
 //! As there currently are no f16 SIMD instructions, we use the i16 SIMD instructions
 //! and reinterpret the f16 values as i16 values. This is possible because we transform

@@ -550,8 +550,11 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             .collect();
         let chunk = SIMD::_get_overflow_lane_size_limit();
         if chunk < 1 << 16 {
-            // only f16 (i16 indices) has a chunk that is small enough to test
-            cases.extend([chunk - 1, chunk, chunk + 1].map(|k| (k, 2 * chunk + 3)));
+            // only f16 (i16 indices) has a chunk that is small enough to test: k around
+            // the first chunk boundary, with a full or a partial (one vector) second chunk
+            for len in [2 * chunk + 3, chunk + LANE_SIZE, chunk + LANE_SIZE + 3] {
+                cases.extend([chunk - 1, chunk, chunk + 1].map(|k| (k, len)));
+            }
         }
         for inf in [DType::infinity(), DType::neg_infinity()] {
             for &(k, len) in &cases {
