@@ -136,8 +136,9 @@ pub(crate) fn scalar_argminmax_f16_ignore_nan(arr: &[f16]) -> (usize, usize) {
     let mut low: i16 = f16_to_i16ord(arr[start]);
     let mut high: i16 = low;
     // It is remarkably faster to iterate over the index and use get_unchecked
-    // than using .iter().enumerate() (with a fold).
-    for i in start + 1..arr.len() {
+    // than using .iter().enumerate() (with a fold). The loop starts at `start` (not
+    // `start + 1`), as LLVM does not unroll it on aarch64 otherwise.
+    for i in start..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
             // v is NaN, ignore it (do nothing)
@@ -170,8 +171,9 @@ pub(crate) fn scalar_argmin_f16_ignore_nan(arr: &[f16]) -> usize {
     let mut low_index: usize = start;
     let mut low: i16 = f16_to_i16ord(arr[start]);
     // It is remarkably faster to iterate over the index and use get_unchecked
-    // than using .iter().enumerate() (with a fold).
-    for i in start + 1..arr.len() {
+    // than using .iter().enumerate() (with a fold). The loop starts at `start` (not
+    // `start + 1`), as LLVM does not unroll it on aarch64 otherwise.
+    for i in start..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
             // v is NaN, ignore it (do nothing)
@@ -201,8 +203,9 @@ pub(crate) fn scalar_argmax_f16_ignore_nan(arr: &[f16]) -> usize {
     let mut high_index: usize = start;
     let mut high: i16 = f16_to_i16ord(arr[start]);
     // It is remarkably faster to iterate over the index and use get_unchecked
-    // than using .iter().enumerate() (with a fold).
-    for i in start + 1..arr.len() {
+    // than using .iter().enumerate() (with a fold). The loop starts at `start` (not
+    // `start + 1`), as LLVM does not unroll it on aarch64 otherwise.
+    for i in start..arr.len() {
         let v: f16 = unsafe { *arr.get_unchecked(i) };
         if v.is_nan() {
             // v is NaN, ignore it (do nothing)
