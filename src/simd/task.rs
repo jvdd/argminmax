@@ -53,13 +53,17 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
     };
     if ignore_nan {
-        (
-            first_non_nan_if_nan(arr, min_index, nan_check),
-            first_non_nan_if_nan(arr, max_index, nan_check),
-        )
-    } else {
-        (min_index, max_index)
+        // A NaN min (max) index means that all non-NaN values are +inf (-inf), see
+        // `first_non_nan_if_nan`. The max (min) index is then the first of them, as ties
+        // keep the first index (or 0 if all values are NaN). So no scan is needed.
+        if nan_check(arr[min_index]) {
+            return (max_index, max_index);
+        }
+        if nan_check(arr[max_index]) {
+            return (min_index, min_index);
+        }
     }
+    (min_index, max_index)
 }
 
 #[inline(always)]
@@ -91,11 +95,7 @@ pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
         (None, Some(rem)) => scalar_argmin(rem),
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
     };
-    if ignore_nan {
-        first_non_nan_if_nan(arr, index, nan_check)
-    } else {
-        index
-    }
+    first_non_nan_if_nan(arr, index, nan_check, ignore_nan)
 }
 
 #[inline(always)]
@@ -127,11 +127,7 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
         (None, Some(rem)) => scalar_argmax(rem),
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
     };
-    if ignore_nan {
-        first_non_nan_if_nan(arr, index, nan_check)
-    } else {
-        index
-    }
+    first_non_nan_if_nan(arr, index, nan_check, ignore_nan)
 }
 
 /// The SIMD cores that ignore NaNs start from +inf (-inf) with index 0 and only update
@@ -139,8 +135,13 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
 /// other values are NaN or +inf (-inf). The min (max) is then the first non-NaN value
 /// (index 0 if all values are NaN). Only O(1) unless the index is NaN.
 #[inline(always)]
-fn first_non_nan_if_nan<T: Copy>(arr: &[T], index: usize, nan_check: fn(T) -> bool) -> usize {
-    if nan_check(arr[index]) {
+fn first_non_nan_if_nan<T: Copy>(
+    arr: &[T],
+    index: usize,
+    nan_check: fn(T) -> bool,
+    ignore_nan: bool,
+) -> usize {
+    if ignore_nan && nan_check(arr[index]) {
         arr.iter().position(|&v| !nan_check(v)).unwrap_or(0)
     } else {
         index
@@ -188,27 +189,11 @@ fn find_final_index_min<T: Copy + PartialOrd>(
         Some(Ordering::Less) => simd_result,
         Some(Ordering::Equal) => simd_result,
         Some(Ordering::Greater) => remainder_result,
-        None => {
-            if !ignore_nan {
-                // --- Return NaNs
-                // Should prefer simd result over remainder result if both are NaN
-                if nan_check(simd_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            } else {
-                // --- Ignore NaNs
-                // If both are NaN raise panic, else return index of the non-NaN value
-                if nan_check(simd_result.1) && nan_check(remainder_result.1) {
-                    panic!("Data contains only NaNs (or +/- inf)")
-                } else if nan_check(remainder_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            }
-        }
+        // When returning NaNs, prefer the simd result if it is NaN (also if both are).
+        // When ignoring NaNs, only the remainder value can be NaN: the simd value starts
+        // at +inf and never becomes NaN.
+        None if ignore_nan || nan_check(simd_result.1) => simd_result,
+        None => remainder_result,
     };
     (min_index, min_value)
 }
@@ -235,27 +220,11 @@ fn find_final_index_max<T: Copy + PartialOrd>(
         Some(Ordering::Greater) => simd_result,
         Some(Ordering::Equal) => simd_result,
         Some(Ordering::Less) => remainder_result,
-        None => {
-            if !ignore_nan {
-                // --- Return NaNs
-                // Should prefer simd result over remainder result if both are NaN
-                if nan_check(simd_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            } else {
-                // --- Ignore NaNs
-                // If both are NaN raise panic, else return index of the non-NaN value
-                if nan_check(simd_result.1) && nan_check(remainder_result.1) {
-                    panic!("Data contains only NaNs (or +/- inf)")
-                } else if nan_check(remainder_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            }
-        }
+        // When returning NaNs, prefer the simd result if it is NaN (also if both are).
+        // When ignoring NaNs, only the remainder value can be NaN: the simd value starts
+        // at -inf and never becomes NaN.
+        None if ignore_nan || nan_check(simd_result.1) => simd_result,
+        None => remainder_result,
     };
     (max_index, max_value)
 }

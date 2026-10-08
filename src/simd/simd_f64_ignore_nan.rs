@@ -7,8 +7,8 @@
 //! As comparisons with NaN always return false, it is guaranteed that no NaN values
 //! are added to the accumulating SIMD register.
 //! When no value is smaller (larger) than the initial +inf (-inf), the initial index 0
-//! is kept, even if it is a NaN: `argminmax_generic` (in simd/task.rs) then returns the
-//! first non-NaN index.
+//! is kept, even if it is a NaN: the functions in simd/task.rs then return the first
+//! non-NaN index.
 //!
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",))]

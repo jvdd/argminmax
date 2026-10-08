@@ -543,12 +543,14 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // Case 5.1: the only non-NaN values are +inf (or -inf), so the first non-NaN
         // index k is the argmin and the argmax - also when the NaNs fill the SIMD part
         // or (for f16) the first overflow chunk
-        // (k, array length) pairs
-        let mut cases: Vec<(usize, usize)> = (0..2 * LANE_SIZE + 3)
-            .map(|k| (k, 2 * LANE_SIZE + 3))
+        // (k, array length) pairs, without and with a remainder
+        let mut cases: Vec<(usize, usize)> = [2 * LANE_SIZE, 2 * LANE_SIZE + 3]
+            .into_iter()
+            .flat_map(|len| (0..len).map(move |k| (k, len)))
             .collect();
         let chunk = SIMD::_get_overflow_lane_size_limit();
         if chunk < 1 << 16 {
+            // only f16 (i16 indices) has a chunk that is small enough to test
             cases.extend([chunk - 1, chunk, chunk + 1].map(|k| (k, 2 * chunk + 3)));
         }
         for inf in [DType::infinity(), DType::neg_infinity()] {
