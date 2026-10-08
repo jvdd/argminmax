@@ -27,7 +27,7 @@
 
 👀 The SIMD implementation contains **no if checks**, ensuring that the runtime of the function is independent of the input data its order (best-case = worst-case = average-case).
 
-🪄 **Efficient support for f16 and uints**: through (bijective aka symmetric) bitwise operations, f16 (optional<sup>2</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
+🪄 **Efficient support for f16 and uints**: through bitwise operations, f16 (optional<sup>2</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 
 > <i><sup>1</sup> for <code>NEON</code> on 32-bit ARM you should enable the `"nightly_simd"` feature (requires nightly Rust).</i>  
 > <i><sup>2</sup> for <code>f16</code> you should enable the `"half"` feature.</i>  

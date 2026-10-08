@@ -283,7 +283,7 @@ pub(crate) fn test_return_infs_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 
 /// Test whether -0.0 and 0.0 are equal - thus the first index is returned - within and
 /// across the SIMD registers and the remainder of the array.
-#[cfg(feature = "float")]
+#[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
 pub(crate) fn test_signed_zeros_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
     _scalar: SCALAR, // necessary to use SCALAR

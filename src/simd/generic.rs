@@ -42,9 +42,11 @@ where
 
     /// Compare two SIMD registers for greater-than (gt): a > b
     /// Returns a SIMD mask
+    /// For FloatIgnoreNaN, `b` must contain no NaNs; NaN lanes in `a` return false.
     unsafe fn _mm_cmpgt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
 
     /// Compare two SIMD registers for less-than (lt): a < b
+    /// For FloatIgnoreNaN, `b` must contain no NaNs; NaN lanes in `a` return false.
     unsafe fn _mm_cmplt(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDMaskDtype;
 
     /// Blend two SIMD registers using a SIMD mask (selects elements from a or b)
