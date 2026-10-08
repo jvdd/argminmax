@@ -105,9 +105,9 @@ pub(crate) fn merge_max<T: Copy + PartialOrd, SCALAR: ScalarArgMinMax<T>>(
 }
 
 /// The minimum (if `MIN`) and maximum (if `MAX`) of the valid elements, by applying
-/// `SCALAR` on each run of fully valid blocks of 64 elements, and on the valid elements
-/// of each other block. The latter follow the minimum and maximum so far: these stay the
-/// result on ties, and `SCALAR` rarely updates them (as in one pass over the array).
+/// `SCALAR` on each run of fully valid blocks of 64 elements, and merging the valid
+/// elements of each other block one by one (`SCALAR` decides, so the NaN handling and
+/// ties are the same as when the parts are one array).
 #[inline(always)]
 pub(crate) fn scalar_masked<T, SCALAR, const MIN: bool, const MAX: bool>(
     arr: &[T],
@@ -119,14 +119,8 @@ where
     SCALAR: ScalarArgMinMax<T>,
 {
     let (mut min, mut max) = (None, None);
-    let Some(&first) = arr.first() else {
-        return (min, max);
-    };
-    // The minimum and maximum so far, followed by the valid elements of a block
-    let mut values = [first; 66];
-    let mut indices = [0; 66];
     let mut blocks = blocks(validity, offset, arr.len()).peekable();
-    while let Some((start, bits)) = blocks.next() {
+    while let Some((start, mut bits)) = blocks.next() {
         if bits == u64::MAX {
             let mut end = start + 64;
             while blocks.next_if(|&(_, bits)| bits == u64::MAX).is_some() {
@@ -140,25 +134,16 @@ where
             if MAX {
                 max = merge_max::<T, SCALAR>(max, Some((start + max_index, run[max_index])));
             }
-        } else if bits != 0 {
-            let mut len = 0;
-            for (index, value) in [min, max].into_iter().flatten() {
-                (indices[len], values[len]) = (index, value);
-                len += 1;
-            }
-            let mut remaining = bits;
-            while remaining != 0 {
-                let i = start + remaining.trailing_zeros() as usize;
-                (indices[len], values[len]) = (i, arr[i]);
-                len += 1;
-                remaining &= remaining - 1;
-            }
-            let (min_index, max_index) = scalar_min_max::<T, SCALAR, MIN, MAX>(&values[..len]);
-            if MIN {
-                min = Some((indices[min_index], values[min_index]));
-            }
-            if MAX {
-                max = Some((indices[max_index], values[max_index]));
+        } else {
+            while bits != 0 {
+                let i = start + bits.trailing_zeros() as usize;
+                if MIN {
+                    min = merge_min::<T, SCALAR>(min, Some((i, arr[i])));
+                }
+                if MAX {
+                    max = merge_max::<T, SCALAR>(max, Some((i, arr[i])));
+                }
+                bits &= bits - 1;
             }
         }
     }
