@@ -1157,19 +1157,9 @@ pub(crate) fn test_adversarial_masked_argminmax<
 
                 if compare_unmasked_simd && nulls == 0 {
                     let (min, max) = argminmax.unwrap();
-                    // When ignoring NaNs, the unmasked SIMD implementation may return index
-                    // 0 when the min (max) is +inf (-inf), see the `ArgMinMax` docs
-                    let quirk_min = SIMD::IGNORE_NAN && data[min] == DType::infinity();
-                    let quirk_max = SIMD::IGNORE_NAN && data[max] == DType::neg_infinity();
-                    let (simd_min, simd_max) = unsafe { SIMD::argminmax(&data) };
-                    if !quirk_min {
-                        assert_eq!(min, simd_min);
-                        assert_eq!(min, unsafe { SIMD::argmin(&data) });
-                    }
-                    if !quirk_max {
-                        assert_eq!(max, simd_max);
-                        assert_eq!(max, unsafe { SIMD::argmax(&data) });
-                    }
+                    assert_eq!((min, max), unsafe { SIMD::argminmax(&data) });
+                    assert_eq!(min, unsafe { SIMD::argmin(&data) });
+                    assert_eq!(max, unsafe { SIMD::argmax(&data) });
                 }
             }
         }

@@ -86,7 +86,7 @@ When dealing with NaNs, `NaNArgMinMax` its functions return the first NaN its in
 
 ### `ArgMinMaxMasked` & `NaNArgMinMaxMasked`
 
-The same as `ArgMinMax` & `NaNArgMinMax`, but skipping the null elements that an [Arrow validity bitmap](https://arrow.apache.org/docs/format/Columnar.html#validity-bitmaps) (and its bit offset) marks. Their functions (`argminmax_masked`, `nanargminmax_masked`, ...) return `None` when there are no valid elements. Unlike `ArgMinMax`, they also handle valid values that are only NaNs and/or infinities (see [Limitations](#limitations)): e.g., the index of the first valid value is returned when all valid values are NaN.
+The same as `ArgMinMax` & `NaNArgMinMax`, but skipping the null elements that an [Arrow validity bitmap](https://arrow.apache.org/docs/format/Columnar.html#validity-bitmaps) (and its bit offset) marks. Their functions (`argminmax_masked`, `nanargminmax_masked`, ...) return `None` when there are no valid elements. When all valid values are NaN, the index of the first valid value is returned (see [Limitations](#limitations)).
 
 ```rust
 use argminmax::ArgMinMaxMasked;

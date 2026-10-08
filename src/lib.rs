@@ -241,9 +241,8 @@ pub trait NaNArgMinMax {
 ///
 /// The result is that of [`ArgMinMax`](trait.ArgMinMax.html) on only the valid elements
 /// (thus, e.g., the first index is returned on ties), or `None` when there are no valid
-/// elements. For floats, NaNs are ignored and infinities are compared as other values,
-/// also when the valid values are only NaNs and/or infinities (unlike `ArgMinMax`): when
-/// all valid values are NaN, the index of the first valid value is returned.
+/// elements. For floats, NaNs are ignored: when all valid values are NaN, the index of the
+/// first valid value is returned.
 ///
 /// # Panics
 /// When `validity` has less than `offset + len` bits.
