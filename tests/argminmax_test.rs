@@ -4,6 +4,8 @@ use argminmax::NaNArgMinMax;
 
 #[cfg(feature = "half")]
 use half::f16;
+#[cfg(any(feature = "float", feature = "half"))]
+use num_traits::float::FloatCore;
 use num_traits::{AsPrimitive, FromPrimitive};
 
 use rstest::rstest;
@@ -173,6 +175,24 @@ mod default_test {
         assert_eq!(min, (&data).nanargmin());
         assert_eq!(max, max_index - 1);
         assert_eq!(max, (&data).nanargmax());
+    }
+
+    #[cfg(any(feature = "float", feature = "half"))]
+    #[apply(dtypes_with_nan)]
+    fn test_argminmax_slice_nan_and_infinities<T>(#[case] _min: T, #[case] _max: T)
+    where
+        T: FloatCore,
+        for<'a> &'a [T]: ArgMinMax,
+    {
+        // The only non-NaN values are infinities: the first one is the argmin and argmax
+        for inf in [T::infinity(), T::neg_infinity()] {
+            let mut data: Vec<T> = vec![inf; ARRAY_LENGTH];
+            data[0] = T::nan();
+            let data: &[T] = &data;
+            assert_eq!(data.argminmax(), (1, 1));
+            assert_eq!(data.argmin(), 1);
+            assert_eq!(data.argmax(), 1);
+        }
     }
 
     // TODO: this is currently not supported yet

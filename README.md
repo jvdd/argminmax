@@ -122,7 +122,7 @@ The library handles NaNs! 🚀
 
 Some (minor) limitations:
 - `ArgMinMax` its functions ignores NaN values.
-  - ❗ When the array contains exclusively NaNs and/or infinities unexpected behaviour can occur (index 0 is returned).
+  - When the array contains only NaNs, index 0 is returned.
 - `NaNArgMinMax` its functions returns the first NaN its index (if any present).
   - ❗ When multiple bit-representations for NaNs are used, no guarantee is made that the first NaN is returned.
 

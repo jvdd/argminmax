@@ -122,11 +122,7 @@ pub trait ArgMinMax {
     ///
     /// # Returns
     /// A tuple of the index of the minimum and maximum values in the array
-    /// `(min_index, max_index)`.
-    ///
-    /// # Caution
-    /// When a float array contains *only* NaNs and / or infinities unexpected behavior
-    /// may occur (in which case index 0 is returned for both).
+    /// `(min_index, max_index)`. For a float array with only NaNs, this is `(0, 0)`.
     ///
     fn argminmax(&self) -> (usize, usize);
 
@@ -137,11 +133,7 @@ pub trait ArgMinMax {
     /// of the first NaN (which is the behavior of our nanargmin function).
     ///
     /// # Returns
-    /// The index of the minimum value in the array.
-    ///
-    /// # Caution
-    /// When a float array contains *only* NaNs and / or infinities unexpected behavior
-    /// may occur (in which case index 0 is returned).
+    /// The index of the minimum value in the array (0 for a float array with only NaNs).
     ///
     fn argmin(&self) -> usize;
 
@@ -152,11 +144,7 @@ pub trait ArgMinMax {
     /// of the first NaN (which is the behavior of our nanargmax function).
     ///
     /// # Returns
-    /// The index of the maximum value in the array.
-    ///
-    /// # Caution
-    /// When a float array contains *only* NaNs and / or infinities unexpected behavior
-    /// may occur (in which case index 0 is returned).
+    /// The index of the maximum value in the array (0 for a float array with only NaNs).
     ///
     fn argmax(&self) -> usize;
 }

@@ -10,7 +10,7 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> (usize, usize) {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
-    match split_array(arr, lane_size) {
+    let (min_index, max_index) = match split_array(arr, lane_size) {
         (Some(simd_arr), Some(rem)) => {
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argminmax(simd_arr) };
@@ -51,7 +51,19 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
             (rem_min_index, rem_max_index)
         }
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    };
+    if ignore_nan {
+        // A NaN min (max) index means that all non-NaN values are +inf (-inf), see
+        // `first_non_nan_if_nan`. The max (min) index is then the first of them, as ties
+        // keep the first index (or 0 if all values are NaN). So no scan is needed.
+        if nan_check(arr[min_index]) {
+            return (max_index, max_index);
+        }
+        if nan_check(arr[max_index]) {
+            return (min_index, min_index);
+        }
     }
+    (min_index, max_index)
 }
 
 #[inline(always)]
@@ -64,7 +76,7 @@ pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> usize {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
-    match split_array(arr, lane_size) {
+    let index = match split_array(arr, lane_size) {
         (Some(simd_arr), Some(rem)) => {
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argmin(simd_arr) };
@@ -82,7 +94,8 @@ pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
         }
         (None, Some(rem)) => scalar_argmin(rem),
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
-    }
+    };
+    first_non_nan_if_nan(arr, index, nan_check, ignore_nan)
 }
 
 #[inline(always)]
@@ -95,7 +108,7 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> usize {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
-    match split_array(arr, lane_size) {
+    let index = match split_array(arr, lane_size) {
         (Some(simd_arr), Some(rem)) => {
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argmax(simd_arr) };
@@ -113,6 +126,25 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
         }
         (None, Some(rem)) => scalar_argmax(rem),
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    };
+    first_non_nan_if_nan(arr, index, nan_check, ignore_nan)
+}
+
+/// The SIMD cores that ignore NaNs start from +inf (-inf) with index 0 and only update
+/// on a smaller (larger) value. So they return index 0, a NaN, when it is NaN and all
+/// other values are NaN or +inf (-inf). The min (max) is then the first non-NaN value
+/// (index 0 if all values are NaN). Only O(1) unless the index is NaN.
+#[inline(always)]
+fn first_non_nan_if_nan<T: Copy>(
+    arr: &[T],
+    index: usize,
+    nan_check: fn(T) -> bool,
+    ignore_nan: bool,
+) -> usize {
+    if ignore_nan && nan_check(arr[index]) {
+        arr.iter().position(|&v| !nan_check(v)).unwrap_or(0)
+    } else {
+        index
     }
 }
 
@@ -139,7 +171,7 @@ fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the index of the simd result (as the first part
 ///   of the array is passed to the SIMD function)
-/// - If one value is NaN, returns the index of the non-NaN value
+/// - If one value is NaN, returns the index of the NaN value
 /// - If neither value is NaN, returns the index of the min value
 ///
 /// If ignoring NaNs: returns the index of the min value
@@ -157,27 +189,11 @@ fn find_final_index_min<T: Copy + PartialOrd>(
         Some(Ordering::Less) => simd_result,
         Some(Ordering::Equal) => simd_result,
         Some(Ordering::Greater) => remainder_result,
-        None => {
-            if !ignore_nan {
-                // --- Return NaNs
-                // Should prefer simd result over remainder result if both are NaN
-                if nan_check(simd_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            } else {
-                // --- Ignore NaNs
-                // If both are NaN raise panic, else return index of the non-NaN value
-                if nan_check(simd_result.1) && nan_check(remainder_result.1) {
-                    panic!("Data contains only NaNs (or +/- inf)")
-                } else if nan_check(remainder_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            }
-        }
+        // When returning NaNs, prefer the simd result if it is NaN (also if both are).
+        // When ignoring NaNs, only the remainder value can be NaN: the simd value starts
+        // at +inf and never becomes NaN.
+        None if ignore_nan || nan_check(simd_result.1) => simd_result,
+        None => remainder_result,
     };
     (min_index, min_value)
 }
@@ -186,7 +202,7 @@ fn find_final_index_min<T: Copy + PartialOrd>(
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the index of the simd result (as the first part
 ///   of the array is passed to the SIMD function)
-/// - If one value is NaN, returns the index of the non-NaN value
+/// - If one value is NaN, returns the index of the NaN value
 /// - If neither value is NaN, returns the index of the max value
 ///
 /// If ignoring NaNs: returns the index of the max value
@@ -204,27 +220,11 @@ fn find_final_index_max<T: Copy + PartialOrd>(
         Some(Ordering::Greater) => simd_result,
         Some(Ordering::Equal) => simd_result,
         Some(Ordering::Less) => remainder_result,
-        None => {
-            if !ignore_nan {
-                // --- Return NaNs
-                // Should prefer simd result over remainder result if both are NaN
-                if nan_check(simd_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            } else {
-                // --- Ignore NaNs
-                // If both are NaN raise panic, else return index of the non-NaN value
-                if nan_check(simd_result.1) && nan_check(remainder_result.1) {
-                    panic!("Data contains only NaNs (or +/- inf)")
-                } else if nan_check(remainder_result.1) {
-                    simd_result
-                } else {
-                    remainder_result
-                }
-            }
-        }
+        // When returning NaNs, prefer the simd result if it is NaN (also if both are).
+        // When ignoring NaNs, only the remainder value can be NaN: the simd value starts
+        // at -inf and never becomes NaN.
+        None if ignore_nan || nan_check(simd_result.1) => simd_result,
+        None => remainder_result,
     };
     (max_index, max_value)
 }
@@ -232,7 +232,7 @@ fn find_final_index_max<T: Copy + PartialOrd>(
 /// Get the correct index(es) for the argmin and argmax functions
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the lowest index twice
-/// - If one value is NaN, returns the index of the non-NaN value twice
+/// - If one value is NaN, returns the index of the NaN value twice
 /// - If neither value is NaN, returns the min_index and max_index
 ///
 /// If ignoring NaNs: returns the min_index and max_index
