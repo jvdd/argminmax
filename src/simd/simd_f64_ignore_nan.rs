@@ -1,16 +1,14 @@
 //! Implementation of the argminmax operations for f64 that ignores NaN values.
 //! This implementation returns the index of the minimum and maximum values.
-//! However, unexpected behavior may occur when there are
-//! - *only* NaN values in the array
-//! - *only* +/- infinity values in the array
-//! - *only* NaN and +/- infinity values in the array
-//!
-//! In these cases, index 0 is returned.
+//! If all values are NaN, index 0 is returned.
 //!
 //! NaN values are ignored and treated as if they are not present in the array.
 //! To realize this we create an initial SIMD register with values +/- infinity.
 //! As comparisons with NaN always return false, it is guaranteed that no NaN values
 //! are added to the accumulating SIMD register.
+//! When no value is smaller (larger) than the initial +inf (-inf), the initial index 0
+//! is kept, even if it is a NaN: `argminmax_generic` (in simd/task.rs) then returns the
+//! first non-NaN index.
 //!
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64",))]

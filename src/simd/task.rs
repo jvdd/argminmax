@@ -10,7 +10,7 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> (usize, usize) {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
-    match split_array(arr, lane_size) {
+    let (min_index, max_index) = match split_array(arr, lane_size) {
         (Some(simd_arr), Some(rem)) => {
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argminmax(simd_arr) };
@@ -51,6 +51,14 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
             (rem_min_index, rem_max_index)
         }
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    };
+    if ignore_nan {
+        (
+            first_non_nan_if_nan(arr, min_index, nan_check),
+            first_non_nan_if_nan(arr, max_index, nan_check),
+        )
+    } else {
+        (min_index, max_index)
     }
 }
 
@@ -64,7 +72,7 @@ pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> usize {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
-    match split_array(arr, lane_size) {
+    let index = match split_array(arr, lane_size) {
         (Some(simd_arr), Some(rem)) => {
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argmin(simd_arr) };
@@ -82,6 +90,11 @@ pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
         }
         (None, Some(rem)) => scalar_argmin(rem),
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    };
+    if ignore_nan {
+        first_non_nan_if_nan(arr, index, nan_check)
+    } else {
+        index
     }
 }
 
@@ -95,7 +108,7 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> usize {
     assert!(!arr.is_empty()); // split_array should never return (None, None)
-    match split_array(arr, lane_size) {
+    let index = match split_array(arr, lane_size) {
         (Some(simd_arr), Some(rem)) => {
             // Perform SIMD operation on the first part of the array
             let simd_result = unsafe { core_argmax(simd_arr) };
@@ -113,6 +126,24 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
         }
         (None, Some(rem)) => scalar_argmax(rem),
         (None, None) => panic!("Array is empty"), // Should never occur because of assert
+    };
+    if ignore_nan {
+        first_non_nan_if_nan(arr, index, nan_check)
+    } else {
+        index
+    }
+}
+
+/// The SIMD cores that ignore NaNs start from +inf (-inf) with index 0 and only update
+/// on a smaller (larger) value. So they return index 0, a NaN, when it is NaN and all
+/// other values are NaN or +inf (-inf). The min (max) is then the first non-NaN value
+/// (index 0 if all values are NaN). Only O(1) unless the index is NaN.
+#[inline(always)]
+fn first_non_nan_if_nan<T: Copy>(arr: &[T], index: usize, nan_check: fn(T) -> bool) -> usize {
+    if nan_check(arr[index]) {
+        arr.iter().position(|&v| !nan_check(v)).unwrap_or(0)
+    } else {
+        index
     }
 }
 

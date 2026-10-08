@@ -540,6 +540,34 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_index, argmax_index_single);
         assert_eq!(argmax_index, argmax_simd_index_single);
 
+        // Case 5.1: the only non-NaN values are +inf (or -inf), so the first non-NaN
+        // index k is the argmin and the argmax - also when the NaNs fill the SIMD part
+        // or (for f16) the first overflow chunk
+        // (k, array length) pairs
+        let mut cases: Vec<(usize, usize)> = (0..2 * LANE_SIZE + 3)
+            .map(|k| (k, 2 * LANE_SIZE + 3))
+            .collect();
+        let chunk = SIMD::_get_overflow_lane_size_limit();
+        if chunk < 1 << 16 {
+            cases.extend([chunk - 1, chunk, chunk + 1].map(|k| (k, 2 * chunk + 3)));
+        }
+        for inf in [DType::infinity(), DType::neg_infinity()] {
+            for &(k, len) in &cases {
+                let mut leading = vec![inf; len]; // NaNs before k
+                leading[..k].fill(nan);
+                let mut single = vec![nan; len]; // NaNs around k
+                single[k] = inf;
+                for data in [leading, single] {
+                    assert_eq!(SCALAR::argminmax(&data), (k, k));
+                    assert_eq!(SCALAR::argmin(&data), k);
+                    assert_eq!(SCALAR::argmax(&data), k);
+                    assert_eq!(unsafe { SIMD::argminmax(&data) }, (k, k));
+                    assert_eq!(unsafe { SIMD::argmin(&data) }, k);
+                    assert_eq!(unsafe { SIMD::argmax(&data) }, k);
+                }
+            }
+        }
+
         // Case 6: all elements are NaN
         data.fill(nan);
 
