@@ -1,7 +1,8 @@
 //! A crate for finding the index of the minimum and maximum values in an array.
 //!
 //! These operations are optimized for speed using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) instructions (when available).  
-//! The SIMD implementation is branchless, ensuring that there is no best case / worst case.
+//! The SIMD inner loop is branchless, so its runtime does not depend on the order of the data (no best case / worst case).
+//! The masked functions (which skip the nulls) search a part of the data again when all its valid values are the max (or all the min) value of the data type, NaN or infinite, so they can be slower on such data.
 //! Furthermore, runtime CPU feature detection is used to choose the fastest implementation for the current CPU (with a scalar fallback).
 //!
 //! The SIMD implementation is enabled for the following architectures:

@@ -290,11 +290,11 @@ where
         let chunk = &arr[start..simd_len.min(start + chunk_size)];
         let chunk_offset = offset + start;
         let (mut chunk_min, mut chunk_max) = unsafe { core_masked(chunk, validity, chunk_offset) };
-        // When the core returns the neutral value, all valid values are >= (<=) it: the
-        // min (max) is then the first valid element that equals it (if there is one).
-        // Searching that element first (instead of running the scalar implementation on
-        // the chunk right away) keeps data with many MIN / MAX values fast, e.g., 8-bit
-        // data, where this happens for most chunks.
+        // The core returns the neutral value (MAX for the min, MIN for the max) only when
+        // no valid value of the chunk is below (above) it, i.e., when all valid values
+        // equal it or are NaN or +inf (-inf) (or there are none). Rare (e.g., saturated
+        // data), but then the min (max) is the first valid element that equals it, or,
+        // if there is none, the scalar implementation finds it.
         if chunk_min.is_some_and(|(_, v)| v == T::max_value()) {
             chunk_min =
                 first_valid_eq(chunk, validity, chunk_offset, T::max_value()).or_else(|| {
