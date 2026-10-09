@@ -341,7 +341,7 @@ pub trait NaNArgMinMaxMasked {
     fn nanargmax_masked(&self, validity: &[u8], offset: usize) -> Option<usize>;
 }
 
-// ---- Helper macros ----
+// ---- Helpers ----
 
 // Only used for the SIMD dispatch below
 #[cfg(any(
@@ -353,27 +353,14 @@ trait DTypeInfo {
     const NB_BITS: usize;
 }
 
-/// Macro for implementing DTypeInfo for the passed data types (uints, ints, floats)
-macro_rules! impl_nb_bits {
-    // $data_type is the data type (e.g. i32)
-    // you can pass multiple types (separated by commas) to this macro
-    ($($data_type:ty)*) => ($(
-        #[cfg(any(
-            target_arch = "x86",
-            target_arch = "x86_64",
-            all(target_arch = "arm", feature = "nightly_simd"),
-        ))]
-        impl DTypeInfo for $data_type {
-            const NB_BITS: usize = std::mem::size_of::<$data_type>() * 8;
-        }
-    )*)
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+))]
+impl<T> DTypeInfo for T {
+    const NB_BITS: usize = size_of::<T>() * 8;
 }
-
-impl_nb_bits!(i8 i16 i32 i64 u8 u16 u32 u64);
-#[cfg(feature = "float")]
-impl_nb_bits!(f32 f64);
-#[cfg(feature = "half")]
-impl_nb_bits!(f16);
 
 /// Returns whether the CPU supports the AVX512 implementation for `T`:
 /// 8 and 16-bit data types need AVX512BW, 32 and 64-bit data types need AVX512F.
