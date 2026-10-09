@@ -88,6 +88,8 @@ When dealing with NaNs, `NaNArgMinMax` its functions return the first NaN its in
 
 The same as `ArgMinMax` & `NaNArgMinMax`, but skipping the null elements that an [Arrow validity bitmap](https://arrow.apache.org/docs/format/Columnar.html#validity-bitmaps) (and its bit offset) marks. Their functions (`argminmax_masked`, `nanargminmax_masked`, ...) return `None` when there are no valid elements. When all valid values are NaN, the index of the first valid value is returned (see [Limitations](#limitations)).
 
+> Tip 💡: when an array has no nulls, `ArgMinMax` & `NaNArgMinMax` are faster: call the masked functions only when `null_count() > 0`. This check is cheap: arrow and Polars keep the null count (they count the nulls once, e.g., when the bitmap is built or sliced; a 10M-element bitmap takes ~30 µs, 1% of an argminmax of its `f32` values). Check `null_count() > 0`, not whether there is a validity bitmap: an array can have a validity bitmap without nulls.
+
 ```rust
 use argminmax::ArgMinMaxMasked;
 
@@ -104,7 +106,7 @@ assert_eq!(arr.argminmax_masked(&validity, 0), Some((1, 2)));
 - **"half"**: support `f16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
 - **"ndarray"**: add `ArgMinMax` trait to [`ndarray`](https://docs.rs/ndarray/latest/ndarray) its `Array1` & `ArrayView1`.
 - **"arrow"**: add `ArgMinMax` trait to [`arrow`](https://docs.rs/arrow/latest/arrow) its `PrimitiveArray` (skipping the nulls).
-  - ❗ The functions panic when all values are null (as for an empty array). To get an `Option` instead, check the null count first: `(array.null_count() < array.len()).then(|| array.argmin())`.
+  - ❗ The functions panic when all values are null (as for an empty array). To get an `Option` instead, check the null count first: `(array.null_count() < array.len()).then(|| array.argmin())` (arrow keeps the null count, so this check is O(1)).
 
 ## Benchmarks
 

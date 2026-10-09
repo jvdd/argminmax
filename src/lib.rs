@@ -43,7 +43,7 @@
 //! - **`ndarray`** - adds the traits to [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html) (requires the `ndarray` crate).
 //! - **`arrow`** - adds the traits to [`arrow::array::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html), skipping the nulls (requires the `arrow` crate).
 //!
-//! For `arrow`, the functions panic when all values are null (as for an empty array). To get an `Option` instead, check the null count first, e.g. `(array.null_count() < array.len()).then(|| array.argmin())`, or use the [`ArgMinMaxMasked`](trait.ArgMinMaxMasked.html) & [`NaNArgMinMaxMasked`](trait.NaNArgMinMaxMasked.html) methods on the values and the validity bitmap, which return `None`.
+//! For `arrow`, the functions panic when all values are null (as for an empty array). To get an `Option` instead, check the null count first, e.g. `(array.null_count() < array.len()).then(|| array.argmin())` (arrow keeps the null count, so this check is O(1)), or use the [`ArgMinMaxMasked`](trait.ArgMinMaxMasked.html) & [`NaNArgMinMaxMasked`](trait.NaNArgMinMaxMasked.html) methods on the values and the validity bitmap, which return `None`.
 //!
 //!
 //! # Examples
