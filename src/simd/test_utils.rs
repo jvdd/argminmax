@@ -23,6 +23,7 @@ const RANDOM_RUN_ARR_LEN: usize = 32 * 4 + 1;
 ///   return the same result.
 /// - tests for many arrays of random DType values whether the scalar and SIMD function
 ///   return the same result.
+/// - tests the same for every short length, for random data and data with many ties.
 #[cfg(test)]
 pub(crate) fn test_return_same_result_argminmax<
     DType,
@@ -36,36 +37,23 @@ pub(crate) fn test_return_same_result_argminmax<
     _scalar: SCALAR, // necessary to use SCALAR
     _simd: SIMD,     // necessary to use SIMD
 ) where
-    DType: Copy + PartialOrd + AsPrimitive<usize>,
+    DType: Copy + PartialOrd + AsPrimitive<usize> + One + Bounded,
     SV: Copy, // SIMD vector type
     SM: Copy, // SIMD mask type
     SCALAR: ScalarArgMinMax<DType>,
     SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
 {
     // 1. Test for a long array
-    let data: &[DType] = &get_data(LONG_ARR_LEN);
-    assert_eq!(data.len() % 64, 1); // assert that data does not fully fit in a register
-
-    // argminmax
-    let (argmin_index, argmax_index) = SCALAR::argminmax(data);
-    let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(data) };
-    // argmin
-    let argmin_index_single = SCALAR::argmin(data);
-    let argmin_simd_index_single = unsafe { SIMD::argmin(data) };
-    // argmax
-    let argmax_index_single = SCALAR::argmax(data);
-    let argmax_simd_index_single = unsafe { SIMD::argmax(data) };
-
-    assert_eq!(argmin_index, argmin_simd_index);
-    assert_eq!(argmin_index, argmin_index_single);
-    assert_eq!(argmin_index, argmin_simd_index_single);
-    assert_eq!(argmax_index, argmax_simd_index);
-    assert_eq!(argmax_index, argmax_index_single);
-    assert_eq!(argmax_index, argmax_simd_index_single);
-
+    assert_eq!(LONG_ARR_LEN % 64, 1); // assert that data does not fully fit in a register
+    let long_arr = std::iter::once(get_data(LONG_ARR_LEN));
     // 2. Test for many arrays
-    for _ in 0..NB_RUNS {
-        let data: &[DType] = &get_data(RANDOM_RUN_ARR_LEN);
+    let random_runs = std::iter::repeat_with(|| get_data(RANDOM_RUN_ARR_LEN)).take(NB_RUNS);
+    // 3. Test for every length up to 16 vectors + 3 (the first vector, the groups of
+    // vectors, the remaining vectors and the scalar remainder)
+    let short_arrs = (1..=4 * VECTORS_PER_GROUP * LANE_SIZE + 3)
+        .flat_map(|len| [get_data(len), get_ties_data(len)]);
+    for data in long_arr.chain(random_runs).chain(short_arrs) {
+        let data: &[DType] = &data;
         // argminmax
         let (argmin_index, argmax_index) = SCALAR::argminmax(data);
         let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(data) };
@@ -83,6 +71,18 @@ pub(crate) fn test_return_same_result_argminmax<
         assert_eq!(argmax_index, argmax_index_single);
         assert_eq!(argmax_index, argmax_simd_index_single);
     }
+}
+
+/// Data with many ties: the first index of the min / max should be returned
+#[cfg(test)]
+fn get_ties_data<DType: One + Bounded>(len: usize) -> Vec<DType> {
+    (0..len)
+        .map(|i| match (i * 7 + len) % 5 {
+            0 => DType::min_value(),
+            1 => DType::max_value(),
+            _ => DType::one(),
+        })
+        .collect()
 }
 
 /// Test if the first index is returned when the MIN/MAX value occurs multiple times.
@@ -942,16 +942,7 @@ pub(crate) fn test_return_same_result_masked_argminmax<
     for len in MASKED_ARR_LENS.into_iter().chain([LONG_ARR_LEN]) {
         for offset in MASKED_OFFSETS {
             for validity in get_validities(len, offset) {
-                let random_data = get_data(len);
-                // Many ties: the first index of the min / max should be returned
-                let ties_data = (0..len)
-                    .map(|i| match (i * 7 + len) % 5 {
-                        0 => DType::min_value(),
-                        1 => DType::max_value(),
-                        _ => DType::one(),
-                    })
-                    .collect();
-                for mut data in [random_data, ties_data] {
+                for mut data in [get_data(len), get_ties_data(len)] {
                     for (i, v) in data.iter_mut().enumerate() {
                         if !is_valid(&validity, offset, i) {
                             *v = [DType::min_value(), DType::max_value()][i % 2];
