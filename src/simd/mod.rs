@@ -6,8 +6,8 @@ pub use config::*;
 mod generic;
 pub use generic::*;
 // Helper mod
+mod lane_mask;
 mod task;
-mod validity;
 
 // --- SIMD implementations ---
 

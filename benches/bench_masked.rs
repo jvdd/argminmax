@@ -75,8 +75,8 @@ bench_masked!(masked_i64, i64, Int, "sse4.2", "avx2", "avx512f");
 bench_masked!(masked_f32, f32, FloatIgnoreNaN, "sse4.1", "avx", "avx512f");
 bench_masked!(masked_f64, f64, FloatIgnoreNaN, "sse4.1", "avx", "avx512f");
 
-/// The masked argmin of i128, which only has the scalar implementation, and the loop that
-/// Polars uses for a chunk with nulls (`arg_min_numeric_chunked`)
+/// The masked argmin of i128, which only has the scalar implementation, and a baseline
+/// iterator that skips the nulls
 fn masked_i128(c: &mut Criterion) {
     let n = config::ARRAY_LENGTH_LONG;
     let data: &[i128] = &utils::SampleUniformFullRange::get_random_array(n);

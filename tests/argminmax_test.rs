@@ -442,8 +442,9 @@ mod masked_tests {
         // No (valid) elements
         assert_eq!((&data[..0]).argminmax_masked(&[], 0), None);
         assert_eq!(data.argminmax_masked(&[0b0000_0000], 0), None);
-        assert_eq!(data.argmin_masked(&[0b1110_0000], 0), None); // bits after the data
-                                                                 // Bits before the data
+        // Bits after the data
+        assert_eq!(data.argmin_masked(&[0b1110_0000], 0), None);
+        // Bits before the data
         assert_eq!(data.argmax_masked(&[0b0000_0011], 2), None);
         // A single valid element
         assert_eq!(data.argminmax_masked(&[0b0000_0100], 0), Some((2, 2)));
@@ -657,11 +658,13 @@ mod arrow_tests {
     use arrow::buffer::NullBuffer;
     use arrow::datatypes::*;
 
-    #[cfg(feature = "float")]
+    // The max of f16: up to 2^11 all integers are exact (https://stackoverflow.com/a/3793950)
+    #[cfg(any(feature = "float", feature = "half"))]
     #[template]
     #[rstest]
-    #[case::float32(Float32Type {}, f32::MIN, f32::MAX)]
-    #[case::float64(Float64Type {}, f64::MIN, f64::MAX)]
+    #[cfg_attr(feature = "half", case::float16(Float16Type {}, f16::MIN, f16::from_f32(2048.0)))]
+    #[cfg_attr(feature = "float", case::float32(Float32Type {}, f32::MIN, f32::MAX))]
+    #[cfg_attr(feature = "float", case::float64(Float64Type {}, f64::MIN, f64::MAX))]
     fn dtypes_arrow_with_nan<T, ArrowDataType>(
         #[case] _arrow_type: ArrowDataType,
         #[case] min: T,
@@ -669,30 +672,11 @@ mod arrow_tests {
     ) {
     }
 
-    #[cfg(feature = "float")]
     #[template]
     #[rstest]
-    #[case::float32(Float32Type {}, f32::MIN, f32::MAX)]
-    #[case::float64(Float64Type {}, f64::MIN, f64::MAX)]
-    #[case::int8(Int8Type {}, i8::MIN, i8::MAX)]
-    #[case::int16(Int16Type {}, i16::MIN, i16::MAX)]
-    #[case::int32(Int32Type {}, i32::MIN, i32::MAX)]
-    #[case::int64(Int64Type {}, i64::MIN, i64::MAX)]
-    #[case::decimal128(Decimal128Type {}, i128::MIN, i128::MAX)]
-    #[case::uint8(UInt8Type {}, u8::MIN, u8::MAX)]
-    #[case::uint16(UInt16Type {}, u16::MIN, u16::MAX)]
-    #[case::uint32(UInt32Type {}, u32::MIN, u32::MAX)]
-    #[case::uint64(UInt64Type {}, u64::MIN, u64::MAX)]
-    fn dtypes_arrow<T, ArrowDataType>(
-        #[case] _arrow_type: ArrowDataType,
-        #[case] min: T,
-        #[case] max: T,
-    ) {
-    }
-
-    #[cfg(not(feature = "float"))]
-    #[template]
-    #[rstest]
+    #[cfg_attr(feature = "half", case::float16(Float16Type {}, f16::MIN, f16::from_f32(2048.0)))]
+    #[cfg_attr(feature = "float", case::float32(Float32Type {}, f32::MIN, f32::MAX))]
+    #[cfg_attr(feature = "float", case::float64(Float64Type {}, f64::MIN, f64::MAX))]
     #[case::int8(Int8Type {}, i8::MIN, i8::MAX)]
     #[case::int16(Int16Type {}, i16::MIN, i16::MAX)]
     #[case::int32(Int32Type {}, i32::MIN, i32::MAX)]
@@ -739,7 +723,7 @@ mod arrow_tests {
         assert_eq!(max, (&data).argmax());
     }
 
-    #[cfg(feature = "float")]
+    #[cfg(any(feature = "float", feature = "half"))]
     #[apply(dtypes_arrow_with_nan)]
     fn test_argminmax_arrow_nan<T, ArrowDataType>(
         #[case] _dtype: ArrowDataType, // used to infer the arrow data type
@@ -890,25 +874,38 @@ mod arrow_tests {
         assert_all_null_panic(|| arrow.argmax());
     }
 
-    #[cfg(feature = "float")]
+    #[cfg(any(feature = "float", feature = "half"))]
     #[apply(dtypes_arrow_with_nan)]
     fn test_argminmax_arrow_nulls_nan<T, ArrowDataType>(
         #[case] _dtype: ArrowDataType, // used to infer the arrow data type
         #[case] _min: T,
         #[case] _max: T,
     ) where
-        T: num_traits::float::FloatCore + SampleUniformFullRange,
-        for<'a> &'a [T]: NaNArgMinMax + NaNArgMinMaxMasked,
+        T: FloatCore + SampleUniformFullRange,
+        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked + NaNArgMinMax + NaNArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
     {
+        let (nan, inf) = (T::nan(), T::infinity());
         let mut data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
         let (_, mut valid) = get_random_validity(RANDOM_ARR_LENGTH, 0, 128);
+        // The null elements hold NaNs, infinities and the extreme values
+        for i in (0..RANDOM_ARR_LENGTH).filter(|&i| !valid[i]) {
+            data[i] = [nan, -inf, inf, T::MIN, T::MAX][i % 5];
+        }
         // A null NaN before a valid NaN
-        (data[20], valid[20]) = (T::nan(), false);
-        (data[30], valid[30]) = (T::nan(), true);
+        (data[20], valid[20]) = (nan, false);
+        (data[30], valid[30]) = (nan, true);
         let arrow: PrimitiveArray<ArrowDataType> = with_nulls(&data, &valid);
         for offset in [0, 13] {
             let arrow = arrow.slice(offset, RANDOM_ARR_LENGTH - offset);
+            // NaNs are ignored
+            let (data, valid) = (&data[offset..], &valid[offset..]);
+            let min = masked_reference(data, valid, true, |a, b| a < b).unwrap();
+            let max = masked_reference(data, valid, true, |a, b| a > b).unwrap();
+            assert_eq!(arrow.argminmax(), (min, max));
+            assert_eq!(arrow.argmin(), min);
+            assert_eq!(arrow.argmax(), max);
+            // The first valid NaN is returned
             assert_eq!(arrow.nanargminmax(), (30 - offset, 30 - offset));
             assert_eq!(arrow.nanargmin(), 30 - offset);
             assert_eq!(arrow.nanargmax(), 30 - offset);

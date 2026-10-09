@@ -1,7 +1,7 @@
 use num_traits::{AsPrimitive, Bounded};
 
+use super::lane_mask::SIMDValidity;
 use super::task::*;
-use super::validity::SIMDValidity;
 use crate::scalar::ScalarArgMinMax;
 use crate::validity::{assert_validity_len, validity_word, FoundMinMax};
 
