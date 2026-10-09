@@ -858,10 +858,7 @@ where
         data: &[ScalarDType],
         validity: &[u8],
         offset: usize,
-    ) -> Option<(usize, usize)> {
-        // The SIMD implementations override this (see `impl_SIMDArgMinMax!`)
-        SCALAR::argminmax_masked(data, validity, offset)
-    }
+    ) -> Option<(usize, usize)>;
 
     /// Get the index of the minimum value in the slice, skipping the null elements.
     ///
@@ -1196,6 +1193,14 @@ macro_rules! unimpl_SIMDArgMinMax {
             }
 
             unsafe fn argmax(_data: &[$scalar_type]) -> usize {
+                unimplemented!()
+            }
+
+            unsafe fn argminmax_masked(
+                _data: &[$scalar_type],
+                _validity: &[u8],
+                _offset: usize,
+            ) -> Option<(usize, usize)> {
                 unimplemented!()
             }
         }
