@@ -342,7 +342,7 @@ mod avx512 {
 
 // There are NEON SIMD intrinsics for u64, but
 //  - for arm we miss the vcgt_ and vclt_ intrinsics.
-//  - for aarch64 the required intrinsics are present (on nightly)
+//  - for aarch64 the required intrinsics are present
 
 #[cfg(target_arch = "arm")]
 #[cfg(feature = "nightly_simd")]
