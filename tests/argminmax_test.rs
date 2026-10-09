@@ -442,8 +442,9 @@ mod masked_tests {
         // No (valid) elements
         assert_eq!((&data[..0]).argminmax_masked(&[], 0), None);
         assert_eq!(data.argminmax_masked(&[0b0000_0000], 0), None);
-        assert_eq!(data.argmin_masked(&[0b1110_0000], 0), None); // bits after the data
-                                                                 // Bits before the data
+        // Bits after the data
+        assert_eq!(data.argmin_masked(&[0b1110_0000], 0), None);
+        // Bits before the data
         assert_eq!(data.argmax_masked(&[0b0000_0011], 2), None);
         // A single valid element
         assert_eq!(data.argminmax_masked(&[0b0000_0100], 0), Some((2, 2)));
