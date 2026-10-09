@@ -42,7 +42,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-argminmax = "0.6.3"
+argminmax = "0.7.0"
 ```
 
 ## Example usage
