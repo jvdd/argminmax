@@ -11,7 +11,9 @@ use super::config::SIMDInstructionSet;
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDOps};
+use super::generic::{
+    impl_SIMDArgMinMax, impl_SIMDInit_Int, SIMDArgMinMax, SIMDInit, SIMDMasked, SIMDOps,
+};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

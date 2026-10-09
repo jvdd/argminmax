@@ -23,7 +23,7 @@ use super::config::SIMDInstructionSet;
     target_arch = "aarch64",
 ))]
 use super::generic::{
-    impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDOps,
+    impl_SIMDArgMinMax, impl_SIMDInit_FloatIgnoreNaN, SIMDArgMinMax, SIMDInit, SIMDMasked, SIMDOps,
 };
 #[cfg(any(
     target_arch = "x86",

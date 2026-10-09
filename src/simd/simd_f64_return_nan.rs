@@ -34,7 +34,7 @@
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
-use super::generic::impl_SIMDInit_FloatReturnNaN;
+use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDMasked};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",

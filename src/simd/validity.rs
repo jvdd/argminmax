@@ -23,8 +23,7 @@ use std::arch::x86_64::*;
 /// Converts validity bits into a SIMD mask.
 /// This is implemented for each instruction set, for each SIMD mask type and lane size
 /// that the `SIMDOps` implementations use.
-#[doc(hidden)]
-pub trait SIMDValidity<SIMDMaskDtype, const LANE_SIZE: usize> {
+pub(crate) trait SIMDValidity<SIMDMaskDtype, const LANE_SIZE: usize> {
     /// Returns the SIMD mask that selects lane `i` iff bit `i` is set (the bits from
     /// `LANE_SIZE` onwards are ignored).
     unsafe fn _mm_validity_mask(bits: u64) -> SIMDMaskDtype;
