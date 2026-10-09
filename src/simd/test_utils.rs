@@ -973,7 +973,8 @@ pub(crate) fn test_return_same_result_masked_argminmax<
 }
 
 /// Tests whether the masked scalar and SIMD functions return the same result for an array
-/// that is longer than the SIMD index can represent (see `test_no_overflow_argminmax`).
+/// that is longer than the SIMD index can represent (see `test_no_overflow_argminmax`),
+/// and whether the SIMD functions return the expected indices around the chunk boundary.
 #[cfg(test)]
 pub(crate) fn test_no_overflow_masked_argminmax<
     DType,
@@ -1006,6 +1007,14 @@ pub(crate) fn test_no_overflow_masked_argminmax<
         assert_same_result_masked::<_, SCALAR, SIMD, SV, SM, LANE_SIZE>(data, &validity, offset);
     }
 
+    // The expected indices of the cases below are known: compare the SIMD functions with
+    // them (the scalar implementation is not needed and slow on these long arrays)
+    let assert_expected = |data: &[DType], validity: &[u8], offset, (min, max)| unsafe {
+        let argminmax = SIMD::argminmax_masked(data, validity, offset);
+        assert_eq!(argminmax, Some((min, max)));
+        assert_eq!(SIMD::argmin_masked(data, validity, offset), Some(min));
+        assert_eq!(SIMD::argmax_masked(data, validity, offset), Some(max));
+    };
     // The MIN/MAX value in the last lanes of the last two vectors of the first chunk of
     // the SIMD loop, and again in the second chunk: the first valid occurrence wins
     let chunk = SIMD::_get_overflow_lane_size_limit();
@@ -1013,41 +1022,26 @@ pub(crate) fn test_no_overflow_masked_argminmax<
         // (i8/u8 AVX512 chunks hold a single vector)
         let nb_vectors = 2.min(chunk / LANE_SIZE);
         for offset in [7, 13] {
+            let all_valid = get_validity(2 * chunk, offset, |_| true);
+            let second_chunk = get_validity(2 * chunk, offset, |i| i >= chunk);
             for end in (0..nb_vectors).map(|v| chunk - v * LANE_SIZE) {
                 let mut data = vec![DType::one(); 2 * chunk];
                 for start in [0, chunk] {
                     data[start + end - 2] = DType::min_value();
                     data[start + end - 1] = DType::max_value();
                 }
-                let all_valid = get_validity(2 * chunk, offset, |_| true);
-                let second_chunk = get_validity(2 * chunk, offset, |i| i >= chunk);
-                for (validity, expected) in [
-                    (all_valid, (end - 2, end - 1)),
-                    (second_chunk, (chunk + end - 2, chunk + end - 1)),
-                ] {
-                    assert_eq!(
-                        unsafe { SIMD::argminmax_masked(&data, &validity, offset) },
-                        Some(expected)
-                    );
-                    assert_same_result_masked::<_, SCALAR, SIMD, SV, SM, LANE_SIZE>(
-                        &data, &validity, offset,
-                    );
-                }
+                assert_expected(&data, &all_valid, offset, (end - 2, end - 1));
+                let expected = (chunk + end - 2, chunk + end - 1);
+                assert_expected(&data, &second_chunk, offset, expected);
             }
             // Only the MAX (MIN) value, which the SIMD loop also uses for its null lanes:
             // the first valid element is returned, also when it is the last element of
             // the first chunk or the first element of the second chunk
-            for value in [DType::max_value(), DType::min_value()] {
-                let data = vec![value; 2 * chunk];
-                for first_valid in [1, chunk - 1, chunk] {
-                    let validity = get_validity(2 * chunk, offset, |i| i >= first_valid);
-                    assert_eq!(
-                        unsafe { SIMD::argminmax_masked(&data, &validity, offset) },
-                        Some((first_valid, first_valid))
-                    );
-                    assert_same_result_masked::<_, SCALAR, SIMD, SV, SM, LANE_SIZE>(
-                        &data, &validity, offset,
-                    );
+            for first_valid in [1, chunk - 1, chunk] {
+                let validity = get_validity(2 * chunk, offset, |i| i >= first_valid);
+                for value in [DType::max_value(), DType::min_value()] {
+                    let data = vec![value; 2 * chunk];
+                    assert_expected(&data, &validity, offset, (first_valid, first_valid));
                 }
             }
         }

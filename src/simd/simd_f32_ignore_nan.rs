@@ -537,6 +537,8 @@ mod tests {
     }
 
     #[apply(simd_implementations)]
+    // The release tests run it (in CI too); it takes minutes in debug mode
+    #[cfg_attr(debug_assertions, ignore = "slow in debug mode, run it with --release")]
     fn test_no_overflow_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
         #[case] simd_available: bool,
