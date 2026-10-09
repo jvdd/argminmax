@@ -6,6 +6,7 @@ use super::super::dtype_strategy::Int;
 /// The DTypeStrategy for which we implement the ScalarArgMinMax trait
 #[cfg(any(feature = "float", feature = "half"))]
 use super::super::dtype_strategy::{FloatIgnoreNaN, FloatReturnNaN};
+use crate::validity::{assert_validity_len, scalar_masked};
 
 /// Helper trait to initialize the min and max values & check if we should return
 /// This will be implemented for all:
@@ -64,6 +65,71 @@ pub trait ScalarArgMinMax<ScalarDType: Copy + PartialOrd> {
     /// The index of the maximum value in the slice.
     ///
     fn argmax(data: &[ScalarDType]) -> usize;
+
+    /// Get the index of the minimum and maximum values in the slice, skipping the null
+    /// elements.
+    ///
+    /// # Arguments
+    /// - `data` - the slice of data.
+    /// - `validity` - the validity bitmap: element `i` is valid (not null) iff bit
+    ///   `offset + i` is set (in the [Arrow format](https://arrow.apache.org/docs/format/Columnar.html#validity-bitmaps)).
+    /// - `offset` - the bit offset of the first element in the validity bitmap.
+    ///
+    /// # Returns
+    /// A tuple of the index of the minimum and maximum valid values in the slice
+    /// `(min_index, max_index)`, or `None` when there are no valid values.
+    ///
+    /// # Panics
+    /// When the validity bitmap has less than `offset + data.len()` bits.
+    ///
+    fn argminmax_masked(
+        data: &[ScalarDType],
+        validity: &[u8],
+        offset: usize,
+    ) -> Option<(usize, usize)>
+    where
+        Self: Sized,
+    {
+        assert_validity_len(validity, offset, data.len());
+        let (min, max) = scalar_masked::<_, Self, true, true>(data, validity, offset);
+        Some((min?.0, max?.0))
+    }
+
+    /// Get the index of the minimum value in the slice, skipping the null elements.
+    ///
+    /// See [`argminmax_masked`](ScalarArgMinMax::argminmax_masked) for the arguments and
+    /// the panics.
+    ///
+    /// # Returns
+    /// The index of the minimum valid value in the slice, or `None` when there are no
+    /// valid values.
+    ///
+    fn argmin_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize>
+    where
+        Self: Sized,
+    {
+        assert_validity_len(validity, offset, data.len());
+        let (min, _) = scalar_masked::<_, Self, true, false>(data, validity, offset);
+        Some(min?.0)
+    }
+
+    /// Get the index of the maximum value in the slice, skipping the null elements.
+    ///
+    /// See [`argminmax_masked`](ScalarArgMinMax::argminmax_masked) for the arguments and
+    /// the panics.
+    ///
+    /// # Returns
+    /// The index of the maximum valid value in the slice, or `None` when there are no
+    /// valid values.
+    ///
+    fn argmax_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize>
+    where
+        Self: Sized,
+    {
+        assert_validity_len(validity, offset, data.len());
+        let (_, max) = scalar_masked::<_, Self, false, true>(data, validity, offset);
+        Some(max?.0)
+    }
 }
 
 /// Type that implements the [ScalarArgMinMax](crate::ScalarArgMinMax) trait.

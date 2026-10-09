@@ -14,7 +14,7 @@
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
-use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int};
+use super::generic::{impl_SIMDArgMinMax, impl_SIMDInit_Int, SIMDMasked};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -342,7 +342,7 @@ mod avx512 {
 
 // There are NEON SIMD intrinsics for u64, but
 //  - for arm we miss the vcgt_ and vclt_ intrinsics.
-//  - for aarch64 the required intrinsics are present (on nightly)
+//  - for aarch64 the required intrinsics are present
 
 #[cfg(target_arch = "arm")]
 #[cfg(feature = "nightly_simd")]
@@ -437,6 +437,8 @@ mod tests {
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
+    // Masked tests
+    use super::super::test_utils::test_return_same_result_masked_argminmax;
 
     use dev_utils::utils;
 
@@ -510,5 +512,20 @@ mod tests {
             return;
         }
         test_return_same_result_argminmax(get_array_u64, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_same_result_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<u64, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_return_same_result_masked_argminmax(get_array_u64, SCALAR_STRATEGY, simd);
     }
 }

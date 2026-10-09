@@ -845,3 +845,364 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_simd_index_single, 17);
     }
 }
+
+// ------- Masked tests for argminmax
+
+/// Lengths for the masked tests: around the lane sizes and the 64-bit validity words
+#[cfg(test)]
+const MASKED_ARR_LENS: [usize; 13] = [0, 1, 2, 7, 8, 15, 16, 17, 63, 64, 65, 129, 1027];
+/// Bit offsets of the first element in the validity bitmap
+#[cfg(test)]
+const MASKED_OFFSETS: [usize; 5] = [0, 1, 7, 13, 64 + 5];
+
+/// Validity bitmaps for `len` elements (starting at bit `offset`): random ones with
+/// different fractions of nulls (including none and all), clustered nulls, and a single
+/// valid element. The bits outside the elements are random.
+#[cfg(test)]
+fn get_validities(len: usize, offset: usize) -> Vec<Vec<u8>> {
+    use dev_utils::utils::{get_validity, SampleUniformFullRange};
+    let random: Vec<u8> = SampleUniformFullRange::get_random_array(len);
+    let mut validities: Vec<Vec<u8>> = [0, 16, 64, 128, 192, 240, 252, 256]
+        .iter()
+        .map(|&threshold| get_validity(len, offset, |i| (random[i] as u16) < threshold))
+        .collect();
+    validities.push(get_validity(len, offset, |i| (i / 37) % 3 != 0));
+    validities.push(get_validity(len, offset, |i| i == len / 2));
+    validities.push(get_validity(len, offset, |i| i + 1 == len));
+    validities
+}
+
+#[cfg(test)]
+fn is_valid(validity: &[u8], offset: usize, i: usize) -> bool {
+    (validity[(offset + i) / 8] >> ((offset + i) % 8)) & 1 == 1
+}
+
+/// Asserts that the masked SIMD and scalar functions return the same result, a valid
+/// index (or `None` iff there are no valid elements), and the unmasked result when all
+/// elements are valid.
+#[cfg(test)]
+fn assert_same_result_masked<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
+    data: &[DType],
+    validity: &[u8],
+    offset: usize,
+) where
+    DType: Copy + PartialOrd + AsPrimitive<usize>,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    let argminmax = SCALAR::argminmax_masked(data, validity, offset);
+    let argmin = SCALAR::argmin_masked(data, validity, offset);
+    let argmax = SCALAR::argmax_masked(data, validity, offset);
+    assert_eq!(argminmax, unsafe {
+        SIMD::argminmax_masked(data, validity, offset)
+    });
+    assert_eq!(argmin, unsafe {
+        SIMD::argmin_masked(data, validity, offset)
+    });
+    assert_eq!(argmax, unsafe {
+        SIMD::argmax_masked(data, validity, offset)
+    });
+
+    let nb_valid = (0..data.len())
+        .filter(|&i| is_valid(validity, offset, i))
+        .count();
+    assert_eq!(argminmax.is_none(), nb_valid == 0);
+    for index in [argmin, argmax].into_iter().flatten() {
+        assert!(is_valid(validity, offset, index));
+    }
+    if nb_valid == data.len() && nb_valid > 0 {
+        assert_eq!(argminmax, Some(SCALAR::argminmax(data)));
+    }
+}
+
+/// Tests whether the masked scalar and SIMD functions return the same result, for many
+/// lengths, validity bitmaps (and offsets) and for random data and data with many ties.
+/// The null elements hold the min and max value of the data type.
+#[cfg(test)]
+pub(crate) fn test_return_same_result_masked_argminmax<
+    DType,
+    SCALAR,
+    SIMD,
+    SV,
+    SM,
+    const LANE_SIZE: usize,
+>(
+    get_data: fn(usize) -> Vec<DType>,
+    _scalar: SCALAR, // necessary to use SCALAR
+    _simd: SIMD,     // necessary to use SIMD
+) where
+    DType: Copy + PartialOrd + AsPrimitive<usize> + One + Bounded,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    for len in MASKED_ARR_LENS.into_iter().chain([LONG_ARR_LEN]) {
+        for offset in MASKED_OFFSETS {
+            for validity in get_validities(len, offset) {
+                let random_data = get_data(len);
+                // Many ties: the first index of the min / max should be returned
+                let ties_data = (0..len)
+                    .map(|i| match (i * 7 + len) % 5 {
+                        0 => DType::min_value(),
+                        1 => DType::max_value(),
+                        _ => DType::one(),
+                    })
+                    .collect();
+                for mut data in [random_data, ties_data] {
+                    for (i, v) in data.iter_mut().enumerate() {
+                        if !is_valid(&validity, offset, i) {
+                            *v = [DType::min_value(), DType::max_value()][i % 2];
+                        }
+                    }
+                    assert_same_result_masked::<_, SCALAR, SIMD, SV, SM, LANE_SIZE>(
+                        &data, &validity, offset,
+                    );
+                    if len > 0 && (0..len).all(|i| is_valid(&validity, offset, i)) {
+                        assert_eq!(
+                            unsafe { SIMD::argminmax_masked(&data, &validity, offset) },
+                            Some(unsafe { SIMD::argminmax(&data) })
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Tests whether the masked scalar and SIMD functions return the same result for an array
+/// that is longer than the SIMD index can represent (see `test_no_overflow_argminmax`),
+/// and whether the SIMD functions return the expected indices around the chunk boundary.
+#[cfg(test)]
+pub(crate) fn test_no_overflow_masked_argminmax<
+    DType,
+    SCALAR,
+    SIMD,
+    SV,
+    SM,
+    const LANE_SIZE: usize,
+>(
+    get_data: fn(usize) -> Vec<DType>,
+    _scalar: SCALAR, // necessary to use SCALAR
+    _simd: SIMD,     // necessary to use SIMD
+    arr_len: Option<usize>,
+) where
+    DType: Copy + PartialOrd + AsPrimitive<usize> + Bounded + One,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    use dev_utils::utils::{get_validity, SampleUniformFullRange};
+    let arr_len = arr_len.unwrap_or(1 << (std::mem::size_of::<DType>() * 8 + 1));
+    let data: &[DType] = &get_data(arr_len);
+    let offset = 3;
+    let random: Vec<u8> = SampleUniformFullRange::get_random_array(arr_len);
+    // ~50% and ~6% nulls
+    let half_valid = get_validity(arr_len, offset, |i| random[i] >= 128);
+    let mostly_valid = get_validity(arr_len, offset, |i| random[i] >= 16);
+    for validity in [half_valid, mostly_valid] {
+        assert_same_result_masked::<_, SCALAR, SIMD, SV, SM, LANE_SIZE>(data, &validity, offset);
+    }
+
+    // The expected indices of the cases below are known: compare the SIMD functions with
+    // them (the scalar implementation is not needed and slow on these long arrays)
+    let assert_expected = |data: &[DType], validity: &[u8], offset, (min, max)| unsafe {
+        let argminmax = SIMD::argminmax_masked(data, validity, offset);
+        assert_eq!(argminmax, Some((min, max)));
+        assert_eq!(SIMD::argmin_masked(data, validity, offset), Some(min));
+        assert_eq!(SIMD::argmax_masked(data, validity, offset), Some(max));
+    };
+    // The MIN/MAX value in the last lanes of the last two vectors of the first chunk of
+    // the SIMD loop, and again in the second chunk: the first valid occurrence wins
+    let chunk = SIMD::_get_overflow_lane_size_limit();
+    if 2 * chunk <= arr_len {
+        // (i8/u8 AVX512 chunks hold a single vector)
+        let nb_vectors = 2.min(chunk / LANE_SIZE);
+        for offset in [7, 13] {
+            let all_valid = get_validity(2 * chunk, offset, |_| true);
+            let second_chunk = get_validity(2 * chunk, offset, |i| i >= chunk);
+            for end in (0..nb_vectors).map(|v| chunk - v * LANE_SIZE) {
+                let mut data = vec![DType::one(); 2 * chunk];
+                for start in [0, chunk] {
+                    data[start + end - 2] = DType::min_value();
+                    data[start + end - 1] = DType::max_value();
+                }
+                assert_expected(&data, &all_valid, offset, (end - 2, end - 1));
+                let expected = (chunk + end - 2, chunk + end - 1);
+                assert_expected(&data, &second_chunk, offset, expected);
+            }
+            // Only the MAX (MIN) value, which the SIMD loop also uses for its null lanes:
+            // the first valid element is returned, also when it is the last element of
+            // the first chunk or the first element of the second chunk
+            for first_valid in [1, chunk - 1, chunk] {
+                let validity = get_validity(2 * chunk, offset, |i| i >= first_valid);
+                for value in [DType::max_value(), DType::min_value()] {
+                    let data = vec![value; 2 * chunk];
+                    assert_expected(&data, &validity, offset, (first_valid, first_valid));
+                }
+            }
+        }
+    }
+}
+
+/// Tests whether the masked scalar and SIMD functions return the same result when there
+/// are NaNs and infinities, both in the valid and the null elements.
+#[cfg(any(feature = "float", feature = "half"))]
+#[cfg(test)]
+pub(crate) fn test_nans_masked_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
+    get_data: fn(usize) -> Vec<DType>,
+    _scalar: SCALAR, // necessary to use SCALAR
+    _simd: SIMD,     // necessary to use SIMD
+) where
+    DType: FloatCore + AsPrimitive<usize>,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    // Test both signs, as e.g. on x86 0.0 / 0.0 returns a negative NaN
+    for nan in [DType::nan(), -DType::nan()] {
+        let null_values = [
+            nan,
+            DType::infinity(),
+            DType::neg_infinity(),
+            DType::min_value(),
+            DType::max_value(),
+        ];
+        for len in MASKED_ARR_LENS.into_iter().chain([LONG_ARR_LEN]) {
+            for offset in MASKED_OFFSETS {
+                for validity in get_validities(len, offset) {
+                    // NaNs at some valid elements, only NaNs, and only NaNs and infinities
+                    let some_nans: Vec<DType> = (get_data(len).into_iter().enumerate())
+                        .map(|(i, v)| if i % 23 == 5 { nan } else { v })
+                        .collect();
+                    let only_nans = vec![nan; len];
+                    let nans_and_infs = (0..len)
+                        .map(|i| [nan, DType::infinity(), DType::neg_infinity()][i % 3])
+                        .collect();
+                    for mut data in [some_nans, only_nans, nans_and_infs] {
+                        for (i, v) in data.iter_mut().enumerate() {
+                            if !is_valid(&validity, offset, i) {
+                                *v = null_values[i % null_values.len()];
+                            }
+                        }
+                        assert_same_result_masked::<_, SCALAR, SIMD, SV, SM, LANE_SIZE>(
+                            &data, &validity, offset,
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Tests the masked functions on adversarial values (signed zeros, infinities, NaNs, and
+/// the min and max values), also with signed zeros on both sides of a SIMD register, the
+/// remainder and an overflow-safe chunk. The SIMD and scalar results should equal the
+/// scalar result on only the valid elements and, when all elements are valid and
+/// `compare_unmasked_simd`, the unmasked SIMD result.
+#[cfg(any(feature = "float", feature = "half"))]
+#[cfg(test)]
+pub(crate) fn test_adversarial_masked_argminmax<
+    DType,
+    SCALAR,
+    SIMD,
+    SV,
+    SM,
+    const LANE_SIZE: usize,
+>(
+    _scalar: SCALAR, // necessary to use SCALAR
+    _simd: SIMD,     // necessary to use SIMD
+    compare_unmasked_simd: bool,
+) where
+    DType: FloatCore + AsPrimitive<usize>,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    use dev_utils::utils::get_validity;
+    let (zero, one) = (DType::zero(), DType::one());
+    let values = [
+        zero,
+        -zero,
+        one,
+        -one,
+        DType::infinity(),
+        DType::neg_infinity(),
+        DType::nan(),
+        -DType::nan(),
+        DType::min_value(),
+        DType::max_value(),
+    ];
+    let mut state: u64 = 42; // deterministic pseudo-random numbers
+    let mut random = |n: usize| {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        (state >> 33) as usize % n
+    };
+    let chunk = SIMD::_get_overflow_lane_size_limit();
+    let small_chunk = (chunk < 1 << 16).then_some(chunk + 3);
+    for len in (1..=2 * LANE_SIZE + 1)
+        .chain([63, 64, 65, 129, 1027])
+        .chain(small_chunk)
+    {
+        // Random values (all of them, only signed zeros, or signed zeros and ones)
+        let mut datasets: Vec<Vec<DType>> = [&values[..], &values[..2], &values[..3]]
+            .iter()
+            .map(|palette| (0..len).map(|_| palette[random(palette.len())]).collect())
+            .collect();
+        // Signed zeros on both sides of a SIMD register, the remainder and a chunk
+        let remainder_start = len - len % LANE_SIZE;
+        for boundary in [LANE_SIZE, remainder_start, chunk]
+            .into_iter()
+            .filter(|&b| 0 < b && b < len)
+        {
+            for (zero_i, zero_j, other) in [(zero, -zero, one), (-zero, zero, -one)] {
+                let mut data = vec![other; len];
+                (data[boundary - 1], data[boundary]) = (zero_i, zero_j);
+                datasets.push(data);
+            }
+        }
+        for data in datasets {
+            // No nulls and ~25% nulls
+            for nulls in [0, 4] {
+                let valid: Vec<bool> = (0..len).map(|_| nulls == 0 || random(nulls) > 0).collect();
+                let validity = get_validity(len, 3, |i| valid[i]);
+                let indices: Vec<usize> = (0..len).filter(|&i| valid[i]).collect();
+                let valid_values: Vec<DType> = indices.iter().map(|&i| data[i]).collect();
+                let (argminmax, argmin, argmax) = match valid_values.is_empty() {
+                    true => (None, None, None),
+                    false => {
+                        let (min, max) = SCALAR::argminmax(&valid_values);
+                        let (min_, max_) =
+                            (SCALAR::argmin(&valid_values), SCALAR::argmax(&valid_values));
+                        let index = |i: usize| indices[i];
+                        (
+                            Some((index(min), index(max))),
+                            Some(index(min_)),
+                            Some(index(max_)),
+                        )
+                    }
+                };
+                assert_eq!(argminmax, SCALAR::argminmax_masked(&data, &validity, 3));
+                assert_eq!(argmin, SCALAR::argmin_masked(&data, &validity, 3));
+                assert_eq!(argmax, SCALAR::argmax_masked(&data, &validity, 3));
+                assert_eq!(argminmax, unsafe {
+                    SIMD::argminmax_masked(&data, &validity, 3)
+                });
+                assert_eq!(argmin, unsafe { SIMD::argmin_masked(&data, &validity, 3) });
+                assert_eq!(argmax, unsafe { SIMD::argmax_masked(&data, &validity, 3) });
+
+                if compare_unmasked_simd && nulls == 0 {
+                    let (min, max) = argminmax.unwrap();
+                    assert_eq!((min, max), unsafe { SIMD::argminmax(&data) });
+                    assert_eq!(min, unsafe { SIMD::argmin(&data) });
+                    assert_eq!(max, unsafe { SIMD::argmax(&data) });
+                }
+            }
+        }
+    }
+}

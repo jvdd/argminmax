@@ -43,7 +43,7 @@ use super::config::SIMDInstructionSet;
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMDOps};
+use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMDMasked, SIMDOps};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -197,6 +197,15 @@ mod avx2 {
         unsafe fn argmax(data: &[f32]) -> usize {
             Self::argminmax(data).1
         }
+
+        #[target_feature(enable = "avx2")]
+        unsafe fn argminmax_masked(
+            data: &[f32],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
+        }
     }
 }
 
@@ -293,6 +302,15 @@ mod sse {
 
         unsafe fn argmax(data: &[f32]) -> usize {
             Self::argminmax(data).1
+        }
+
+        #[target_feature(enable = "sse4.1")]
+        unsafe fn argminmax_masked(
+            data: &[f32],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
         }
     }
 }
@@ -396,6 +414,15 @@ mod avx512 {
 
         unsafe fn argmax(data: &[f32]) -> usize {
             Self::argminmax(data).1
+        }
+
+        #[target_feature(enable = "avx512f")]
+        unsafe fn argminmax_masked(
+            data: &[f32],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
         }
     }
 }
@@ -501,6 +528,15 @@ mod neon {
         unsafe fn argmax(data: &[f32]) -> usize {
             Self::argminmax(data).1
         }
+
+        #[target_feature(enable = "neon")]
+        unsafe fn argminmax_masked(
+            data: &[f32],
+            validity: &[u8],
+            offset: usize,
+        ) -> Option<(usize, usize)> {
+            Self::_argminmax_masked(data, validity, offset)
+        }
     }
 }
 
@@ -532,6 +568,11 @@ mod tests {
     // Float specific tests
     use super::super::test_utils::{
         test_return_infs_argminmax, test_return_nans_argminmax, test_signed_zeros_argminmax,
+    };
+    // Masked tests
+    use super::super::test_utils::{
+        test_adversarial_masked_argminmax, test_nans_masked_argminmax,
+        test_return_same_result_masked_argminmax,
     };
 
     use dev_utils::utils;
@@ -651,5 +692,49 @@ mod tests {
             return;
         }
         test_return_nans_argminmax(get_array_f32, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_return_same_result_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_return_same_result_masked_argminmax(get_array_f32, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_nans_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_nans_masked_argminmax(get_array_f32, SCALAR_STRATEGY, simd);
+    }
+    #[apply(simd_implementations)]
+    fn test_adversarial_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<f32, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_adversarial_masked_argminmax(SCALAR_STRATEGY, simd, true);
     }
 }
