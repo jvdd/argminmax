@@ -39,11 +39,12 @@ use std::arch::x86_64::*;
 ))]
 use super::super::dtype_strategy::Int;
 
+// x86 reduces the index lanes as unsigned bytes (`_mm*_min_epu8`), NEON as signed bytes
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+const MAX_INDEX: usize = u8::MAX as usize;
 #[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
     all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
+    target_arch = "aarch64"
 ))]
 const MAX_INDEX: usize = i8::MAX as usize;
 
@@ -114,17 +115,17 @@ mod avx2 {
             let mask = _mm256_cmpeq_epi8(value, vmin);
             // 2. Blend the mask with the index
             let search_index = _mm256_blendv_epi8(
-                _mm256_set1_epi8(i8::MAX), // if mask is 0, use i8::MAX
-                index,                     // if mask is 1, use index
+                _mm256_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
+                index,                           // if mask is 1, use index
                 mask,
             );
             // 3. Find the minimum index
             let mut imin: __m256i = search_index;
-            imin = _mm256_min_epi8(imin, _mm256_permute2x128_si256(imin, imin, 1));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 8));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 4));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 2));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 1));
+            imin = _mm256_min_epu8(imin, _mm256_permute2x128_si256(imin, imin, 1));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 8));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 4));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 2));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 1));
             let min_index: usize = _mm256_extract_epi8(imin, 0) as usize;
 
             (min_index, min_value)
@@ -146,17 +147,17 @@ mod avx2 {
             let mask = _mm256_cmpeq_epi8(value, vmax);
             // 2. Blend the mask with the index
             let search_index = _mm256_blendv_epi8(
-                _mm256_set1_epi8(i8::MAX), // if mask is 0, use i8::MAX
-                index,                     // if mask is 1, use index
+                _mm256_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
+                index,                           // if mask is 1, use index
                 mask,
             );
             // 3. Find the maximum index
             let mut imin: __m256i = search_index;
-            imin = _mm256_min_epi8(imin, _mm256_permute2x128_si256(imin, imin, 1));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 8));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 4));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 2));
-            imin = _mm256_min_epi8(imin, _mm256_alignr_epi8(imin, imin, 1));
+            imin = _mm256_min_epu8(imin, _mm256_permute2x128_si256(imin, imin, 1));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 8));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 4));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 2));
+            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 1));
             let max_index: usize = _mm256_extract_epi8(imin, 0) as usize;
 
             (max_index, max_value)
@@ -194,10 +195,6 @@ mod sse {
         const INDEX_INCREMENT: __m128i =
             unsafe { std::mem::transmute([LANE_SIZE as i8; LANE_SIZE]) };
         const MAX_INDEX: usize = MAX_INDEX;
-        // The overflow-safe loop restarts every 112 elements (7 vectors), which leaves
-        // one group per restart: the groups do not help here (up to 4% slower on an
-        // i7-1185G7, neutral on a Ryzen 9 5950X)
-        const GROUP_VECTORS: bool = false;
 
         #[inline(always)]
         unsafe fn _reg_to_arr(reg: __m128i) -> [i8; LANE_SIZE] {
@@ -244,16 +241,16 @@ mod sse {
             let mask = _mm_cmpeq_epi8(value, vmin);
             // 2. Blend the mask with the index
             let search_index = _mm_blendv_epi8(
-                _mm_set1_epi8(i8::MAX), // if mask is 0, use i8::MAX
-                index,                  // if mask is 1, use index
+                _mm_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
+                index,                        // if mask is 1, use index
                 mask,
             );
             // 3. Find the minimum index
             let mut imin: __m128i = search_index;
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 8));
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 4));
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 2));
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 1));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 8));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 4));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 2));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 1));
             let min_index: usize = _mm_extract_epi8(imin, 0) as usize;
 
             (min_index, min_value)
@@ -274,16 +271,16 @@ mod sse {
             let mask = _mm_cmpeq_epi8(value, vmax);
             // 2. Blend the mask with the index
             let search_index = _mm_blendv_epi8(
-                _mm_set1_epi8(i8::MAX), // if mask is 0, use i8::MAX
-                index,                  // if mask is 1, use index
+                _mm_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
+                index,                        // if mask is 1, use index
                 mask,
             );
             // 3. Find the minimum index
             let mut imin: __m128i = search_index;
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 8));
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 4));
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 2));
-            imin = _mm_min_epi8(imin, _mm_alignr_epi8(imin, imin, 1));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 8));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 4));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 2));
+            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 1));
             let max_index: usize = _mm_extract_epi8(imin, 0) as usize;
 
             (max_index, max_value)
@@ -374,17 +371,17 @@ mod avx512 {
             // 2. Blend the mask with the index
             let search_index = _mm512_mask_blend_epi8(
                 mask,
-                _mm512_set1_epi8(i8::MAX), // if mask is 0, use i8::MAX
-                index,                     // if mask is 1, use index
+                _mm512_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
+                index,                           // if mask is 1, use index
             );
             // 3. Find the minimum index
             let mut imin: __m512i = search_index;
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi32(imin, imin, 8));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi32(imin, imin, 4));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 8));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 4));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 2));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 1));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 8));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 4));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 8));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 4));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 2));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 1));
             let min_index: usize = _mm_extract_epi8(_mm512_castsi512_si128(imin), 0) as usize;
 
             (min_index, min_value)
@@ -408,17 +405,17 @@ mod avx512 {
             // 2. Blend the mask with the index
             let search_index = _mm512_mask_blend_epi8(
                 mask,
-                _mm512_set1_epi8(i8::MAX), // if mask is 0, use i8::MAX
-                index,                     // if mask is 1, use index
+                _mm512_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
+                index,                           // if mask is 1, use index
             );
             // 3. Find the maximum index
             let mut imin: __m512i = search_index;
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi32(imin, imin, 8));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi32(imin, imin, 4));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 8));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 4));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 2));
-            imin = _mm512_min_epi8(imin, _mm512_alignr_epi8(imin, imin, 1));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 8));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 4));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 8));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 4));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 2));
+            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 1));
             let max_index: usize = _mm_extract_epi8(_mm512_castsi512_si128(imin), 0) as usize;
 
             (max_index, max_value)

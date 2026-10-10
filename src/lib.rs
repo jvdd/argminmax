@@ -386,11 +386,9 @@ macro_rules! dispatch {
     ($dtype:ty, Int, $method:ident($($arg:expr),*)) => {{
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            if is_x86_feature_detected!("sse4.1") & (<$dtype>::NB_BITS == 8) {
-                // 8-bit numbers are best handled by SSE4.1
-                return unsafe { SSE::<Int>::$method($($arg),*) };
-            }
-            if avx512_supported::<$dtype>() {
+            // 8-bit numbers are best handled by AVX2 (AVX512 restarts its 8-bit index lanes
+            // every 3 vectors)
+            if (<$dtype>::NB_BITS > 8) & avx512_supported::<$dtype>() {
                 return unsafe { AVX512::<Int>::$method($($arg),*) };
             }
             if is_x86_feature_detected!("avx2") {

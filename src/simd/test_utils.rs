@@ -230,7 +230,7 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     // occurrence wins
     let chunk = SIMD::_get_overflow_lane_size_limit();
     if 2 * chunk <= arr_len {
-        // (i8/u8 AVX2/AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors)
+        // (i8/u8 AVX512 chunks hold 3 vectors)
         let nb_vectors = (VECTORS_PER_GROUP + 1).min(chunk / LANE_SIZE);
         for end in (0..nb_vectors).map(|v| chunk - v * LANE_SIZE) {
             let mut data = vec![DType::one(); 2 * chunk];
@@ -1086,12 +1086,10 @@ pub(crate) fn test_no_overflow_masked_argminmax<
     // the SIMD loop, and again in the second chunk: the first valid occurrence wins
     let chunk = SIMD::_get_overflow_lane_size_limit();
     if 2 * chunk <= arr_len {
-        // (i8/u8 AVX512 chunks hold a single vector)
-        let nb_vectors = 2.min(chunk / LANE_SIZE);
         for offset in [7, 13] {
             let all_valid = get_validity(2 * chunk, offset, |_| true);
             let second_chunk = get_validity(2 * chunk, offset, |i| i >= chunk);
-            for end in (0..nb_vectors).map(|v| chunk - v * LANE_SIZE) {
+            for end in [chunk, chunk - LANE_SIZE] {
                 let mut data = vec![DType::one(); 2 * chunk];
                 for start in [0, chunk] {
                     data[start + end - 2] = DType::min_value();
