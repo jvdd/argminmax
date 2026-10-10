@@ -3,7 +3,7 @@ use num_traits::float::FloatCore;
 use num_traits::AsPrimitive;
 use num_traits::{Bounded, One};
 
-use crate::simd::generic::VECTORS_PER_GROUP;
+use crate::simd::generic::{value_first_blocks, VECTORS_PER_GROUP};
 use crate::{SIMDArgMinMax, ScalarArgMinMax};
 
 // ------- Generic tests for argminmax
@@ -243,6 +243,82 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             assert_eq!(unsafe { SIMD::argmax(&data) }, end - 1);
         }
     }
+}
+
+// ------- Value-first test
+
+/// Length of the value-first test arrays: longer than the core length of every data
+/// type and than the 16-bit index limit of a doubled span, with a last partial block and
+/// a scalar remainder.
+#[cfg(test)]
+const VALUE_FIRST_ARR_LEN: usize = 32 * 8192 + 65;
+
+/// Tests the value-first algorithm of the integer data types (see
+/// `SIMDCore::_value_first`) on arrays that are long enough to use it. The SIMD and
+/// scalar functions should return the same result for:
+/// - random data, also around the minimum length that uses value-first
+/// - sorted data, with spans that grow past the index limit of the 8 and 16-bit data
+///   types
+/// - plateaus that step down (up) every two or three blocks, and plateaus of 1, 1, 2,
+///   4, ... blocks: value passes that find an improvement (the backoff)
+/// - the MIN / MAX value in two blocks: the first occurrence wins
+#[cfg(test)]
+pub(crate) fn test_value_first_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
+    get_data: fn(usize) -> Vec<DType>,
+    _scalar: SCALAR, // necessary to use SCALAR
+    _simd: SIMD,     // necessary to use SIMD
+) where
+    DType: Copy + PartialOrd + AsPrimitive<usize> + One + Bounded,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    let assert_same_result = |data: &[DType]| {
+        let (argmin_index, argmax_index) = SCALAR::argminmax(data);
+        assert_eq!(
+            unsafe { SIMD::argminmax(data) },
+            (argmin_index, argmax_index)
+        );
+        assert_eq!(unsafe { SIMD::argmin(data) }, argmin_index);
+        assert_eq!(unsafe { SIMD::argmax(data) }, argmax_index);
+    };
+    let (block_len, core_len) = value_first_blocks(std::mem::size_of::<DType>());
+    let len = VALUE_FIRST_ARR_LEN;
+
+    for n in [core_len, core_len + 1, core_len + LANE_SIZE, len] {
+        assert_same_result(&get_data(n));
+    }
+
+    let mut sorted = get_data(len);
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let mut steps = sorted.clone();
+    steps.dedup();
+    for _ in 0..2 {
+        assert_same_result(&sorted);
+        for plateau in [2, 3] {
+            let stairs: Vec<DType> = (0..len)
+                .map(|i| steps[(i / block_len).div_ceil(plateau)])
+                .collect();
+            assert_same_result(&stairs);
+        }
+        let doubling_stairs: Vec<DType> = (0..len)
+            .map(|i| steps[(usize::BITS - (i / block_len).leading_zeros()) as usize])
+            .collect();
+        assert_same_result(&doubling_stairs);
+        sorted.reverse();
+        steps.reverse();
+    }
+
+    let mut data = vec![DType::one(); len];
+    let first = 3 * block_len + 5;
+    for start in [first, 9 * block_len + 7] {
+        data[start] = DType::min_value();
+        data[start + 1] = DType::max_value();
+    }
+    assert_eq!(unsafe { SIMD::argminmax(&data) }, (first, first + 1));
+    assert_eq!(unsafe { SIMD::argmin(&data) }, first);
+    assert_eq!(unsafe { SIMD::argmax(&data) }, first + 1);
 }
 
 // ------- Float tests for argminmax

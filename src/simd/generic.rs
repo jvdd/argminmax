@@ -62,6 +62,50 @@ where
     /// Blend two SIMD registers using a SIMD mask (selects elements from a or b)
     unsafe fn _mm_blendv(a: SIMDVecDtype, b: SIMDVecDtype, mask: SIMDMaskDtype) -> SIMDVecDtype;
 
+    /// Lane-wise min of two SIMD registers (for integers, or floats without NaNs).
+    /// Override it with the native instruction where LLVM does not recognize this compare
+    /// and blend as a min and the native min speeds up the core (e.g., for 16 and 32-bit
+    /// integers on AVX2; on SSE only the value pass uses it, see `_mm_min_value`).
+    #[inline(always)]
+    unsafe fn _mm_min(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype {
+        Self::_mm_blendv(a, b, Self::_mm_cmplt(b, a))
+    }
+
+    /// Lane-wise max of two SIMD registers (see `_mm_min`)
+    #[inline(always)]
+    unsafe fn _mm_max(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype {
+        Self::_mm_blendv(a, b, Self::_mm_cmpgt(b, a))
+    }
+
+    // The value pass of the value-first algorithm (see `SIMDCore::_min_max_value`) only
+    // needs the min / max values. Data types whose `_mm_loadu` transforms the values to
+    // make them ordered (e.g., unsigned integers on x86) can skip that transform there
+    // when the instruction set has a native min / max for their raw values.
+
+    /// Load a SIMD register for the value pass
+    #[inline(always)]
+    unsafe fn _mm_loadu_value(data: *const ScalarDType) -> SIMDVecDtype {
+        Self::_mm_loadu(data)
+    }
+
+    /// Lane-wise min of two SIMD registers loaded with `_mm_loadu_value`
+    #[inline(always)]
+    unsafe fn _mm_min_value(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype {
+        Self::_mm_min(a, b)
+    }
+
+    /// Lane-wise max of two SIMD registers loaded with `_mm_loadu_value`
+    #[inline(always)]
+    unsafe fn _mm_max_value(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype {
+        Self::_mm_max(a, b)
+    }
+
+    /// Converts a SIMD register loaded with `_mm_loadu_value` to the values of `_mm_loadu`
+    #[inline(always)]
+    unsafe fn _mm_value_to_ord(a: SIMDVecDtype) -> SIMDVecDtype {
+        a
+    }
+
     /// Horizontal min: get the minimum value from the value SIMD register and its
     /// corresponding index from the index SIMD register
     #[inline(always)]
@@ -145,6 +189,9 @@ where
     SIMDMaskDtype: Copy,
 {
     const IGNORE_NAN: bool = false;
+    /// Whether `SIMDArgMinMax` uses the value-first algorithm (see
+    /// `SIMDCore::_value_first`) instead of the overflow-safe core.
+    const VALUE_FIRST: bool = false;
 
     // Initialization for _core_argminmax
 
@@ -204,7 +251,8 @@ macro_rules! impl_SIMDInit_Int {
         impl SIMDInit<$scalar_dtype, $simd_vec_dtype, $simd_mask_dtype, $lane_size>
             for $simd_struct
         {
-            // Use the default implementation
+            // Use the default implementation, with the value-first algorithm
+            const VALUE_FIRST: bool = true;
         }
     };
 }
@@ -495,8 +543,9 @@ where
         (new_index, new_values): (SIMDVecDtype, SIMDVecDtype),
     ) -> (SIMDVecDtype, SIMDVecDtype) {
         let mask_low = Self::_mm_cmplt(new_values, values_low);
-        // Blend the values first, as the next comparison waits for them
-        let values_low = Self::_mm_blendv(values_low, new_values, mask_low);
+        // The next comparison waits for the values: a native min (if `_mm_min` uses
+        // one) shortens that chain
+        let values_low = Self::_mm_min(values_low, new_values);
         let index_low = Self::_mm_blendv(index_low, new_index, mask_low);
         (index_low, values_low)
     }
@@ -510,8 +559,9 @@ where
         (new_index, new_values): (SIMDVecDtype, SIMDVecDtype),
     ) -> (SIMDVecDtype, SIMDVecDtype) {
         let mask_high = Self::_mm_cmpgt(new_values, values_high);
-        // Blend the values first, as the next comparison waits for them
-        let values_high = Self::_mm_blendv(values_high, new_values, mask_high);
+        // The next comparison waits for the values: a native max (if `_mm_max` uses
+        // one) shortens that chain
+        let values_high = Self::_mm_max(values_high, new_values);
         let index_high = Self::_mm_blendv(index_high, new_index, mask_high);
         (index_high, values_high)
     }
@@ -680,6 +730,191 @@ where
         // 3. Return the min/max index and corresponding value
         (max_index, max_value)
     }
+
+    // ------------------------------ value-first algorithm -------------------------------
+
+    /// Value-first algorithm - returns (argmin, min, argmax, max) if `MIN` and `MAX`
+    /// (the min or max part is meaningless if `MIN` or `MAX` is false).
+    ///
+    /// For each block (see `value_first_blocks`), it first computes only the min
+    /// (max) value of the block, which is cheap as it needs no index vectors. Only when
+    /// that value is below (above) the running min (max), it runs the overflow-safe core
+    /// on the block to get the index. On ties the running min (max) is kept, so the
+    /// first occurrence wins.
+    /// After a span that improved the running min (max) in its second half (a trend, e.g.,
+    /// sorted data), the next span skips the value pass and is twice as long, so that data
+    /// that keeps improving costs no more than the overflow-safe core. Likewise, each value
+    /// pass in a row that finds an improvement doubles the span that follows it (until two
+    /// value passes in a row find none), so that data that improves every few blocks wastes
+    /// few value passes. Short arrays use that core directly.
+    ///
+    /// This method asserts:
+    /// - the array is not empty
+    /// - the array length is a multiple of LANE_SIZE
+    ///
+    #[inline(always)]
+    unsafe fn _value_first<const MIN: bool, const MAX: bool>(
+        arr: &[ScalarDType],
+    ) -> (usize, ScalarDType, usize, ScalarDType) {
+        assert!(!arr.is_empty());
+        assert_eq!(arr.len() % LANE_SIZE, 0);
+        let (block_len, core_len) = value_first_blocks(std::mem::size_of::<ScalarDType>());
+        if arr.len() <= core_len {
+            return Self::_min_max_core::<MIN, MAX>(arr);
+        }
+        let (mut min, mut max) = ((0, arr[0]), (0, arr[0]));
+        // The first span has no running min (max) to beat
+        let (mut start, mut span) = (0, block_len);
+        let mut skip_value_pass = true;
+        // Length of the span after a value pass that found an improvement, reset by two
+        // value passes in a row that found none (one does not suffice for plateaus of two
+        // blocks)
+        let (mut probed_span, mut quiet) = (block_len, false);
+        while start < arr.len() {
+            let mut end = arr.len().min(start + span);
+            if !skip_value_pass {
+                let (low, high) = Self::_min_max_value::<MIN, MAX>(&arr[start..end]);
+                if !(MIN && low < min.1 || MAX && high > max.1) {
+                    if quiet {
+                        probed_span = block_len;
+                    }
+                    (start, quiet) = (end, true);
+                    continue;
+                }
+                quiet = false;
+                // This value pass did not save the index pass: the span doubles with each
+                // such value pass in a row (e.g., plateaus that step every few blocks)
+                end = arr.len().min(start + probed_span);
+                probed_span *= 2;
+            }
+            let block = &arr[start..end];
+            let (min_index, min_value, max_index, max_value) =
+                Self::_min_max_core::<MIN, MAX>(block);
+            // An improvement in the second half of the span is a trend (e.g., sorted data):
+            // the next span skips the value pass and is twice as long
+            skip_value_pass = false;
+            if MIN && min_value < min.1 {
+                min = (start + min_index, min_value);
+                skip_value_pass |= 2 * min_index >= block.len();
+            }
+            if MAX && max_value > max.1 {
+                max = (start + max_index, max_value);
+                skip_value_pass |= 2 * max_index >= block.len();
+            }
+            span = if skip_value_pass {
+                2 * block.len()
+            } else {
+                block_len
+            };
+            start = end;
+        }
+        (min.0, min.1, max.0, max.1)
+    }
+
+    /// Overflow-safe core that returns (argmin, min, argmax, max) if `MIN` and `MAX`
+    /// (the min or max part is meaningless if `MIN` or `MAX` is false).
+    #[inline(always)]
+    unsafe fn _min_max_core<const MIN: bool, const MAX: bool>(
+        arr: &[ScalarDType],
+    ) -> (usize, ScalarDType, usize, ScalarDType) {
+        if MIN && MAX {
+            Self::_overflow_safe_core_argminmax(arr)
+        } else if MIN {
+            let (min_index, min_value) = Self::_overflow_safe_core_argmin(arr);
+            (min_index, min_value, 0, min_value)
+        } else {
+            let (max_index, max_value) = Self::_overflow_safe_core_argmax(arr);
+            (0, max_value, max_index, max_value)
+        }
+    }
+
+    /// Returns the (min, max) value of `arr` if `MIN` and `MAX` (the min or max is
+    /// meaningless if `MIN` or `MAX` is false).
+    ///
+    /// This method assumes:
+    /// - the array is not empty
+    /// - the array length is a multiple of LANE_SIZE
+    ///
+    #[inline(always)]
+    unsafe fn _min_max_value<const MIN: bool, const MAX: bool>(
+        arr: &[ScalarDType],
+    ) -> (ScalarDType, ScalarDType) {
+        let nb_vectors = arr.len() / LANE_SIZE;
+        let arr_ptr = arr.as_ptr();
+        // Independent accumulators, so that the comparisons do not wait for each other
+        let mut low = [Self::_mm_loadu_value(arr_ptr); VECTORS_PER_GROUP];
+        let mut high = low;
+        let mut v = 1;
+        while v + VECTORS_PER_GROUP <= nb_vectors {
+            for k in 0..VECTORS_PER_GROUP {
+                let new = Self::_mm_loadu_value(arr_ptr.add((v + k) * LANE_SIZE));
+                if MIN {
+                    low[k] = Self::_mm_min_value(low[k], new);
+                }
+                if MAX {
+                    high[k] = Self::_mm_max_value(high[k], new);
+                }
+            }
+            v += VECTORS_PER_GROUP;
+        }
+        for v in v..nb_vectors {
+            let new = Self::_mm_loadu_value(arr_ptr.add(v * LANE_SIZE));
+            if MIN {
+                low[0] = Self::_mm_min_value(low[0], new);
+            }
+            if MAX {
+                high[0] = Self::_mm_max_value(high[0], new);
+            }
+        }
+        for k in 1..VECTORS_PER_GROUP {
+            low[0] = Self::_mm_min_value(low[0], low[k]);
+            high[0] = Self::_mm_max_value(high[0], high[k]);
+        }
+        let low = if MIN {
+            Self::_horiz_min(Self::INITIAL_INDEX, Self::_mm_value_to_ord(low[0])).1
+        } else {
+            arr[0]
+        };
+        let high = if MAX {
+            Self::_horiz_max(Self::INITIAL_INDEX, Self::_mm_value_to_ord(high[0])).1
+        } else {
+            arr[0]
+        };
+        (low, high)
+    }
+
+    /// Value-first argmin algorithm - returns (argmin, min), see `_value_first`
+    #[inline(always)]
+    unsafe fn _value_first_argmin(arr: &[ScalarDType]) -> (usize, ScalarDType) {
+        let (min_index, min_value, _, _) = Self::_value_first::<true, false>(arr);
+        (min_index, min_value)
+    }
+
+    /// Value-first argmax algorithm - returns (argmax, max), see `_value_first`
+    #[inline(always)]
+    unsafe fn _value_first_argmax(arr: &[ScalarDType]) -> (usize, ScalarDType) {
+        let (_, _, max_index, max_value) = Self::_value_first::<false, true>(arr);
+        (max_index, max_value)
+    }
+}
+
+/// Returns the (number of elements of a block, longest array length that uses the
+/// overflow-safe core directly) of the value-first algorithm (see
+/// `SIMDCore::_value_first`) for a data type of `size` bytes.
+/// Small blocks stay in the L1 cache between the value pass and the core, and keep the
+/// cost of a block that improves small. The core of 8-bit data types restarts its index
+/// lanes every few vectors, so the value passes pay off soon. The core of wider data
+/// types is about as fast as a value pass on short arrays, so the value passes only pay
+/// off on arrays longer than the L1 cache. 64-bit blocks are longer, as blocks of 4 KiB
+/// were up to 10% slower than the core on arrays in main memory (AVX2 and SSE).
+/// Measured on random data on SSE, AVX2, AVX512 (i7-1185G7, Ryzen 9 5950X).
+pub(crate) const fn value_first_blocks(size: usize) -> (usize, usize) {
+    match size {
+        1 => (2048, 4096),  // 2 KiB blocks
+        2 => (2048, 32768), // 4 KiB blocks
+        4 => (1024, 32768), // 4 KiB blocks
+        _ => (2048, 32768), // 16 KiB blocks
+    }
 }
 
 /// Implement SIMDCore where SIMDOps & SIMDInit are implemented
@@ -747,10 +982,15 @@ where
         argminmax_generic(
             data,
             LANE_SIZE,
-            Self::_overflow_safe_core_argminmax, // SIMD operation
-            SCALAR::argminmax,                   // Scalar operation
-            Self::_nan_check,                    // NaN check - true if value is NaN
-            Self::IGNORE_NAN,                    // Ignore NaNs - if false -> return NaN
+            // SIMD operation
+            if Self::VALUE_FIRST {
+                Self::_value_first::<true, true>
+            } else {
+                Self::_overflow_safe_core_argminmax
+            },
+            SCALAR::argminmax, // Scalar operation
+            Self::_nan_check,  // NaN check - true if value is NaN
+            Self::IGNORE_NAN,  // Ignore NaNs - if false -> return NaN
         )
     }
 
@@ -786,10 +1026,15 @@ where
         argmin_generic(
             data,
             LANE_SIZE,
-            Self::_overflow_safe_core_argmin, // SIMD operation
-            SCALAR::argmin,                   // Scalar operation
-            Self::_nan_check,                 // NaN check - true if value is NaN
-            Self::IGNORE_NAN,                 // Ignore NaNs - if false -> return NaN
+            // SIMD operation
+            if Self::VALUE_FIRST {
+                Self::_value_first_argmin
+            } else {
+                Self::_overflow_safe_core_argmin
+            },
+            SCALAR::argmin,   // Scalar operation
+            Self::_nan_check, // NaN check - true if value is NaN
+            Self::IGNORE_NAN, // Ignore NaNs - if false -> return NaN
         )
     }
 
@@ -825,10 +1070,15 @@ where
         argmax_generic(
             data,
             LANE_SIZE,
-            Self::_overflow_safe_core_argmax, // SIMD operation
-            SCALAR::argmax,                   // Scalar operation
-            Self::_nan_check,                 // NaN check - true if value is NaN
-            Self::IGNORE_NAN,                 // Ignore NaNs - if false -> return NaN
+            // SIMD operation
+            if Self::VALUE_FIRST {
+                Self::_value_first_argmax
+            } else {
+                Self::_overflow_safe_core_argmax
+            },
+            SCALAR::argmax,   // Scalar operation
+            Self::_nan_check, // NaN check - true if value is NaN
+            Self::IGNORE_NAN, // Ignore NaNs - if false -> return NaN
         )
     }
 

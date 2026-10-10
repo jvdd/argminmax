@@ -309,6 +309,26 @@ mod avx512 {
         }
 
         #[inline(always)]
+        unsafe fn _mm_loadu_value(data: *const u64) -> __m512i {
+            _mm512_loadu_epi64(data as *const i64)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_min_value(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_min_epu64(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max_value(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_max_epu64(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_value_to_ord(a: __m512i) -> __m512i {
+            _u64_as_m512i_to_i64ord(a)
+        }
+
+        #[inline(always)]
         unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, u64) {
             let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
             let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
@@ -434,6 +454,7 @@ mod tests {
     use crate::simd::config::{AVX2, SSE};
     use crate::{Int, SIMDArgMinMax, SCALAR};
 
+    use super::super::test_utils::test_value_first_argminmax;
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
@@ -512,6 +533,21 @@ mod tests {
             return;
         }
         test_return_same_result_argminmax(get_array_u64, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_value_first<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<u64, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_value_first_argminmax(get_array_u64, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
