@@ -25,7 +25,7 @@
 
 ⚡ **Runtime CPU feature detection** is used to select the most efficient implementation for the current CPU. This means that the same binary can be used on different CPUs without recompilation. 
 
-👀 The SIMD inner loop contains **no if checks**, ensuring that its runtime is independent of the input data its order (best-case = worst-case = average-case).
+👀 The SIMD inner loop contains **no if checks**. For long integer arrays, a cheap pass that only computes the min / max value first skips the blocks that cannot change the result, so the runtime depends somewhat on the data (e.g., random data is faster than data whose min / max keeps changing).
 
 🪄 **Efficient support for f16 and uints**: through bitwise operations, f16 (optional<sup>2</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 

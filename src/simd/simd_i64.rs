@@ -309,6 +309,7 @@ mod tests {
     use crate::simd::config::{AVX2, SSE};
     use crate::{Int, SIMDArgMinMax, SCALAR};
 
+    use super::super::test_utils::test_value_first_argminmax;
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
     };
@@ -387,6 +388,21 @@ mod tests {
             return;
         }
         test_return_same_result_argminmax(get_array_i64, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_value_first<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<i64, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_value_first_argminmax(get_array_i64, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]

@@ -137,6 +137,36 @@ mod avx2 {
         }
 
         #[inline(always)]
+        unsafe fn _mm_loadu_value(data: *const u16) -> __m256i {
+            _mm256_loadu_si256(data as *const __m256i)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_min_value(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_min_epu16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max_value(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_max_epu16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_value_to_ord(a: __m256i) -> __m256i {
+            _u16_as_m256i_to_i16ord(a)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_min(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_min_epi16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_max_epi16(a, b)
+        }
+
+        #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, u16) {
             // 0. Find the minimum value
             let mut vmin: __m256i = value;
@@ -270,6 +300,26 @@ mod sse {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m128i, b: __m128i, mask: __m128i) -> __m128i {
             _mm_blendv_epi8(a, b, mask)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_loadu_value(data: *const u16) -> __m128i {
+            _mm_loadu_si128(data as *const __m128i)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_min_value(a: __m128i, b: __m128i) -> __m128i {
+            _mm_min_epu16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max_value(a: __m128i, b: __m128i) -> __m128i {
+            _mm_max_epu16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_value_to_ord(a: __m128i) -> __m128i {
+            _u16_as_m128i_to_i16ord(a)
         }
 
         #[inline(always)]
@@ -407,6 +457,26 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u32) -> __m512i {
             _mm512_mask_blend_epi16(mask, a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_loadu_value(data: *const u16) -> __m512i {
+            _mm512_loadu_epi16(data as *const i16)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_min_value(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_min_epu16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max_value(a: __m512i, b: __m512i) -> __m512i {
+            _mm512_max_epu16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_value_to_ord(a: __m512i) -> __m512i {
+            _u16_as_m512i_to_i16ord(a)
         }
 
         #[inline(always)]
@@ -628,6 +698,7 @@ mod tests {
     use crate::simd::config::{AVX2, SSE};
     use crate::{Int, SIMDArgMinMax, SCALAR};
 
+    use super::super::test_utils::test_value_first_argminmax;
     use super::super::test_utils::{
         test_first_index_identical_values_argminmax, test_no_overflow_argminmax,
         test_return_same_result_argminmax,
@@ -709,6 +780,21 @@ mod tests {
             return;
         }
         test_return_same_result_argminmax(get_array_u16, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_value_first<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<u16, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_value_first_argminmax(get_array_u16, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
