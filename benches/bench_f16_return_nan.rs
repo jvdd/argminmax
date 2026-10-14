@@ -18,7 +18,7 @@ use argminmax::simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
 ))]
 use argminmax::simd::{SIMDArgMinMax, NEON};
 
-use half::f16;
+use half::{bf16, f16};
 
 // _rn stands for "return nan"
 
@@ -132,6 +132,11 @@ fn argminmax_rn_f16_random_array_long(c: &mut Criterion) {
     });
     c.bench_function("impl_f16_argmax_rn", |b| {
         b.iter(|| black_box(data.nanargmax()))
+    });
+    // bf16 runs the same generic code as f16; only bench the public API
+    let data: &[bf16] = &utils::SampleUniformFullRange::get_random_array(n);
+    c.bench_function("impl_bf16_argminmax_rn", |b| {
+        b.iter(|| black_box(data.nanargminmax()))
     });
 }
 
