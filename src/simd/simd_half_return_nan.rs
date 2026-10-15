@@ -19,7 +19,7 @@
 //! more expensive than lt and gt we use this efficient bitwise transformation.
 //!
 //! Note that most x86 CPUs do not support f16 and bf16 instructions - making this implementation
-//! multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
+//! multitudes (up to 300x for f16) faster than trying to use a vanilla scalar implementation.
 //!
 //!
 //! ---
