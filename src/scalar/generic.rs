@@ -357,11 +357,11 @@ impl_scalar!(FloatIgnoreNaN, f32, f64);
 // --- Optional data types
 
 #[cfg(feature = "half")]
-use super::scalar_f16::{
+use super::scalar_half::{
     scalar_argmax_f16_ignore_nan, scalar_argmin_f16_ignore_nan, scalar_argminmax_f16_ignore_nan,
 };
 #[cfg(feature = "half")]
-use super::scalar_f16::{
+use super::scalar_half::{
     scalar_argmax_f16_return_nan, scalar_argmin_f16_return_nan, scalar_argminmax_f16_return_nan,
 };
 

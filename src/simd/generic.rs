@@ -14,10 +14,10 @@ use crate::validity::{assert_validity_len, validity_word, FoundMinMax};
 ///
 /// Note that for floating point dataypes two implementations are required:
 /// - one for the ignore NaN case (uses a floating point SIMDVecDtype)
-///   (see the `simd_f*_ignore_nan.rs` files)
+///   (see the `simd_*_ignore_nan.rs` files)
 /// - one for the return NaN case (uses an integer SIMDVecDtype - as we use the
 ///   ord_transform to view the floating point data as ordinal integer data).
-///   (see the `simd_f*_return_nan.rs` files)
+///   (see the `simd_*_return_nan.rs` files)
 ///
 #[doc(hidden)]
 pub trait SIMDOps<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize>
@@ -124,9 +124,9 @@ where
 ///     - called in the `simd_i*.rs` files
 ///     - called in the `simd_u*.rs` files
 /// - `impl_SIMDInit_FloatReturnNaN!`
-///     - see the `simd_f*_return_nan.rs` files
+///     - see the `simd_*_return_nan.rs` files
 /// - `impl_SIMDInit_FloatIgnoreNaN!`
-///     - see the `simd_f*_ignore_nan.rs` files
+///     - see the `simd_*_ignore_nan.rs` files
 ///
 /// The current (default) implementation is for the Int case - see `impl_SIMDInit_Int!`
 /// macro below for more details.
@@ -702,7 +702,7 @@ where
 // This trait its methods should be implemented for all structs that implement `SIMDOps`
 // for the same generics.
 // This trait is implemented in the `simd_*.rs` files calling the `impl_SIMDArgMinMax!`
-// macro. With the exception of the `simd_f*_return_nan.rs` files, which implement this
+// macro. With the exception of the `simd_*_return_nan.rs` files, which implement this
 // trait themselves (as these return .argminmax().0 and .argminmax().1 respectively
 // instead of .argmin() and .argmax()).
 //
@@ -899,7 +899,7 @@ where
 
 /// The SIMD implementation of the masked argminmax operations, which the SIMD
 /// implementations of `SIMDArgMinMax::argminmax_masked` (and of `argmin_masked` and
-/// `argmax_masked`) call (see `impl_SIMDArgMinMax!` and the `simd_f*_return_nan.rs`
+/// `argmax_masked`) call (see `impl_SIMDArgMinMax!` and the `simd_*_return_nan.rs`
 /// files). This trait is crate-private, as is the `SIMDValidity` trait it requires.
 ///
 // Without SIMD (arm without the nightly_simd feature), nothing implements this trait

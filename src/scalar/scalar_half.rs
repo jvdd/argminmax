@@ -2,7 +2,7 @@
 //!
 //! As f16 is not hardware supported on most x86 CPUs, we aim to facilitate efficient
 //! implementation of argminmax operations on f16 arrays through transforming the f16
-//! values to i16ord. (more details in simd/simd_f16_return_nan.rs)
+//! values to i16ord. (more details in simd/simd_half_return_nan.rs)
 //!
 use half::f16;
 
