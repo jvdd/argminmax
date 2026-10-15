@@ -274,22 +274,28 @@ macro_rules! impl_SIMDInit_FloatIgnoreNaN {
 
             const IGNORE_NAN: bool = true;
 
+            // Name the scalar type for the SIMDOps items whose signature does not mention it
+            // (_mm_cmplt, _mm_cmpgt, _mm_blendv, INITIAL_INDEX): f16 and bf16 share one
+            // SIMDOps impl per SIMD type, so Self::_mm_blendv would be ambiguous
+
             #[inline(always)]
             unsafe fn _initialize_index_values_low(
                 arr_ptr: *const $scalar_dtype,
             ) -> ($simd_vec_dtype, $simd_vec_dtype) {
                 // Initialize the index and value SIMD registers
                 let new_values = Self::_mm_loadu(arr_ptr);
-                let mask_low =
-                    Self::_mm_cmplt(new_values, Self::_mm_set1(<$scalar_dtype>::INFINITY));
-                let values_low = Self::_mm_blendv(
+                let mask_low = <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::_mm_cmplt(
+                    new_values,
+                    Self::_mm_set1(<$scalar_dtype>::INFINITY),
+                );
+                let values_low = <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::_mm_blendv(
                     Self::_mm_set1(<$scalar_dtype>::INFINITY),
                     new_values,
                     mask_low,
                 );
-                let index_low = Self::_mm_blendv(
+                let index_low = <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::_mm_blendv(
                     Self::_mm_set1(<$scalar_dtype>::zero()),
-                    Self::INITIAL_INDEX,
+                    <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::INITIAL_INDEX,
                     mask_low,
                 );
                 (index_low, values_low)
@@ -301,16 +307,18 @@ macro_rules! impl_SIMDInit_FloatIgnoreNaN {
             ) -> ($simd_vec_dtype, $simd_vec_dtype) {
                 // Initialize the index and value SIMD registers
                 let new_values = Self::_mm_loadu(arr_ptr);
-                let mask_high =
-                    Self::_mm_cmpgt(new_values, Self::_mm_set1(<$scalar_dtype>::NEG_INFINITY));
-                let values_high = Self::_mm_blendv(
+                let mask_high = <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::_mm_cmpgt(
+                    new_values,
+                    Self::_mm_set1(<$scalar_dtype>::NEG_INFINITY),
+                );
+                let values_high = <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::_mm_blendv(
                     Self::_mm_set1(<$scalar_dtype>::NEG_INFINITY),
                     new_values,
                     mask_high,
                 );
-                let index_high = Self::_mm_blendv(
+                let index_high = <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::_mm_blendv(
                     Self::_mm_set1(<$scalar_dtype>::zero()),
-                    Self::INITIAL_INDEX,
+                    <Self as SIMDOps<$scalar_dtype, _, _, $lane_size>>::INITIAL_INDEX,
                     mask_high,
                 );
                 (index_high, values_high)
@@ -703,8 +711,8 @@ where
 // for the same generics.
 // This trait is implemented in the `simd_*.rs` files calling the `impl_SIMDArgMinMax!`
 // macro. With the exception of the `simd_*_return_nan.rs` files, which implement this
-// trait themselves (as these return .argminmax().0 and .argminmax().1 respectively
-// instead of .argmin() and .argmax()).
+// trait themselves (`simd_half_return_nan.rs` with a local macro), as these return
+// .argminmax().0 and .argminmax().1 respectively instead of .argmin() and .argmax().
 //
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize, SCALAR>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
