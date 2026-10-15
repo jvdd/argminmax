@@ -703,9 +703,9 @@ where
 // This trait its methods should be implemented for all structs that implement `SIMDOps`
 // for the same generics.
 // This trait is implemented in the `simd_*.rs` files calling the `impl_SIMDArgMinMax!`
-// macro. With the exception of the `simd_*_return_nan.rs` files, which implement this
-// trait themselves (`simd_half_return_nan.rs` with a local macro), as these return
-// .argminmax().0 and .argminmax().1 respectively instead of .argmin() and .argmax().
+// macro. With the exception of the `simd_*_return_nan.rs` files, which call the
+// `impl_SIMDArgMinMax_FloatReturnNaN!` macro (as these return .argminmax().0 and
+// .argminmax().1 respectively instead of .argmin() and .argmax()).
 //
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize, SCALAR>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -900,8 +900,9 @@ where
 
 /// The SIMD implementation of the masked argminmax operations, which the SIMD
 /// implementations of `SIMDArgMinMax::argminmax_masked` (and of `argmin_masked` and
-/// `argmax_masked`) call (see `impl_SIMDArgMinMax!` and the `simd_*_return_nan.rs`
-/// files). This trait is crate-private, as is the `SIMDValidity` trait it requires.
+/// `argmax_masked`) call (see `impl_SIMDArgMinMax!` and
+/// `impl_SIMDArgMinMax_FloatReturnNaN!`). This trait is crate-private, as is the
+/// `SIMDValidity` trait it requires.
 ///
 // Without SIMD (arm without the nightly_simd feature), nothing implements this trait
 #[cfg_attr(
@@ -1134,6 +1135,60 @@ macro_rules! impl_SIMDArgMinMax {
     target_arch = "aarch64",
 ))]
 pub(crate) use impl_SIMDArgMinMax; // Now classic paths Just Work™
+
+/// Like `impl_SIMDArgMinMax!`, but for the FloatReturnNaN strategy (the
+/// `simd_*_return_nan.rs` files): argmin and argmax return the indices of argminmax.
+#[cfg(any(feature = "float", feature = "half"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
+macro_rules! impl_SIMDArgMinMax_FloatReturnNaN {
+    ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty, $target:expr) => {
+        impl
+            SIMDArgMinMax<
+                $scalar_dtype,
+                $simd_vec_dtype,
+                $simd_mask_dtype,
+                $lane_size,
+                SCALAR<FloatReturnNaN>,
+            > for $simd_struct
+        {
+            #[target_feature(enable = $target)]
+            unsafe fn argminmax(data: &[$scalar_dtype]) -> (usize, usize) {
+                Self::_argminmax(data)
+            }
+
+            unsafe fn argmin(data: &[$scalar_dtype]) -> usize {
+                Self::argminmax(data).0
+            }
+
+            unsafe fn argmax(data: &[$scalar_dtype]) -> usize {
+                Self::argminmax(data).1
+            }
+
+            #[target_feature(enable = $target)]
+            unsafe fn argminmax_masked(
+                data: &[$scalar_dtype],
+                validity: &[u8],
+                offset: usize,
+            ) -> Option<(usize, usize)> {
+                Self::_argminmax_masked(data, validity, offset)
+            }
+        }
+    };
+}
+
+#[cfg(any(feature = "float", feature = "half"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
+pub(crate) use impl_SIMDArgMinMax_FloatReturnNaN; // Now classic paths Just Work™
 
 // --------------------------------- Unimplement Macros --------------------------------
 
