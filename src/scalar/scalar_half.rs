@@ -9,7 +9,16 @@ use num_traits::{float::FloatCore, AsPrimitive, Bounded};
 
 /// The 16-bit floats of the half crate (f16 and bf16). Both store a sign bit followed by
 /// the magnitude, so both map to i16ord in the same way; only the bits of +inf differ.
-#[allow(dead_code, reason = "only the SIMD code uses INF_BITS and from_bits")]
+// Without SIMD (arm without the nightly_simd feature), INF_BITS and from_bits are unused
+#[cfg_attr(
+    not(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        all(target_arch = "arm", feature = "nightly_simd"),
+        target_arch = "aarch64",
+    )),
+    allow(dead_code)
+)]
 pub(crate) trait Half: FloatCore + AsPrimitive<usize> + Bounded {
     /// The bits of +inf: magnitudes (absolute i16ord values) above this are NaN
     const INF_BITS: i16;
