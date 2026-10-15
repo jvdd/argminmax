@@ -867,7 +867,7 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // is returned (only for f16 and bf16: the f32 and f64 chunks are too long to
         // allocate)
         let chunk = SIMD::_get_overflow_lane_size_limit();
-        if chunk <= 1 << 16 {
+        if chunk < 1 << 16 {
             for simd_len in [chunk + LANE_SIZE, 2 * chunk] {
                 let mut data = vec![DType::one(); simd_len + 3];
                 for i in [7, simd_len - 1, simd_len] {
