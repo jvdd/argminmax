@@ -710,9 +710,9 @@ where
 // This trait its methods should be implemented for all structs that implement `SIMDOps`
 // for the same generics.
 // This trait is implemented in the `simd_*.rs` files calling the `impl_SIMDArgMinMax!`
-// macro. With the exception of `simd_half_return_nan.rs`, which implements this trait
-// with its own macro (as it returns .argminmax().0 and .argminmax().1 respectively
-// instead of .argmin() and .argmax()).
+// macro. With the exception of the `simd_*_return_nan.rs` files, which implement this
+// trait themselves (`simd_half_return_nan.rs` with a local macro), as these return
+// .argminmax().0 and .argminmax().1 respectively instead of .argmin() and .argmax().
 //
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize, SCALAR>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -907,8 +907,8 @@ where
 
 /// The SIMD implementation of the masked argminmax operations, which the SIMD
 /// implementations of `SIMDArgMinMax::argminmax_masked` (and of `argmin_masked` and
-/// `argmax_masked`) call (see `impl_SIMDArgMinMax!` and `simd_half_return_nan.rs`).
-/// This trait is crate-private, as is the `SIMDValidity` trait it requires.
+/// `argmax_masked`) call (see `impl_SIMDArgMinMax!` and the `simd_*_return_nan.rs`
+/// files). This trait is crate-private, as is the `SIMDValidity` trait it requires.
 ///
 // Without SIMD (arm without the nightly_simd feature), nothing implements this trait
 #[cfg_attr(

@@ -266,20 +266,20 @@ pub(crate) fn scalar_argmax_half_ignore_nan<T: Half>(arr: &[T]) -> usize {
 // #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
 // // #[inline(never)]
 // pub(crate) fn scalar_argminmax_f16(arr: &[f16]) -> (usize, usize) {
-//     // The values are transformed to i16ord
+//     // f16 is transformed to i16ord
 //     //   benchmarks  show:
 //     //     1. this is 7-10x faster than using raw f16
 //     //     2. this is 3x faster than transforming to f32 or f64
 //     assert!(!arr.is_empty());
 //     // This is 3% slower on x86_64, but 12% faster on aarch64.
 //     let minmax_tuple: (usize, i16, usize, i16) = arr.iter().enumerate().fold(
-//         (0, half_to_i16ord(arr[0]), 0, half_to_i16ord(arr[0])),
+//         (0, f16_to_i16ord(arr[0]), 0, f16_to_i16ord(arr[0])),
 //         |(low_index, low, high_index, high), (i, item)| {
 //             if item.is_nan() {
 //                 // Return the index of the first NaN value
 //                 return (i, i);
 //             }
-//             let item = half_to_i16ord(*item);
+//             let item = f16_to_i16ord(*item);
 //             if item < low {
 //                 (i, item, high_index, high)
 //             } else if item > high {
