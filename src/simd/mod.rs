@@ -12,10 +12,6 @@ mod task;
 // --- SIMD implementations ---
 
 // FLOAT
-#[cfg(feature = "half")]
-mod simd_f16_ignore_nan;
-#[cfg(feature = "half")]
-mod simd_f16_return_nan;
 #[cfg(feature = "float")]
 mod simd_f32_ignore_nan;
 #[cfg(feature = "float")]
@@ -24,6 +20,10 @@ mod simd_f32_return_nan;
 mod simd_f64_ignore_nan;
 #[cfg(feature = "float")]
 mod simd_f64_return_nan;
+#[cfg(feature = "half")]
+mod simd_half_ignore_nan;
+#[cfg(feature = "half")]
+mod simd_half_return_nan;
 // SIGNED INT
 mod simd_i16;
 mod simd_i32;
