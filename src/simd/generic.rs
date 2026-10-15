@@ -517,7 +517,8 @@ where
     }
 
     /// Merge the (argmin, min) of the chunk that starts at `start` into the running
-    /// (argmin, min). On ties the running min is kept, so the earlier chunk wins.
+    /// (argmin, min). On ties the running min is kept, so the earlier chunk wins. A NaN
+    /// (`_return_check`) always replaces the running min: the caller stops at the first.
     #[inline(always)]
     fn _merge_min(
         min: (usize, ScalarDType),
@@ -532,7 +533,8 @@ where
     }
 
     /// Merge the (argmax, max) of the chunk that starts at `start` into the running
-    /// (argmax, max). On ties the running max is kept, so the earlier chunk wins.
+    /// (argmax, max). On ties the running max is kept, so the earlier chunk wins. A NaN
+    /// (`_return_check`) always replaces the running max: the caller stops at the first.
     #[inline(always)]
     fn _merge_max(
         max: (usize, ScalarDType),
@@ -565,7 +567,8 @@ where
         let mut min = (0, Self::_initialize_min_value(arr));
         let mut max = (0, Self::_initialize_max_value(arr));
         // Handle the shorter last chunk apart: the compile-time length of the full chunks
-        // speeds up the core (one loop over `chunks()` is up to 1.9x slower for 8-bit)
+        // speeds up the core (one loop over `chunks()` is up to 1.9x slower for the short
+        // chunks of 8-bit types, and of u16/u32 on NEON)
         let mut start = 0;
         for _ in 0..arr.len() / chunk_size {
             if Self::_return_check(min.1) || Self::_return_check(max.1) {

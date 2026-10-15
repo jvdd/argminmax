@@ -246,12 +246,14 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // vector and of a group of vectors and one more vector) and of a full second
         // chunk, and again in the scalar remainder: the index is offset by the chunk start
         // and the first occurrence wins
+        // (i8/u8 AVX2/AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors: there
+        // these lengths can end in a later chunk, or in a full one)
         let group_len = chunk + (VECTORS_PER_GROUP + 1) * LANE_SIZE;
         for simd_len in [chunk + LANE_SIZE, group_len, 2 * chunk] {
             let mut data = vec![DType::one(); simd_len + 3];
-            for start in [simd_len - 2, simd_len] {
-                data[start] = DType::min_value();
-                data[start + 1] = DType::max_value();
+            for i in [simd_len - 2, simd_len] {
+                data[i] = DType::min_value();
+                data[i + 1] = DType::max_value();
             }
             let (min, max) = (simd_len - 2, simd_len - 1);
             assert_eq!(unsafe { SIMD::argminmax(&data) }, (min, max));
@@ -860,9 +862,10 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_simd_index, 17);
         assert_eq!(argmax_simd_index_single, 17);
 
-        // Case 9: NaN in the first overflow chunk, and again in the last lanes of a
+        // Case 9: NaN in the first overflow chunk, and again in the last lane of a
         // partial and of a full second chunk and in the scalar remainder: the first NaN
-        // is returned (only for f16, the f32 and f64 chunks are too long to allocate)
+        // is returned (only for f16 and bf16: the f32 and f64 chunks are too long to
+        // allocate)
         let chunk = SIMD::_get_overflow_lane_size_limit();
         if chunk <= 1 << 16 {
             for simd_len in [chunk + LANE_SIZE, 2 * chunk] {
