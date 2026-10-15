@@ -27,7 +27,7 @@ pub(crate) trait Half: FloatCore + AsPrimitive<usize> + Bounded {
 }
 
 impl Half for f16 {
-    const INF_BITS: i16 = 0x7C00;
+    const INF_BITS: i16 = f16::INFINITY.to_bits() as i16;
     fn to_bits(self) -> u16 {
         f16::to_bits(self)
     }
@@ -37,7 +37,7 @@ impl Half for f16 {
 }
 
 impl Half for bf16 {
-    const INF_BITS: i16 = 0x7F80;
+    const INF_BITS: i16 = bf16::INFINITY.to_bits() as i16;
     fn to_bits(self) -> u16 {
         bf16::to_bits(self)
     }
