@@ -137,6 +137,16 @@ mod avx2 {
         }
 
         #[inline(always)]
+        unsafe fn _mm_min(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_min_epi16(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_max_epi16(a, b)
+        }
+
+        #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, u16) {
             // 0. Find the minimum value
             let mut vmin: __m256i = value;

@@ -62,6 +62,24 @@ where
     /// Blend two SIMD registers using a SIMD mask (selects elements from a or b)
     unsafe fn _mm_blendv(a: SIMDVecDtype, b: SIMDVecDtype, mask: SIMDMaskDtype) -> SIMDVecDtype;
 
+    /// Lane-wise min of two SIMD registers (of values as loaded by `_mm_loadu`).
+    /// For FloatIgnoreNaN, `a` must contain no NaNs; NaN lanes in `b` return `a`.
+    /// The default is a compare and blend. On AVX2, the 16 and 32-bit integer lanes (of
+    /// the integers and of the FloatReturnNaN ordinals) override it with the native min,
+    /// which LLVM does not emit for them. On Zen 3, the native min was slower on SSE4.1
+    /// and for the FloatIgnoreNaN floats. An override must return the same values as the
+    /// default.
+    #[inline(always)]
+    unsafe fn _mm_min(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype {
+        Self::_mm_blendv(a, b, Self::_mm_cmplt(b, a))
+    }
+
+    /// Lane-wise max of two SIMD registers (see `_mm_min`)
+    #[inline(always)]
+    unsafe fn _mm_max(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype {
+        Self::_mm_blendv(a, b, Self::_mm_cmpgt(b, a))
+    }
+
     /// Horizontal min: get the minimum value from the value SIMD register and its
     /// corresponding index from the index SIMD register
     #[inline(always)]
@@ -503,8 +521,9 @@ where
         (new_index, new_values): (SIMDVecDtype, SIMDVecDtype),
     ) -> (SIMDVecDtype, SIMDVecDtype) {
         let mask_low = Self::_mm_cmplt(new_values, values_low);
-        // Blend the values first, as the next comparison waits for them
-        let values_low = Self::_mm_blendv(values_low, new_values, mask_low);
+        // The next comparison waits for the values: a native min (if `_mm_min` uses
+        // one) shortens that chain
+        let values_low = Self::_mm_min(values_low, new_values);
         let index_low = Self::_mm_blendv(index_low, new_index, mask_low);
         (index_low, values_low)
     }
@@ -518,8 +537,9 @@ where
         (new_index, new_values): (SIMDVecDtype, SIMDVecDtype),
     ) -> (SIMDVecDtype, SIMDVecDtype) {
         let mask_high = Self::_mm_cmpgt(new_values, values_high);
-        // Blend the values first, as the next comparison waits for them
-        let values_high = Self::_mm_blendv(values_high, new_values, mask_high);
+        // The next comparison waits for the values: a native max (if `_mm_max` uses
+        // one) shortens that chain
+        let values_high = Self::_mm_max(values_high, new_values);
         let index_high = Self::_mm_blendv(index_high, new_index, mask_high);
         (index_high, values_high)
     }
@@ -966,16 +986,14 @@ pub(crate) trait SIMDMasked<
                 if MIN {
                     // Update the lowest values and index
                     let new_low = Self::_mm_blendv(neutral_low, new_values, valid);
-                    let mask_low = Self::_mm_cmplt(new_low, values_low);
-                    values_low = Self::_mm_blendv(values_low, new_low, mask_low);
-                    index_low = Self::_mm_blendv(index_low, new_index, mask_low);
+                    (index_low, values_low) =
+                        Self::_update_low((index_low, values_low), (new_index, new_low));
                 }
                 if MAX {
                     // Update the highest values and index
                     let new_high = Self::_mm_blendv(neutral_high, new_values, valid);
-                    let mask_high = Self::_mm_cmpgt(new_high, values_high);
-                    values_high = Self::_mm_blendv(values_high, new_high, mask_high);
-                    index_high = Self::_mm_blendv(index_high, new_index, mask_high);
+                    (index_high, values_high) =
+                        Self::_update_high((index_high, values_high), (new_index, new_high));
                 }
 
                 // Increment the index and the array pointer

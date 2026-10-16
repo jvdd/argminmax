@@ -92,6 +92,16 @@ mod avx2 {
         unsafe fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
             _mm256_blendv_epi8(a, b, mask)
         }
+
+        #[inline(always)]
+        unsafe fn _mm_min(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_min_epi32(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_max_epi32(a, b)
+        }
     }
 
     impl_SIMDInit_Int!(i32, __m256i, __m256i, LANE_SIZE, AVX2<Int>);
