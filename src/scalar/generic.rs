@@ -357,50 +357,47 @@ impl_scalar!(FloatIgnoreNaN, f32, f64);
 // --- Optional data types
 
 #[cfg(feature = "half")]
-use super::scalar_f16::{
-    scalar_argmax_f16_ignore_nan, scalar_argmin_f16_ignore_nan, scalar_argminmax_f16_ignore_nan,
-};
-#[cfg(feature = "half")]
-use super::scalar_f16::{
-    scalar_argmax_f16_return_nan, scalar_argmin_f16_return_nan, scalar_argminmax_f16_return_nan,
+use super::scalar_half::{
+    scalar_argmax_half_ignore_nan, scalar_argmax_half_return_nan, scalar_argmin_half_ignore_nan,
+    scalar_argmin_half_return_nan, scalar_argminmax_half_ignore_nan,
+    scalar_argminmax_half_return_nan, Half,
 };
 
+/// For the 16-bit floats `f16` and `bf16`
 #[cfg(feature = "half")]
-use half::f16;
-
-#[cfg(feature = "half")]
-impl ScalarArgMinMax<f16> for SCALAR<FloatReturnNaN> {
+impl<T: Half> ScalarArgMinMax<T> for SCALAR<FloatReturnNaN> {
     #[inline(always)]
-    fn argminmax(arr: &[f16]) -> (usize, usize) {
-        scalar_argminmax_f16_return_nan(arr)
+    fn argminmax(arr: &[T]) -> (usize, usize) {
+        scalar_argminmax_half_return_nan(arr)
     }
 
     #[inline(always)]
-    fn argmin(arr: &[f16]) -> usize {
-        scalar_argmin_f16_return_nan(arr)
+    fn argmin(arr: &[T]) -> usize {
+        scalar_argmin_half_return_nan(arr)
     }
 
     #[inline(always)]
-    fn argmax(arr: &[f16]) -> usize {
-        scalar_argmax_f16_return_nan(arr)
+    fn argmax(arr: &[T]) -> usize {
+        scalar_argmax_half_return_nan(arr)
     }
 }
 
+/// For the 16-bit floats `f16` and `bf16`
 #[cfg(feature = "half")]
-impl ScalarArgMinMax<f16> for SCALAR<FloatIgnoreNaN> {
+impl<T: Half> ScalarArgMinMax<T> for SCALAR<FloatIgnoreNaN> {
     #[inline(always)]
-    fn argminmax(arr: &[f16]) -> (usize, usize) {
-        scalar_argminmax_f16_ignore_nan(arr)
+    fn argminmax(arr: &[T]) -> (usize, usize) {
+        scalar_argminmax_half_ignore_nan(arr)
     }
 
     #[inline(always)]
-    fn argmin(arr: &[f16]) -> usize {
-        scalar_argmin_f16_ignore_nan(arr)
+    fn argmin(arr: &[T]) -> usize {
+        scalar_argmin_half_ignore_nan(arr)
     }
 
     #[inline(always)]
-    fn argmax(arr: &[f16]) -> usize {
-        scalar_argmax_f16_ignore_nan(arr)
+    fn argmax(arr: &[T]) -> usize {
+        scalar_argmax_half_ignore_nan(arr)
     }
 }
 

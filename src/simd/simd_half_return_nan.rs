@@ -1,8 +1,10 @@
-//! Implementation of the argminmax operations for f16 where NaN values take precedence.
+//! Implementation of the argminmax operations for f16 and bf16 where NaN values take
+//! precedence.
 //! This implementation returns the index of the first* NaN value if any are present,
 //! otherwise it returns the index of the minimum and maximum values.
 //!
-//! To serve this functionality we transform the f16 values to ordinal i16 values:
+//! To serve this functionality we transform the values (a sign bit followed by the
+//! magnitude) to ordinal i16 values:
 //!     ord_i16 = v               if v >= 0 (as i16)
 //!     ord_i16 = i16::MIN - v    otherwise (i.e., minus the magnitude)
 //!
@@ -10,14 +12,14 @@
 //! are both mapped to 0 (as these are equal).
 //!
 //! Through this transformation we can perform the argminmax operations on the ordinal
-//! integer values and then transform the result back to the original f16 values.
+//! integer values and then transform the result back to the original f16 / bf16 values.
 //! This transformation is necessary because comparisons with NaN values are always false.
 //! So unless we perform ! <=  as gt and ! >=  as lt the argminmax operations will not
 //! add NaN values to the accumulating SIMD register. And as le and ge are significantly
 //! more expensive than lt and gt we use this efficient bitwise transformation.
 //!
-//! Note that most x86 CPUs do not support f16 instructions - making this implementation
-//! multitudes (up to 300x) faster than trying to use a vanilla scalar implementation.
+//! Note that most x86 CPUs do not support f16 and bf16 instructions - making this implementation
+//! multitudes (up to 300x for f16) faster than trying to use a vanilla scalar implementation.
 //!
 //!
 //! ---
@@ -48,7 +50,10 @@ use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMD
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use crate::{scalar::scalar_f16::i16ord_to_f16, SCALAR};
+use crate::{
+    scalar::scalar_half::{i16ord_to_half, Half},
+    SCALAR,
+};
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
@@ -64,9 +69,9 @@ use std::arch::x86_64::*;
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use half::f16;
+use half::{bf16, f16};
 
-/// The dtype-strategy for performing operations on f16 data: return NaN index
+/// The dtype-strategy for performing operations on f16 and bf16 data: return NaN index
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -83,6 +88,49 @@ use super::super::dtype_strategy::FloatReturnNaN;
 ))]
 const MAX_INDEX: usize = i16::MAX as usize;
 
+/// Like `impl_SIMDArgMinMax!`, but argmin and argmax return the indices of argminmax
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    all(target_arch = "arm", feature = "nightly_simd"),
+    target_arch = "aarch64",
+))]
+macro_rules! impl_SIMDArgMinMax_half_return_nan {
+    ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty, $target:expr) => {
+        impl
+            SIMDArgMinMax<
+                $scalar_dtype,
+                $simd_vec_dtype,
+                $simd_mask_dtype,
+                $lane_size,
+                SCALAR<FloatReturnNaN>,
+            > for $simd_struct
+        {
+            #[target_feature(enable = $target)]
+            unsafe fn argminmax(data: &[$scalar_dtype]) -> (usize, usize) {
+                Self::_argminmax(data)
+            }
+
+            unsafe fn argmin(data: &[$scalar_dtype]) -> usize {
+                Self::argminmax(data).0
+            }
+
+            unsafe fn argmax(data: &[$scalar_dtype]) -> usize {
+                Self::argminmax(data).1
+            }
+
+            #[target_feature(enable = $target)]
+            unsafe fn argminmax_masked(
+                data: &[$scalar_dtype],
+                validity: &[u8],
+                offset: usize,
+            ) -> Option<(usize, usize)> {
+                Self::_argminmax_masked(data, validity, offset)
+            }
+        }
+    };
+}
+
 // --------------------------------------- AVX2 ----------------------------------------
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -94,9 +142,12 @@ mod avx2 {
     const LOWER_15_MASK: __m256i = unsafe { std::mem::transmute([i16::MAX; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f16_as_m256i_to_i16ord(f16_as_m256i: __m256i) -> __m256i {
+    unsafe fn _half_as_m256i_to_i16ord(half_as_m256i: __m256i) -> __m256i {
         // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
-        _mm256_sign_epi16(_mm256_and_si256(f16_as_m256i, LOWER_15_MASK), f16_as_m256i)
+        _mm256_sign_epi16(
+            _mm256_and_si256(half_as_m256i, LOWER_15_MASK),
+            half_as_m256i,
+        )
     }
 
     #[inline(always)]
@@ -104,7 +155,7 @@ mod avx2 {
         std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, __m256i, __m256i, LANE_SIZE> for AVX2<FloatReturnNaN> {
+    impl<T: Half> SIMDOps<T, __m256i, __m256i, LANE_SIZE> for AVX2<FloatReturnNaN> {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -116,7 +167,7 @@ mod avx2 {
         const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(_: __m256i) -> [f16; LANE_SIZE] {
+        unsafe fn _reg_to_arr(_: __m256i) -> [T; LANE_SIZE] {
             // Not implemented because we will perform the horizontal operations on the
             // signed integer values instead of trying to retransform **only** the values
             // (and thus not the indices) to floats.
@@ -124,8 +175,8 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_loadu(data: *const f16) -> __m256i {
-            _f16_as_m256i_to_i16ord(_mm256_loadu_si256(data as *const __m256i))
+        unsafe fn _mm_loadu(data: *const T) -> __m256i {
+            _half_as_m256i_to_i16ord(_mm256_loadu_si256(data as *const __m256i))
         }
 
         #[inline(always)]
@@ -149,7 +200,7 @@ mod avx2 {
         }
 
         #[inline(always)]
-        unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, f16) {
+        unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, T) {
             // 0. Find the minimum value
             let mut vmin: __m256i = value;
             vmin = _mm256_min_epi16(vmin, _mm256_permute2x128_si256(vmin, vmin, 1));
@@ -175,11 +226,11 @@ mod avx2 {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (min_index, i16ord_to_f16(min_value))
+            (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
-        unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, f16) {
+        unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, T) {
             // 0. Find the maximum value
             let mut vmax: __m256i = value;
             vmax = _mm256_max_epi16(vmax, _mm256_permute2x128_si256(vmax, vmax, 1));
@@ -205,37 +256,29 @@ mod avx2 {
             imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm256_extract_epi16(imin, 0) as usize;
 
-            (max_index, i16ord_to_f16(max_value))
+            (max_index, i16ord_to_half(max_value))
         }
     }
 
     impl_SIMDInit_FloatReturnNaN!(f16, __m256i, __m256i, LANE_SIZE, AVX2<FloatReturnNaN>);
+    impl_SIMDInit_FloatReturnNaN!(bf16, __m256i, __m256i, LANE_SIZE, AVX2<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, __m256i, __m256i, LANE_SIZE, SCALAR<FloatReturnNaN>>
-        for AVX2<FloatReturnNaN>
-    {
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f16]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f16]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax_masked(
-            data: &[f16],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_half_return_nan!(
+        f16,
+        __m256i,
+        __m256i,
+        LANE_SIZE,
+        AVX2<FloatReturnNaN>,
+        "avx2"
+    );
+    impl_SIMDArgMinMax_half_return_nan!(
+        bf16,
+        __m256i,
+        __m256i,
+        LANE_SIZE,
+        AVX2<FloatReturnNaN>,
+        "avx2"
+    );
 }
 
 // ---------------------------------------- SSE ----------------------------------------
@@ -249,9 +292,9 @@ mod sse {
     const LOWER_15_MASK: __m128i = unsafe { std::mem::transmute([i16::MAX; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f16_as_m128i_to_i16ord(f16_as_m128i: __m128i) -> __m128i {
+    unsafe fn _half_as_m128i_to_i16ord(half_as_m128i: __m128i) -> __m128i {
         // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
-        _mm_sign_epi16(_mm_and_si128(f16_as_m128i, LOWER_15_MASK), f16_as_m128i)
+        _mm_sign_epi16(_mm_and_si128(half_as_m128i, LOWER_15_MASK), half_as_m128i)
     }
 
     #[inline(always)]
@@ -259,7 +302,7 @@ mod sse {
         std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, __m128i, __m128i, LANE_SIZE> for SSE<FloatReturnNaN> {
+    impl<T: Half> SIMDOps<T, __m128i, __m128i, LANE_SIZE> for SSE<FloatReturnNaN> {
         const INITIAL_INDEX: __m128i =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: __m128i =
@@ -267,7 +310,7 @@ mod sse {
         const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(_: __m128i) -> [f16; LANE_SIZE] {
+        unsafe fn _reg_to_arr(_: __m128i) -> [T; LANE_SIZE] {
             // Not implemented because we will perform the horizontal operations on the
             // signed integer values instead of trying to retransform **only** the values
             // (and thus not the indices) to floats.
@@ -275,8 +318,8 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _mm_loadu(data: *const f16) -> __m128i {
-            _f16_as_m128i_to_i16ord(_mm_loadu_si128(data as *const __m128i))
+        unsafe fn _mm_loadu(data: *const T) -> __m128i {
+            _half_as_m128i_to_i16ord(_mm_loadu_si128(data as *const __m128i))
         }
 
         #[inline(always)]
@@ -300,7 +343,7 @@ mod sse {
         }
 
         #[inline(always)]
-        unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, f16) {
+        unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, T) {
             // 0. Find the minimum value
             let mut vmin: __m128i = value;
             vmin = _mm_min_epi16(vmin, _mm_alignr_epi8(vmin, vmin, 8));
@@ -324,11 +367,11 @@ mod sse {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (min_index, i16ord_to_f16(min_value))
+            (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
-        unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, f16) {
+        unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, T) {
             // 0. Find the maximum value
             let mut vmax: __m128i = value;
             vmax = _mm_max_epi16(vmax, _mm_alignr_epi8(vmax, vmax, 8));
@@ -352,37 +395,29 @@ mod sse {
             imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(imin, 0) as usize;
 
-            (max_index, i16ord_to_f16(max_value))
+            (max_index, i16ord_to_half(max_value))
         }
     }
 
     impl_SIMDInit_FloatReturnNaN!(f16, __m128i, __m128i, LANE_SIZE, SSE<FloatReturnNaN>);
+    impl_SIMDInit_FloatReturnNaN!(bf16, __m128i, __m128i, LANE_SIZE, SSE<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, __m128i, __m128i, LANE_SIZE, SCALAR<FloatReturnNaN>>
-        for SSE<FloatReturnNaN>
-    {
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f16]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f16]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "sse4.1")]
-        unsafe fn argminmax_masked(
-            data: &[f16],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_half_return_nan!(
+        f16,
+        __m128i,
+        __m128i,
+        LANE_SIZE,
+        SSE<FloatReturnNaN>,
+        "sse4.1"
+    );
+    impl_SIMDArgMinMax_half_return_nan!(
+        bf16,
+        __m128i,
+        __m128i,
+        LANE_SIZE,
+        SSE<FloatReturnNaN>,
+        "sse4.1"
+    );
 }
 
 // -------------------------------------- AVX512 ---------------------------------------
@@ -396,10 +431,10 @@ mod avx512 {
     const SIGN_BIT: __m512i = unsafe { std::mem::transmute([i16::MIN; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f16_as_m521i_to_i16ord(f16_as_m512i: __m512i) -> __m512i {
+    unsafe fn _half_as_m512i_to_i16ord(half_as_m512i: __m512i) -> __m512i {
         // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
-        let negative = _mm512_cmplt_epi16_mask(f16_as_m512i, _mm512_setzero_si512());
-        _mm512_mask_sub_epi16(f16_as_m512i, negative, SIGN_BIT, f16_as_m512i)
+        let negative = _mm512_cmplt_epi16_mask(half_as_m512i, _mm512_setzero_si512());
+        _mm512_mask_sub_epi16(half_as_m512i, negative, SIGN_BIT, half_as_m512i)
     }
 
     #[inline(always)]
@@ -407,7 +442,7 @@ mod avx512 {
         std::mem::transmute::<__m512i, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, __m512i, u32, LANE_SIZE> for AVX512<FloatReturnNaN> {
+    impl<T: Half> SIMDOps<T, __m512i, u32, LANE_SIZE> for AVX512<FloatReturnNaN> {
         const INITIAL_INDEX: __m512i = unsafe {
             std::mem::transmute([
                 0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16, 8i16, 9i16, 10i16, 11i16, 12i16,
@@ -420,7 +455,7 @@ mod avx512 {
         const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(_: __m512i) -> [f16; LANE_SIZE] {
+        unsafe fn _reg_to_arr(_: __m512i) -> [T; LANE_SIZE] {
             // Not implemented because we will perform the horizontal operations on the
             // signed integer values instead of trying to retransform **only** the values
             // (and thus not the indices) to floats.
@@ -428,8 +463,8 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _mm_loadu(data: *const f16) -> __m512i {
-            _f16_as_m521i_to_i16ord(_mm512_loadu_epi16(data as *const i16))
+        unsafe fn _mm_loadu(data: *const T) -> __m512i {
+            _half_as_m512i_to_i16ord(_mm512_loadu_epi16(data as *const i16))
         }
 
         #[inline(always)]
@@ -453,7 +488,7 @@ mod avx512 {
         }
 
         #[inline(always)]
-        unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, f16) {
+        unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, T) {
             // 0. Find the minimum value
             let mut vmin: __m512i = value;
             vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi32(vmin, vmin, 8));
@@ -481,11 +516,11 @@ mod avx512 {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let min_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (min_index, i16ord_to_f16(min_value))
+            (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
-        unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, f16) {
+        unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, T) {
             // 0. Find the maximum value
             let mut vmax: __m512i = value;
             vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi32(vmax, vmax, 8));
@@ -513,37 +548,29 @@ mod avx512 {
             imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
             let max_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
 
-            (max_index, i16ord_to_f16(max_value))
+            (max_index, i16ord_to_half(max_value))
         }
     }
 
     impl_SIMDInit_FloatReturnNaN!(f16, __m512i, u32, LANE_SIZE, AVX512<FloatReturnNaN>);
+    impl_SIMDInit_FloatReturnNaN!(bf16, __m512i, u32, LANE_SIZE, AVX512<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, __m512i, u32, LANE_SIZE, SCALAR<FloatReturnNaN>>
-        for AVX512<FloatReturnNaN>
-    {
-        #[target_feature(enable = "avx512bw")]
-        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f16]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f16]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "avx512bw")]
-        unsafe fn argminmax_masked(
-            data: &[f16],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_half_return_nan!(
+        f16,
+        __m512i,
+        u32,
+        LANE_SIZE,
+        AVX512<FloatReturnNaN>,
+        "avx512bw"
+    );
+    impl_SIMDArgMinMax_half_return_nan!(
+        bf16,
+        __m512i,
+        u32,
+        LANE_SIZE,
+        AVX512<FloatReturnNaN>,
+        "avx512bw"
+    );
 }
 
 // --------------------------------------- NEON ----------------------------------------
@@ -560,12 +587,12 @@ mod neon {
     const SIGN_BIT: int16x8_t = unsafe { std::mem::transmute([i16::MIN; LANE_SIZE]) };
 
     #[inline(always)]
-    unsafe fn _f16_as_int16x8_to_i16ord(f16_as_int16x8: int16x8_t) -> int16x8_t {
+    unsafe fn _half_as_int16x8_to_i16ord(half_as_int16x8: int16x8_t) -> int16x8_t {
         // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
         // = abs(v) ^ (v & i16::MIN), as abs wraps around (abs(i16::MIN) = i16::MIN)
         veorq_s16(
-            vabsq_s16(f16_as_int16x8),
-            vandq_s16(f16_as_int16x8, SIGN_BIT),
+            vabsq_s16(half_as_int16x8),
+            vandq_s16(half_as_int16x8, SIGN_BIT),
         )
     }
 
@@ -574,7 +601,7 @@ mod neon {
         std::mem::transmute::<int16x8_t, [i16; LANE_SIZE]>(reg)
     }
 
-    impl SIMDOps<f16, int16x8_t, uint16x8_t, LANE_SIZE> for NEON<FloatReturnNaN> {
+    impl<T: Half> SIMDOps<T, int16x8_t, uint16x8_t, LANE_SIZE> for NEON<FloatReturnNaN> {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
         const INDEX_INCREMENT: int16x8_t =
@@ -582,7 +609,7 @@ mod neon {
         const MAX_INDEX: usize = MAX_INDEX;
 
         #[inline(always)]
-        unsafe fn _reg_to_arr(_: int16x8_t) -> [f16; LANE_SIZE] {
+        unsafe fn _reg_to_arr(_: int16x8_t) -> [T; LANE_SIZE] {
             // Not implemented because we will perform the horizontal operations on the
             // signed integer values instead of trying to retransform **only** the values
             // (and thus not the indices) to floats.
@@ -590,8 +617,8 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _mm_loadu(data: *const f16) -> int16x8_t {
-            _f16_as_int16x8_to_i16ord(vld1q_s16(data as *const i16))
+        unsafe fn _mm_loadu(data: *const T) -> int16x8_t {
+            _half_as_int16x8_to_i16ord(vld1q_s16(data as *const i16))
         }
 
         #[inline(always)]
@@ -615,7 +642,7 @@ mod neon {
         }
 
         #[inline(always)]
-        unsafe fn _horiz_min(index: int16x8_t, value: int16x8_t) -> (usize, f16) {
+        unsafe fn _horiz_min(index: int16x8_t, value: int16x8_t) -> (usize, T) {
             // 0. Find the minimum value
             let mut vmin: int16x8_t = value;
             vmin = vminq_s16(vmin, vextq_s16(vmin, vmin, 4));
@@ -639,11 +666,11 @@ mod neon {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let min_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (min_index, i16ord_to_f16(min_value))
+            (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
-        unsafe fn _horiz_max(index: int16x8_t, value: int16x8_t) -> (usize, f16) {
+        unsafe fn _horiz_max(index: int16x8_t, value: int16x8_t) -> (usize, T) {
             // 0. Find the maximum value
             let mut vmax: int16x8_t = value;
             vmax = vmaxq_s16(vmax, vextq_s16(vmax, vmax, 4));
@@ -667,37 +694,29 @@ mod neon {
             imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
             let max_index: usize = vgetq_lane_s16(imin, 0) as usize;
 
-            (max_index, i16ord_to_f16(max_value))
+            (max_index, i16ord_to_half(max_value))
         }
     }
 
     impl_SIMDInit_FloatReturnNaN!(f16, int16x8_t, uint16x8_t, LANE_SIZE, NEON<FloatReturnNaN>);
+    impl_SIMDInit_FloatReturnNaN!(bf16, int16x8_t, uint16x8_t, LANE_SIZE, NEON<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f16, int16x8_t, uint16x8_t, LANE_SIZE, SCALAR<FloatReturnNaN>>
-        for NEON<FloatReturnNaN>
-    {
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[f16]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f16]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f16]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax_masked(
-            data: &[f16],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_half_return_nan!(
+        f16,
+        int16x8_t,
+        uint16x8_t,
+        LANE_SIZE,
+        NEON<FloatReturnNaN>,
+        "neon"
+    );
+    impl_SIMDArgMinMax_half_return_nan!(
+        bf16,
+        int16x8_t,
+        uint16x8_t,
+        LANE_SIZE,
+        NEON<FloatReturnNaN>,
+        "neon"
+    );
 }
 
 // ======================================= TESTS =======================================
@@ -714,7 +733,7 @@ mod tests {
     use rstest_reuse::{self, *};
     use std::marker::PhantomData;
 
-    use half::f16;
+    use half::{bf16, f16};
 
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     use crate::simd::config::AVX512;
@@ -730,7 +749,8 @@ mod tests {
     };
     // Float specific tests
     use super::super::test_utils::{
-        test_return_infs_argminmax, test_return_nans_argminmax, test_signed_zeros_argminmax,
+        test_nan_payloads_argminmax, test_return_infs_argminmax, test_return_nans_argminmax,
+        test_signed_zeros_argminmax,
     };
     // Masked tests
     use super::super::test_utils::{
@@ -738,11 +758,8 @@ mod tests {
         test_no_overflow_masked_argminmax, test_return_same_result_masked_argminmax,
     };
 
-    use dev_utils::utils;
-
-    fn get_array_f16(n: usize) -> Vec<f16> {
-        utils::SampleUniformFullRange::get_random_array(n)
-    }
+    use crate::scalar::scalar_half::Half;
+    use dev_utils::utils::SampleUniformFullRange;
 
     // The scalar implementation
     const SCALAR_STRATEGY: SCALAR<FloatReturnNaN> = SCALAR {
@@ -754,11 +771,15 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     #[template]
     #[rstest]
-    #[case::sse(SSE {_dtype_strategy: PhantomData::<FloatReturnNaN>}, is_x86_feature_detected!("sse4.1"))]
-    #[case::avx2(AVX2 {_dtype_strategy: PhantomData::<FloatReturnNaN>}, is_x86_feature_detected!("avx2"))]
-    #[case::avx512(AVX512 {_dtype_strategy: PhantomData::<FloatReturnNaN>}, is_x86_feature_detected!("avx512bw"))]
-    fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    #[case::sse_f16(SSE {_dtype_strategy: PhantomData::<FloatReturnNaN>}, f16::ZERO, is_x86_feature_detected!("sse4.1"))]
+    #[case::sse_bf16(SSE {_dtype_strategy: PhantomData::<FloatReturnNaN>}, bf16::ZERO, is_x86_feature_detected!("sse4.1"))]
+    #[case::avx2_f16(AVX2 {_dtype_strategy: PhantomData::<FloatReturnNaN>}, f16::ZERO, is_x86_feature_detected!("avx2"))]
+    #[case::avx2_bf16(AVX2 {_dtype_strategy: PhantomData::<FloatReturnNaN>}, bf16::ZERO, is_x86_feature_detected!("avx2"))]
+    #[case::avx512_f16(AVX512 {_dtype_strategy: PhantomData::<FloatReturnNaN>}, f16::ZERO, is_x86_feature_detected!("avx512bw"))]
+    #[case::avx512_bf16(AVX512 {_dtype_strategy: PhantomData::<FloatReturnNaN>}, bf16::ZERO, is_x86_feature_detected!("avx512bw"))]
+    fn simd_implementations<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) {
     }
@@ -768,9 +789,11 @@ mod tests {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     #[template]
     #[rstest]
-    #[case::neon(NEON {_dtype_strategy: PhantomData::<FloatReturnNaN>}, true)]
-    fn simd_implementations<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    #[case::neon_f16(NEON {_dtype_strategy: PhantomData::<FloatReturnNaN>}, f16::ZERO, true)]
+    #[case::neon_bf16(NEON {_dtype_strategy: PhantomData::<FloatReturnNaN>}, bf16::ZERO, true)]
+    fn simd_implementations<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) {
     }
@@ -779,15 +802,18 @@ mod tests {
 
     #[apply(simd_implementations)]
     fn test_first_index_is_returned_when_identical_values_found<
+        DType,
         T,
         SIMDV,
         SIMDM,
         const LANE_SIZE: usize,
     >(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -798,71 +824,81 @@ mod tests {
     }
 
     #[apply(simd_implementations)]
-    fn test_return_same_result<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_return_same_result<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_return_same_result_argminmax(get_array_f16, SCALAR_STRATEGY, simd);
+        test_return_same_result_argminmax(DType::get_random_array, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
-    fn test_no_overflow<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_no_overflow<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_no_overflow_argminmax(get_array_f16, SCALAR_STRATEGY, simd, None);
+        test_no_overflow_argminmax(DType::get_random_array, SCALAR_STRATEGY, simd, None);
     }
 
     #[apply(simd_implementations)]
-    fn test_return_infs<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_return_infs<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_return_infs_argminmax(get_array_f16, SCALAR_STRATEGY, simd);
+        test_return_infs_argminmax(DType::get_random_array, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
-    fn test_return_nans<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_return_nans<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_return_nans_argminmax(get_array_f16, SCALAR_STRATEGY, simd);
+        test_return_nans_argminmax(DType::get_random_array, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
-    fn test_signed_zeros<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_signed_zeros<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
@@ -873,55 +909,80 @@ mod tests {
     }
 
     #[apply(simd_implementations)]
-    fn test_return_same_result_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_nan_payloads<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_return_same_result_masked_argminmax(get_array_f16, SCALAR_STRATEGY, simd);
+        test_nan_payloads_argminmax(SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
-    fn test_no_overflow_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_return_same_result_masked<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_no_overflow_masked_argminmax(get_array_f16, SCALAR_STRATEGY, simd, None);
+        test_return_same_result_masked_argminmax(DType::get_random_array, SCALAR_STRATEGY, simd);
     }
 
     #[apply(simd_implementations)]
-    fn test_nans_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_no_overflow_masked<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {
         if !simd_available {
             return;
         }
-        test_nans_masked_argminmax(get_array_f16, SCALAR_STRATEGY, simd);
+        test_no_overflow_masked_argminmax(DType::get_random_array, SCALAR_STRATEGY, simd, None);
     }
+
     #[apply(simd_implementations)]
-    fn test_adversarial_masked<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+    fn test_nans_masked<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
         #[case] simd: T,
+        #[case] _dtype: DType,
         #[case] simd_available: bool,
     ) where
-        T: SIMDArgMinMax<f16, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        test_nans_masked_argminmax(DType::get_random_array, SCALAR_STRATEGY, simd);
+    }
+    #[apply(simd_implementations)]
+    fn test_adversarial_masked<DType, T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] _dtype: DType,
+        #[case] simd_available: bool,
+    ) where
+        DType: Half + SampleUniformFullRange,
+        T: SIMDArgMinMax<DType, SIMDV, SIMDM, LANE_SIZE, SCALAR<FloatReturnNaN>>,
         SIMDV: Copy,
         SIMDM: Copy,
     {

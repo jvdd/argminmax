@@ -19,9 +19,9 @@
 //! - For [`ArgMinMax`](trait.ArgMinMax.html) the supported data types are
 //!   - ints: `i8`, `i16`, `i32`, `i64`, `i128`
 //!   - uints: `u8`, `u16`, `u32`, `u64`, `u128`
-//!   - floats: `f16`, `f32`, `f64` (see [Features](#features))
+//!   - floats: `f16`, `bf16`, `f32`, `f64` (see [Features](#features))
 //! - For [`NaNArgMinMax`](trait.NaNArgMinMax.html) the supported data types are
-//!   - floats: `f16`, `f32`, `f64` (see [Features](#features))
+//!   - floats: `f16`, `bf16`, `f32`, `f64` (see [Features](#features))
 //!
 //! Both traits differ in how they handle NaNs:
 //! - [`ArgMinMax`](trait.ArgMinMax.html) ignores NaNs and returns the index of the minimum and maximum values in an array.
@@ -39,7 +39,7 @@
 //!
 //! - **`float`** *(default)* - enables the traits for floats (`f32` and `f64`).
 //! - **`nightly_simd`** - enables NEON SIMD instructions on 32-bit ARM (requires a nightly compiler; no effect on other architectures).
-//! - **`half`** - enables the traits for `f16` (requires the [`half`](https://crates.io/crates/half) crate).
+//! - **`half`** - enables the traits for `f16` and `bf16` (requires the [`half`](https://crates.io/crates/half) crate).
 //! - **`ndarray`** - adds the traits to [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html) (requires the `ndarray` crate).
 //! - **`arrow`** - adds the traits to [`arrow::array::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html), skipping the nulls (requires the `arrow` crate).
 //!
@@ -120,7 +120,7 @@ pub(crate) use simd::{SIMDArgMinMax, AVX2, AVX512, SSE};
 pub(crate) use simd::{SIMDArgMinMax, NEON};
 
 #[cfg(feature = "half")]
-use half::f16;
+use half::{bf16, f16};
 
 /// Trait for finding the minimum and maximum values in an array. For floats, NaNs are ignored.  
 ///
@@ -387,7 +387,9 @@ macro_rules! dispatch {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("sse4.1") & (<$dtype>::NB_BITS == 8) {
-                // 8-bit numbers are best handled by SSE4.1
+                // 8-bit numbers go to SSE4.1. AVX2 is up to 1.2x faster on long arrays, but
+                // its 32-byte vectors leave up to 31 elements to the scalar loop: up to 2.3x
+                // slower on arrays of 16-31 and 48-63 elements. AVX512BW is not faster.
                 return unsafe { SSE::<Int>::$method($($arg),*) };
             }
             if avx512_supported::<$dtype>() {
@@ -424,7 +426,7 @@ macro_rules! dispatch {
                 return unsafe { AVX512::<FloatIgnoreNaN>::$method($($arg),*) };
             }
             if is_x86_feature_detected!("avx2") {
-                // f16 requires avx2
+                // f16 and bf16 require avx2
                 return unsafe { AVX2::<FloatIgnoreNaN>::$method($($arg),*) };
             } else if is_x86_feature_detected!("avx") & (<$dtype>::NB_BITS > 16) {
                 // f32 and f64 do not require avx2
@@ -591,7 +593,7 @@ impl_argminmax_float!(f32, f64);
 
 // Implement ArgMinMax for other data types
 #[cfg(feature = "half")]
-impl_argminmax_float!(f16);
+impl_argminmax_float!(f16, bf16);
 
 /// Macro for implementing ArgMinMaxMasked for the passed data types with the given
 /// DTypeStrategy (Int or FloatIgnoreNaN)
@@ -644,9 +646,9 @@ impl_argminmax_masked!(FloatIgnoreNaN, f32, f64);
 #[cfg(feature = "float")]
 impl_nanargminmax_masked!(f32, f64);
 #[cfg(feature = "half")]
-impl_argminmax_masked!(FloatIgnoreNaN, f16);
+impl_argminmax_masked!(FloatIgnoreNaN, f16, bf16);
 #[cfg(feature = "half")]
-impl_nanargminmax_masked!(f16);
+impl_nanargminmax_masked!(f16, bf16);
 
 // ------------------------------ [T] ------------------------------
 
