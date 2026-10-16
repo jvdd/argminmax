@@ -43,7 +43,10 @@ use super::config::SIMDInstructionSet;
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit, SIMDMasked, SIMDOps};
+use super::generic::{
+    impl_SIMDArgMinMax_FloatReturnNaN, impl_SIMDInit_FloatReturnNaN, SIMDArgMinMax, SIMDInit,
+    SIMDMasked, SIMDOps,
+};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -87,49 +90,6 @@ use super::super::dtype_strategy::FloatReturnNaN;
     target_arch = "aarch64",
 ))]
 const MAX_INDEX: usize = i16::MAX as usize;
-
-/// Like `impl_SIMDArgMinMax!`, but argmin and argmax return the indices of argminmax
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
-macro_rules! impl_SIMDArgMinMax_half_return_nan {
-    ($scalar_dtype:ty, $simd_vec_dtype:ty, $simd_mask_dtype:ty, $lane_size:expr, $simd_struct:ty, $target:expr) => {
-        impl
-            SIMDArgMinMax<
-                $scalar_dtype,
-                $simd_vec_dtype,
-                $simd_mask_dtype,
-                $lane_size,
-                SCALAR<FloatReturnNaN>,
-            > for $simd_struct
-        {
-            #[target_feature(enable = $target)]
-            unsafe fn argminmax(data: &[$scalar_dtype]) -> (usize, usize) {
-                Self::_argminmax(data)
-            }
-
-            unsafe fn argmin(data: &[$scalar_dtype]) -> usize {
-                Self::argminmax(data).0
-            }
-
-            unsafe fn argmax(data: &[$scalar_dtype]) -> usize {
-                Self::argminmax(data).1
-            }
-
-            #[target_feature(enable = $target)]
-            unsafe fn argminmax_masked(
-                data: &[$scalar_dtype],
-                validity: &[u8],
-                offset: usize,
-            ) -> Option<(usize, usize)> {
-                Self::_argminmax_masked(data, validity, offset)
-            }
-        }
-    };
-}
 
 // --------------------------------------- AVX2 ----------------------------------------
 
@@ -273,7 +233,7 @@ mod avx2 {
     impl_SIMDInit_FloatReturnNaN!(f16, __m256i, __m256i, LANE_SIZE, AVX2<FloatReturnNaN>);
     impl_SIMDInit_FloatReturnNaN!(bf16, __m256i, __m256i, LANE_SIZE, AVX2<FloatReturnNaN>);
 
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         f16,
         __m256i,
         __m256i,
@@ -281,7 +241,7 @@ mod avx2 {
         AVX2<FloatReturnNaN>,
         "avx2"
     );
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         bf16,
         __m256i,
         __m256i,
@@ -412,7 +372,7 @@ mod sse {
     impl_SIMDInit_FloatReturnNaN!(f16, __m128i, __m128i, LANE_SIZE, SSE<FloatReturnNaN>);
     impl_SIMDInit_FloatReturnNaN!(bf16, __m128i, __m128i, LANE_SIZE, SSE<FloatReturnNaN>);
 
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         f16,
         __m128i,
         __m128i,
@@ -420,7 +380,7 @@ mod sse {
         SSE<FloatReturnNaN>,
         "sse4.1"
     );
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         bf16,
         __m128i,
         __m128i,
@@ -565,7 +525,7 @@ mod avx512 {
     impl_SIMDInit_FloatReturnNaN!(f16, __m512i, u32, LANE_SIZE, AVX512<FloatReturnNaN>);
     impl_SIMDInit_FloatReturnNaN!(bf16, __m512i, u32, LANE_SIZE, AVX512<FloatReturnNaN>);
 
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         f16,
         __m512i,
         u32,
@@ -573,7 +533,7 @@ mod avx512 {
         AVX512<FloatReturnNaN>,
         "avx512bw"
     );
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         bf16,
         __m512i,
         u32,
@@ -711,7 +671,7 @@ mod neon {
     impl_SIMDInit_FloatReturnNaN!(f16, int16x8_t, uint16x8_t, LANE_SIZE, NEON<FloatReturnNaN>);
     impl_SIMDInit_FloatReturnNaN!(bf16, int16x8_t, uint16x8_t, LANE_SIZE, NEON<FloatReturnNaN>);
 
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         f16,
         int16x8_t,
         uint16x8_t,
@@ -719,7 +679,7 @@ mod neon {
         NEON<FloatReturnNaN>,
         "neon"
     );
-    impl_SIMDArgMinMax_half_return_nan!(
+    impl_SIMDArgMinMax_FloatReturnNaN!(
         bf16,
         int16x8_t,
         uint16x8_t,

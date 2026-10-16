@@ -34,7 +34,7 @@
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::config::SIMDInstructionSet;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
-use super::generic::{impl_SIMDInit_FloatReturnNaN, SIMDMasked};
+use super::generic::{impl_SIMDArgMinMax_FloatReturnNaN, impl_SIMDInit_FloatReturnNaN, SIMDMasked};
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -166,31 +166,14 @@ mod avx2 {
 
     impl_SIMDInit_FloatReturnNaN!(f64, __m256i, __m256i, LANE_SIZE, AVX2<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f64, __m256i, __m256i, LANE_SIZE, SCALAR<FloatReturnNaN>>
-        for AVX2<FloatReturnNaN>
-    {
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f64]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f64]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "avx2")]
-        unsafe fn argminmax_masked(
-            data: &[f64],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_FloatReturnNaN!(
+        f64,
+        __m256i,
+        __m256i,
+        LANE_SIZE,
+        AVX2<FloatReturnNaN>,
+        "avx2"
+    );
 }
 
 // ---------------------------------------- SSE ----------------------------------------
@@ -276,31 +259,14 @@ mod sse {
 
     impl_SIMDInit_FloatReturnNaN!(f64, __m128i, __m128i, LANE_SIZE, SSE<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f64, __m128i, __m128i, LANE_SIZE, SCALAR<FloatReturnNaN>>
-        for SSE<FloatReturnNaN>
-    {
-        #[target_feature(enable = "sse4.2")]
-        unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f64]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f64]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "sse4.2")]
-        unsafe fn argminmax_masked(
-            data: &[f64],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_FloatReturnNaN!(
+        f64,
+        __m128i,
+        __m128i,
+        LANE_SIZE,
+        SSE<FloatReturnNaN>,
+        "sse4.2"
+    );
 }
 
 // -------------------------------------- AVX512 ---------------------------------------
@@ -384,29 +350,14 @@ mod avx512 {
 
     impl_SIMDInit_FloatReturnNaN!(f64, __m512i, u8, LANE_SIZE, AVX512<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f64, __m512i, u8, LANE_SIZE, SCALAR<FloatReturnNaN>> for AVX512<FloatReturnNaN> {
-        #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f64]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f64]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "avx512f")]
-        unsafe fn argminmax_masked(
-            data: &[f64],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_FloatReturnNaN!(
+        f64,
+        __m512i,
+        u8,
+        LANE_SIZE,
+        AVX512<FloatReturnNaN>,
+        "avx512f"
+    );
 }
 
 // --------------------------------------- NEON ----------------------------------------
@@ -512,31 +463,14 @@ mod neon {
 
     impl_SIMDInit_FloatReturnNaN!(f64, int64x2_t, uint64x2_t, LANE_SIZE, NEON<FloatReturnNaN>);
 
-    impl SIMDArgMinMax<f64, int64x2_t, uint64x2_t, LANE_SIZE, SCALAR<FloatReturnNaN>>
-        for NEON<FloatReturnNaN>
-    {
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax(data: &[f64]) -> (usize, usize) {
-            Self::_argminmax(data)
-        }
-
-        unsafe fn argmin(data: &[f64]) -> usize {
-            Self::argminmax(data).0
-        }
-
-        unsafe fn argmax(data: &[f64]) -> usize {
-            Self::argminmax(data).1
-        }
-
-        #[target_feature(enable = "neon")]
-        unsafe fn argminmax_masked(
-            data: &[f64],
-            validity: &[u8],
-            offset: usize,
-        ) -> Option<(usize, usize)> {
-            Self::_argminmax_masked(data, validity, offset)
-        }
-    }
+    impl_SIMDArgMinMax_FloatReturnNaN!(
+        f64,
+        int64x2_t,
+        uint64x2_t,
+        LANE_SIZE,
+        NEON<FloatReturnNaN>,
+        "neon"
+    );
 }
 
 // ======================================= TESTS =======================================
