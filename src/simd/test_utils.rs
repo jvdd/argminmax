@@ -245,8 +245,7 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             assert_eq!(unsafe { SIMD::argmax(&data) }, end - 1);
         }
         // The MIN/MAX value at indices 1 and 2 and again at the end of one chunk: the
-        // lowest index wins (in 8-bit chunks of more than 128 elements, this compares
-        // indices below and above 127)
+        // lowest index wins (in 8-bit chunks, this compares indices below and above 127)
         let mut data = vec![DType::one(); chunk];
         for i in [1, chunk - 2] {
             data[i] = DType::min_value();

@@ -39,14 +39,15 @@ use std::arch::x86_64::*;
 ))]
 use super::super::dtype_strategy::Int;
 
-// x86 reduces the index lanes as unsigned bytes (`_mm*_min_epu8`), NEON as signed bytes
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-const MAX_INDEX: usize = u8::MAX as usize;
+// The horizontal reductions read the index lanes as unsigned bytes (`_mm*_min_epu8`,
+// `vminq_u8`)
 #[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
     all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64"
+    target_arch = "aarch64",
 ))]
-const MAX_INDEX: usize = i8::MAX as usize;
+const MAX_INDEX: usize = u8::MAX as usize;
 
 // --------------------------------------- AVX2 ----------------------------------------
 
@@ -503,18 +504,18 @@ mod neon {
             // 1. Create a mask with the index of the minimum value
             let mask = vceqq_s8(value, vmin);
             // 2. Blend the mask with the index
-            let search_index = vbslq_s8(
+            let search_index = vbslq_u8(
                 mask,
-                index,               // if mask is 1, use index
-                vdupq_n_s8(i8::MAX), // if mask is 0, use i8::MAX
+                vreinterpretq_u8_s8(index), // if mask is 1, use index
+                vdupq_n_u8(u8::MAX),        // if mask is 0, use u8::MAX
             );
             // 3. Find the minimum index
-            let mut imin: int8x16_t = search_index;
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 8));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 4));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 2));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 1));
-            let min_index: usize = vgetq_lane_s8(imin, 0) as usize;
+            let mut imin: uint8x16_t = search_index;
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 8));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 4));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 2));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 1));
+            let min_index: usize = vgetq_lane_u8(imin, 0) as usize;
 
             (min_index, min_value)
         }
@@ -533,18 +534,18 @@ mod neon {
             // 1. Create a mask with the index of the maximum value
             let mask = vceqq_s8(value, vmax);
             // 2. Blend the mask with the index
-            let search_index = vbslq_s8(
+            let search_index = vbslq_u8(
                 mask,
-                index,               // if mask is 1, use index
-                vdupq_n_s8(i8::MAX), // if mask is 0, use i8::MAX
+                vreinterpretq_u8_s8(index), // if mask is 1, use index
+                vdupq_n_u8(u8::MAX),        // if mask is 0, use u8::MAX
             );
             // 3. Find the maximum index
-            let mut imin: int8x16_t = search_index;
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 8));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 4));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 2));
-            imin = vminq_s8(imin, vextq_s8(imin, imin, 1));
-            let max_index: usize = vgetq_lane_s8(imin, 0) as usize;
+            let mut imin: uint8x16_t = search_index;
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 8));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 4));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 2));
+            imin = vminq_u8(imin, vextq_u8(imin, imin, 1));
+            let max_index: usize = vgetq_lane_u8(imin, 0) as usize;
 
             (max_index, max_value)
         }
