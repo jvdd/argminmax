@@ -234,6 +234,26 @@ mod default_test {
         }
     }
 
+    #[cfg(any(feature = "float", feature = "half"))]
+    #[apply(dtypes_with_nan)]
+    fn test_argminmax_slice_returns_nan<T>(#[case] _min: T, #[case] _max: T)
+    where
+        T: FloatCore,
+        for<'a> &'a [T]: NaNArgMinMax,
+    {
+        // The NaN is the argmin and argmax, with and without the sign bit
+        // (not at index 0, where a search for only the min or max returns it too)
+        let nan_index = ARRAY_LENGTH / 2;
+        for nan in [T::nan(), -T::nan()] {
+            let mut data: Vec<T> = vec![T::one(); ARRAY_LENGTH];
+            data[nan_index] = nan;
+            let data: &[T] = &data;
+            assert_eq!(data.nanargminmax(), (nan_index, nan_index));
+            assert_eq!(data.nanargmin(), nan_index);
+            assert_eq!(data.nanargmax(), nan_index);
+        }
+    }
+
     // TODO: this is currently not supported yet
     // #[test]
     // fn test_argminmax_array() {
