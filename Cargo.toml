@@ -49,6 +49,16 @@ harness = false
 required-features = ["half"]
 
 [[bench]]
+name = "bench_bf16_return_nan"
+harness = false
+required-features = ["half"]
+
+[[bench]]
+name = "bench_bf16_ignore_nan"
+harness = false
+required-features = ["half"]
+
+[[bench]]
 name = "bench_f32_return_nan"
 harness = false
 required-features = ["float"]

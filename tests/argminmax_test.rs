@@ -3,7 +3,7 @@ use argminmax::{ArgMinMax, ArgMinMaxMasked};
 use argminmax::{NaNArgMinMax, NaNArgMinMaxMasked};
 
 #[cfg(feature = "half")]
-use half::f16;
+use half::{bf16, f16};
 #[cfg(any(feature = "float", feature = "half"))]
 use num_traits::float::FloatCore;
 use num_traits::{AsPrimitive, FromPrimitive};
@@ -25,6 +25,7 @@ const RANDOM_ARR_LENGTH: usize = 5_000;
 #[rstest]
 // https://stackoverflow.com/a/3793950
 #[case::float16(f16::MIN, f16::from_usize(1 << f16::MANTISSA_DIGITS).unwrap())]
+#[case::bfloat16(bf16::MIN, bf16::from_usize(1 << bf16::MANTISSA_DIGITS).unwrap())]
 #[case::float32(f32::MIN, f32::MAX)]
 #[case::float64(f64::MIN, f64::MAX)]
 fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
@@ -43,6 +44,7 @@ fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
 #[rstest]
 // https://stackoverflow.com/a/3793950
 #[case::float16(f16::MIN, f16::from_usize(1 << f16::MANTISSA_DIGITS).unwrap())]
+#[case::bfloat16(bf16::MIN, bf16::from_usize(1 << bf16::MANTISSA_DIGITS).unwrap())]
 fn dtypes_with_nan<T>(#[case] min: T, #[case] max: T) {}
 
 // ----- dtypes template -----
@@ -68,6 +70,7 @@ fn dtypes<T>(#[case] min: T, #[case] max: T) {}
 #[template]
 #[rstest]
 #[case::float16(f16::MIN, f16::from_usize(1 << f16::MANTISSA_DIGITS).unwrap())]
+#[case::bfloat16(bf16::MIN, bf16::from_usize(1 << bf16::MANTISSA_DIGITS).unwrap())]
 #[case::float32(f32::MIN, f32::MAX)]
 #[case::float64(f64::MIN, f64::MAX)]
 #[case::int8(i8::MIN, i8::MAX)]

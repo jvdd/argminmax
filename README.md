@@ -19,7 +19,7 @@
 
 <!-- This project uses [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) to compute argmin and argmax in a single function.   -->
 
-🚀 The functions are generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>2</sup>, `f32`<sup>3</sup>, `f64`<sup>3</sup>, `i8`, `i16`, `i32`, `i64`, `i128`<sup>6</sup>, `u8`, `u16`, `u32`, `u64`, `u128`<sup>6</sup>.
+🚀 The functions are generic over the type of the array, so it can be used on `&[T]` or `Vec<T>` where `T` can be `f16`<sup>2</sup>, `bf16`<sup>2</sup>, `f32`<sup>3</sup>, `f64`<sup>3</sup>, `i8`, `i16`, `i32`, `i64`, `i128`<sup>6</sup>, `u8`, `u16`, `u32`, `u64`, `u128`<sup>6</sup>.
 
 🤝 The trait is implemented for [`slice`](https://doc.rust-lang.org/std/primitive.slice.html), [`Vec`](https://doc.rust-lang.org/std/vec/struct.Vec.html), 1D [`ndarray::ArrayBase`](https://docs.rs/ndarray/latest/ndarray/struct.ArrayBase.html)<sup>4</sup> and apache [`arrow::PrimitiveArray`](https://docs.rs/arrow/latest/arrow/array/struct.PrimitiveArray.html)<sup>5</sup>.
 
@@ -27,10 +27,10 @@
 
 👀 The SIMD inner loop contains **no if checks**, ensuring that its runtime is independent of the input data its order (best-case = worst-case = average-case).
 
-🪄 **Efficient support for f16 and uints**: through bitwise operations, f16 (optional<sup>2</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
+🪄 **Efficient support for f16, bf16 and uints**: through bitwise operations, f16 and bf16 (optional<sup>2</sup>) and uints are converted to ordered integers, allowing to use integer SIMD instructions.
 
 > <i><sup>1</sup> for <code>NEON</code> on 32-bit ARM you should enable the `"nightly_simd"` feature (requires nightly Rust).</i>  
-> <i><sup>2</sup> for <code>f16</code> you should enable the `"half"` feature.</i>  
+> <i><sup>2</sup> for <code>f16</code> and <code>bf16</code> you should enable the `"half"` feature.</i>  
 > <i><sup>3</sup> for <code>f32</code> and <code>f64</code> you should enable the (default) `"float"` feature.</i>  
 > <i><sup>4</sup> for <code>ndarray::ArrayBase</code> you should enable the `"ndarray"` feature.</i>  
 > <i><sup>5</sup> for <code>arrow::PrimitiveArray</code> you should enable the `"arrow"` feature.</i>  
@@ -103,7 +103,7 @@ assert_eq!(arr.argminmax_masked(&validity, 0), Some((1, 2)));
 ## Features
 - [default] **"float"**: support `f32` and `f64` argminmax (uses NaN-handling - [see below](#limitations)).
 - **"nightly_simd"**: enables the use of non-stable SIMD intrinsics (`NEON` on 32-bit ARM), which are only available on nightly Rust.
-- **"half"**: support `f16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
+- **"half"**: support `f16` and `bf16` argminmax (through using the [`half`](https://docs.rs/half/latest/half) crate).
 - **"ndarray"**: add `ArgMinMax` trait to [`ndarray`](https://docs.rs/ndarray/latest/ndarray) its `Array1` & `ArrayView1`.
 - **"arrow"**: add `ArgMinMax` trait to [`arrow`](https://docs.rs/arrow/latest/arrow) its `PrimitiveArray` (skipping the nulls).
   - ❗ The functions panic when all values are null (as for an empty array). To get an `Option` instead, check the null count first: `(array.null_count() < array.len()).then(|| array.argmin())` (arrow keeps the null count, so this check is O(1)).

@@ -3,6 +3,8 @@ use num_traits::float::FloatCore;
 use num_traits::AsPrimitive;
 use num_traits::{Bounded, One};
 
+#[cfg(feature = "half")]
+use crate::scalar::scalar_half::Half;
 use crate::simd::generic::VECTORS_PER_GROUP;
 use crate::{SIMDArgMinMax, ScalarArgMinMax};
 
@@ -242,6 +244,24 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             assert_eq!(unsafe { SIMD::argmin(&data) }, end - 2);
             assert_eq!(unsafe { SIMD::argmax(&data) }, end - 1);
         }
+        // The MIN/MAX value only in the last lanes of a partial second chunk (of one
+        // vector and of a group of vectors and one more vector) and of a full second
+        // chunk, and again in the scalar remainder: the index is offset by the chunk start
+        // and the first occurrence wins
+        // (i8/u8 AVX2/AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors: there
+        // these lengths can end in a later chunk, or in a full one)
+        let group_len = chunk + (VECTORS_PER_GROUP + 1) * LANE_SIZE;
+        for simd_len in [chunk + LANE_SIZE, group_len, 2 * chunk] {
+            let mut data = vec![DType::one(); simd_len + 3];
+            for i in [simd_len - 2, simd_len] {
+                data[i] = DType::min_value();
+                data[i + 1] = DType::max_value();
+            }
+            let (min, max) = (simd_len - 2, simd_len - 1);
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, (min, max));
+            assert_eq!(unsafe { SIMD::argmin(&data) }, min);
+            assert_eq!(unsafe { SIMD::argmax(&data) }, max);
+        }
     }
 }
 
@@ -369,6 +389,42 @@ pub(crate) fn test_signed_zeros_argminmax<DType, SCALAR, SIMD, SV, SM, const LAN
     }
 }
 
+/// Test every NaN bit pattern (both signs, every payload) of a 16-bit float: the SIMD
+/// result must equal the scalar one (which uses is_nan), also for the NaNs right above
+/// +inf. This checks the NaN threshold (`Half::INF_BITS`) of the SIMD code.
+#[cfg(feature = "half")]
+#[cfg(test)]
+pub(crate) fn test_nan_payloads_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE_SIZE: usize>(
+    _scalar: SCALAR, // necessary to use SCALAR
+    _simd: SIMD,     // necessary to use SIMD
+) where
+    DType: Half,
+    SV: Copy, // SIMD vector type
+    SM: Copy, // SIMD mask type
+    SCALAR: ScalarArgMinMax<DType>,
+    SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
+{
+    // The NaN, the max and the min are in the SIMD part, followed by a scalar remainder
+    let mut data = vec![DType::one(); 4 * LANE_SIZE + 3];
+    data[10] = DType::from(2.0).unwrap();
+    data[20] = DType::from(-2.0).unwrap();
+    let validity = vec![u8::MAX; data.len().div_ceil(8)];
+    // Every NaN, selected with is_nan (from the half crate) and not with INF_BITS, in the
+    // first vector (initialization) and in a later one (the main loop)
+    for pos in [5, 3 * LANE_SIZE + 1] {
+        for bits in (0..=u16::MAX).filter(|&bits| DType::from_bits(bits).is_nan()) {
+            data[pos] = DType::from_bits(bits);
+            let expected = SCALAR::argminmax(&data);
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, expected, "{bits:#x}");
+            assert_eq!(unsafe { SIMD::argmin(&data) }, expected.0, "{bits:#x}");
+            assert_eq!(unsafe { SIMD::argmax(&data) }, expected.1, "{bits:#x}");
+            let masked = unsafe { SIMD::argminmax_masked(&data, &validity, 0) };
+            assert_eq!(masked, Some(expected), "{bits:#x}");
+        }
+        data[pos] = DType::one();
+    }
+}
+
 /// Test whether NaNs are handled correctly - in this case, they should be ignored.
 #[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
@@ -434,27 +490,32 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_simd_index_single, 1);
 
         // Case 1.2 - NaN is the first element, other values are monotonic increasing
+        // (bf16 rounds the largest values to ties, of which the first is the max)
         let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
         data[0] = nan;
         for (i, v) in data.iter_mut().enumerate().skip(1) {
             *v = DType::from(i as f64).unwrap();
         }
+        let max_index = data
+            .iter()
+            .position(|&v| v == data[FLOAT_ARR_LEN - 1])
+            .unwrap();
 
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);
         let argmax_index_single = SCALAR::argmax(&data);
         assert_eq!(argmin_index, 1);
         assert_eq!(argmin_index_single, 1);
-        assert_eq!(argmax_index, FLOAT_ARR_LEN - 1);
-        assert_eq!(argmax_index_single, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_index, max_index);
+        assert_eq!(argmax_index_single, max_index);
 
         let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
         let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
         let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
         assert_eq!(argmin_simd_index, 1);
         assert_eq!(argmin_simd_index_single, 1);
-        assert_eq!(argmax_simd_index, FLOAT_ARR_LEN - 1);
-        assert_eq!(argmax_simd_index_single, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_simd_index, max_index);
+        assert_eq!(argmax_simd_index_single, max_index);
 
         // Case 1.3 - NaN is the first element, other values are monotonic decreasing
         let mut data: Vec<DType> = get_data(FLOAT_ARR_LEN);
@@ -589,7 +650,7 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 
         // Case 5.1: the only non-NaN values are +inf (or -inf), so the first non-NaN
         // index k is the argmin and the argmax - also when the NaNs fill the SIMD part
-        // or (for f16) the first overflow chunk
+        // or (for f16 and bf16) the first overflow chunk
         // (k, array length) pairs: 6 vectors, without and with a scalar remainder
         let mut cases: Vec<(usize, usize)> = [6 * LANE_SIZE, 6 * LANE_SIZE + 3]
             .into_iter()
@@ -597,8 +658,9 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             .collect();
         let chunk = SIMD::_get_overflow_lane_size_limit();
         if chunk < 1 << 16 {
-            // only f16 (i16 indices) has a chunk that is small enough to test: k around
-            // the first chunk boundary, with a full or a partial (one vector) second chunk
+            // only f16 and bf16 (i16 indices) have a chunk that is small enough to test: k
+            // around the first chunk boundary, with a full or a partial (one vector) second
+            // chunk
             for len in [2 * chunk + 3, chunk + LANE_SIZE, chunk + LANE_SIZE + 3] {
                 cases.extend([chunk - 1, chunk, chunk + 1].map(|k| (k, len)));
             }
@@ -843,6 +905,23 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmin_simd_index_single, 17);
         assert_eq!(argmax_simd_index, 17);
         assert_eq!(argmax_simd_index_single, 17);
+
+        // Case 9: NaN in the first overflow chunk, and again in the last lane of a
+        // partial and of a full second chunk and in the scalar remainder: the first NaN
+        // is returned (only for f16 and bf16: the f32 and f64 chunks are too long to
+        // allocate)
+        let chunk = SIMD::_get_overflow_lane_size_limit();
+        if chunk < 1 << 16 {
+            for simd_len in [chunk + LANE_SIZE, 2 * chunk] {
+                let mut data = vec![DType::one(); simd_len + 3];
+                for i in [7, simd_len - 1, simd_len] {
+                    data[i] = nan;
+                }
+                assert_eq!(unsafe { SIMD::argminmax(&data) }, (7, 7));
+                assert_eq!(unsafe { SIMD::argmin(&data) }, 7);
+                assert_eq!(unsafe { SIMD::argmax(&data) }, 7);
+            }
+        }
     }
 }
 

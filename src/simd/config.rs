@@ -48,8 +48,8 @@ pub(crate) trait SIMDInstructionSet {
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
 // - uints (see simd_u*.rs files) - Int DTypeStrategy
-// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+// - floats: returning NaNs (see simd_*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct SSE<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
@@ -78,9 +78,9 @@ impl<DTypeStrategy> SIMDInstructionSet for SSE<DTypeStrategy> {
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
 // - uints (see simd_u*.rs files) - Int DTypeStrategy
-// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
-//     ! important remark: AVX is enough for f32 and f64, but we need AVX2 for f16
+// - floats: returning NaNs (see simd_*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+//     ! important remark: AVX is enough for f32 and f64, but we need AVX2 for f16 and bf16
 //
 pub struct AVX2<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
@@ -111,8 +111,8 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX2<DTypeStrategy> {
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
 // - uints (see simd_u*.rs files) - Int DTypeStrategy
-// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+// - floats: returning NaNs (see simd_*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct AVX512<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }
@@ -146,8 +146,8 @@ impl<DTypeStrategy> SIMDInstructionSet for AVX512<DTypeStrategy> {
 // This will be implemented for all:
 // - ints (see simd_i*.rs files) - Int DTypeStrategy
 // - uints (see simd_u*.rs files) - Int DTypeStrategy
-// - floats: returning NaNs (see simd_f*_return_nan.rs files) - FloatReturnNan DTypeStrategy
-// - floats: ignoring NaNs (see simd_f*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
+// - floats: returning NaNs (see simd_*_return_nan.rs files) - FloatReturnNan DTypeStrategy
+// - floats: ignoring NaNs (see simd_*_ignore_nan.rs files) - FloatIgnoreNaN DTypeStrategy
 pub struct NEON<DTypeStrategy> {
     pub(crate) _dtype_strategy: PhantomData<DTypeStrategy>,
 }

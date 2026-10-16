@@ -1,4 +1,4 @@
-use half::f16;
+use half::{bf16, f16};
 use num_traits::Zero;
 
 use std::ops::{Add, Sub};
@@ -72,8 +72,8 @@ macro_rules! impl_full_range_uniform_float {
 }
 
 impl_full_range_uniform!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
-// f16, f32, f64 use integer transmutation to avoid Uniform range overflow / SampleUniform dependency
-impl_full_range_uniform_float!(f16, i16, f32, i32, f64, i64);
+// f16, bf16, f32, f64 use integer transmutation to avoid Uniform range overflow / SampleUniform dependency
+impl_full_range_uniform_float!(f16, i16, bf16, i16, f32, i32, f64, i64);
 
 /// Returns a validity bitmap (in the Arrow format) for `n` elements that starts at bit
 /// `offset`, in which element `i` is valid iff `valid(i)` (the other bits are random)
