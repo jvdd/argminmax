@@ -983,16 +983,14 @@ pub(crate) trait SIMDMasked<
                 if MIN {
                     // Update the lowest values and index
                     let new_low = Self::_mm_blendv(neutral_low, new_values, valid);
-                    let mask_low = Self::_mm_cmplt(new_low, values_low);
-                    values_low = Self::_mm_blendv(values_low, new_low, mask_low);
-                    index_low = Self::_mm_blendv(index_low, new_index, mask_low);
+                    (index_low, values_low) =
+                        Self::_update_low((index_low, values_low), (new_index, new_low));
                 }
                 if MAX {
                     // Update the highest values and index
                     let new_high = Self::_mm_blendv(neutral_high, new_values, valid);
-                    let mask_high = Self::_mm_cmpgt(new_high, values_high);
-                    values_high = Self::_mm_blendv(values_high, new_high, mask_high);
-                    index_high = Self::_mm_blendv(index_high, new_index, mask_high);
+                    (index_high, values_high) =
+                        Self::_update_high((index_high, values_high), (new_index, new_high));
                 }
 
                 // Increment the index and the array pointer
