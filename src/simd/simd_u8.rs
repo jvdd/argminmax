@@ -62,7 +62,8 @@ fn _i8ord_to_u8(ord_i8: i8) -> u8 {
     unsafe { std::mem::transmute::<i8, u8>(ord_i8 ^ XOR_VALUE) }
 }
 
-// x86 reduces the index lanes as unsigned bytes, NEON uses SIMD operations on unsigned ints
+// The horizontal reductions read the index lanes as unsigned bytes (`_mm*_min_epu8`,
+// `vminq_u8`)
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
