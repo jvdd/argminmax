@@ -164,6 +164,16 @@ mod avx2 {
         }
 
         #[inline(always)]
+        unsafe fn _mm_min(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_min_epi32(a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_max(a: __m256i, b: __m256i) -> __m256i {
+            _mm256_max_epi32(a, b)
+        }
+
+        #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, f32) {
             let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
             let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);

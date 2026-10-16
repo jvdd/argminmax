@@ -64,9 +64,11 @@ where
 
     /// Lane-wise min of two SIMD registers (of values as loaded by `_mm_loadu`).
     /// For FloatIgnoreNaN, `a` must contain no NaNs; NaN lanes in `b` return `a`.
-    /// The default is a compare and blend. The AVX2 16 and 32-bit integers override it
-    /// with the native min, which LLVM does not emit for them (on SSE4.1, the native min
-    /// was slower on Zen 3). An override must return the same values as the default.
+    /// The default is a compare and blend. On AVX2, the 16 and 32-bit integer lanes (of
+    /// the integers and of the FloatReturnNaN ordinals) override it with the native min,
+    /// which LLVM does not emit for them. On Zen 3, the native min was slower on SSE4.1
+    /// and for the FloatIgnoreNaN floats. An override must return the same values as the
+    /// default.
     #[inline(always)]
     unsafe fn _mm_min(a: SIMDVecDtype, b: SIMDVecDtype) -> SIMDVecDtype {
         Self::_mm_blendv(a, b, Self::_mm_cmplt(b, a))
