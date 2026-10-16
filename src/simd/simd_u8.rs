@@ -62,15 +62,13 @@ fn _i8ord_to_u8(ord_i8: i8) -> u8 {
     unsafe { std::mem::transmute::<i8, u8>(ord_i8 ^ XOR_VALUE) }
 }
 
-// The horizontal reductions read the index lanes as unsigned bytes (`_mm*_min_epu8`,
-// `vminq_u8`)
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64"
 ))]
-const MAX_INDEX: usize = u8::MAX as usize;
+const MAX_INDEX: usize = u8::MAX as usize; // the index lanes are reduced as unsigned bytes
 
 // --------------------------------------- AVX2 ----------------------------------------
 
