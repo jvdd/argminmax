@@ -563,16 +563,21 @@ where
     ) -> (usize, ScalarDType, usize, ScalarDType) {
         assert!(!arr.is_empty());
         assert_eq!(arr.len() % LANE_SIZE, 0);
+        // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+
+        // 1. Determine the number of loops needed
+        let n_loops = arr.len() / chunk_size; // floor division
+
+        // 2. Perform overflow-safe _core_argminmax
         let mut min = (0, Self::_initialize_min_value(arr));
         let mut max = (0, Self::_initialize_max_value(arr));
-        // Handle the shorter last chunk separately. A compile-time chunk length makes the
-        // core faster: one loop over `chunks()` is up to 1.9x slower for the short chunks
-        // of 8-bit types, and of u16/u32 on NEON.
-        let mut start = 0;
-        for _ in 0..arr.len() / chunk_size {
+        let mut start: usize = 0;
+        // 2.0 Perform the full loops
+        for _ in 0..n_loops {
             if Self::_return_check(min.1) || Self::_return_check(max.1) {
-                return (min.0, min.1, max.0, max.1); // We can return immediately
+                // We can return immediately
+                return (min.0, min.1, max.0, max.1);
             }
             let chunk = &arr[start..start + chunk_size];
             let (min_index, min_value, max_index, max_value) = Self::_core_argminmax(chunk);
@@ -580,12 +585,18 @@ where
             max = Self::_merge_max(max, start, (max_index, max_value));
             start += chunk_size;
         }
+        // 2.1 Handle the remainder (the shorter last chunk)
+        //     It is not in the loop above: the compile-time length of the full chunks makes
+        //     the core faster (one loop over `chunks()` is up to 1.9x slower for the short
+        //     chunks of 8-bit types, and of u16/u32 on NEON).
         if start < arr.len() && !(Self::_return_check(min.1) || Self::_return_check(max.1)) {
             let chunk = &arr[start..];
             let (min_index, min_value, max_index, max_value) = Self::_core_argminmax(chunk);
             min = Self::_merge_min(min, start, (min_index, min_value));
             max = Self::_merge_max(max, start, (max_index, max_value));
         }
+
+        // 3. Return the min/max index and corresponding value
         (min.0, min.1, max.0, max.1)
     }
 
@@ -597,21 +608,32 @@ where
     unsafe fn _overflow_safe_core_argmin(arr: &[ScalarDType]) -> (usize, ScalarDType) {
         assert!(!arr.is_empty());
         assert_eq!(arr.len() % LANE_SIZE, 0);
+        // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+
+        // 1. Determine the number of loops needed
+        let n_loops = arr.len() / chunk_size; // floor division
+
+        // 2. Perform overflow-safe _core_argmin
         let mut min = (0, Self::_initialize_min_value(arr));
-        // Handle the shorter last chunk separately (see `_overflow_safe_core_argminmax`)
-        let mut start = 0;
-        for _ in 0..arr.len() / chunk_size {
+        let mut start: usize = 0;
+        // 2.0 Perform the full loops
+        for _ in 0..n_loops {
             if Self::_return_check(min.1) {
-                return min; // We can return immediately
+                // We can return immediately
+                return min;
             }
             let chunk = &arr[start..start + chunk_size];
             min = Self::_merge_min(min, start, Self::_core_argmin(chunk));
             start += chunk_size;
         }
+        // 2.1 Handle the remainder (the shorter last chunk, see `_overflow_safe_core_argminmax`)
         if start < arr.len() && !Self::_return_check(min.1) {
-            min = Self::_merge_min(min, start, Self::_core_argmin(&arr[start..]));
+            let chunk = &arr[start..];
+            min = Self::_merge_min(min, start, Self::_core_argmin(chunk));
         }
+
+        // 3. Return the min index and value
         min
     }
 
@@ -623,21 +645,32 @@ where
     unsafe fn _overflow_safe_core_argmax(arr: &[ScalarDType]) -> (usize, ScalarDType) {
         assert!(!arr.is_empty());
         assert_eq!(arr.len() % LANE_SIZE, 0);
+        // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+
+        // 1. Determine the number of loops needed
+        let n_loops = arr.len() / chunk_size; // floor division
+
+        // 2. Perform overflow-safe _core_argmax
         let mut max = (0, Self::_initialize_max_value(arr));
-        // Handle the shorter last chunk separately (see `_overflow_safe_core_argminmax`)
-        let mut start = 0;
-        for _ in 0..arr.len() / chunk_size {
+        let mut start: usize = 0;
+        // 2.0 Perform the full loops
+        for _ in 0..n_loops {
             if Self::_return_check(max.1) {
-                return max; // We can return immediately
+                // We can return immediately
+                return max;
             }
             let chunk = &arr[start..start + chunk_size];
             max = Self::_merge_max(max, start, Self::_core_argmax(chunk));
             start += chunk_size;
         }
+        // 2.1 Handle the remainder (the shorter last chunk, see `_overflow_safe_core_argminmax`)
         if start < arr.len() && !Self::_return_check(max.1) {
-            max = Self::_merge_max(max, start, Self::_core_argmax(&arr[start..]));
+            let chunk = &arr[start..];
+            max = Self::_merge_max(max, start, Self::_core_argmax(chunk));
         }
+
+        // 3. Return the max index and value
         max
     }
 }
