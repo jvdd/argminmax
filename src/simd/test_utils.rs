@@ -232,7 +232,7 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
     // occurrence wins
     let chunk = SIMD::_get_overflow_lane_size_limit();
     if 2 * chunk <= arr_len {
-        // (i8/u8 AVX2/AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors)
+        // (i8/u8 AVX512 chunks hold 3 vectors)
         let nb_vectors = (VECTORS_PER_GROUP + 1).min(chunk / LANE_SIZE);
         for end in (0..nb_vectors).map(|v| chunk - v * LANE_SIZE) {
             let mut data = vec![DType::one(); 2 * chunk];
@@ -244,12 +244,22 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             assert_eq!(unsafe { SIMD::argmin(&data) }, end - 2);
             assert_eq!(unsafe { SIMD::argmax(&data) }, end - 1);
         }
+        // The MIN/MAX value at indices 1 and 2 and again at the end of one chunk: the
+        // lowest index wins (in 8-bit chunks, this compares indices below and above 127)
+        let mut data = vec![DType::one(); chunk];
+        for i in [1, chunk - 2] {
+            data[i] = DType::min_value();
+            data[i + 1] = DType::max_value();
+        }
+        assert_eq!(unsafe { SIMD::argminmax(&data) }, (1, 2));
+        assert_eq!(unsafe { SIMD::argmin(&data) }, 1);
+        assert_eq!(unsafe { SIMD::argmax(&data) }, 2);
         // The MIN/MAX value only in the last lanes of a partial second chunk (of one
         // vector and of a group of vectors and one more vector) and of a full second
         // chunk, and again in the scalar remainder: the index is offset by the chunk start
         // and the first occurrence wins
-        // (i8/u8 AVX2/AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors: there
-        // these lengths can end in a later chunk, or in a full one)
+        // (i8/u8 AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors: there the
+        // group length ends in the third chunk)
         let group_len = chunk + (VECTORS_PER_GROUP + 1) * LANE_SIZE;
         for simd_len in [chunk + LANE_SIZE, group_len, 2 * chunk] {
             let mut data = vec![DType::one(); simd_len + 3];
@@ -1089,12 +1099,10 @@ pub(crate) fn test_no_overflow_masked_argminmax<
     // the SIMD loop, and again in the second chunk: the first valid occurrence wins
     let chunk = SIMD::_get_overflow_lane_size_limit();
     if 2 * chunk <= arr_len {
-        // (i8/u8 AVX512 chunks hold a single vector)
-        let nb_vectors = 2.min(chunk / LANE_SIZE);
         for offset in [7, 13] {
             let all_valid = get_validity(2 * chunk, offset, |_| true);
             let second_chunk = get_validity(2 * chunk, offset, |i| i >= chunk);
-            for end in (0..nb_vectors).map(|v| chunk - v * LANE_SIZE) {
+            for end in [chunk, chunk - LANE_SIZE] {
                 let mut data = vec![DType::one(); 2 * chunk];
                 for start in [0, chunk] {
                     data[start + end - 2] = DType::min_value();

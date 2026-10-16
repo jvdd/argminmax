@@ -66,9 +66,9 @@ where
     /// corresponding index from the index SIMD register
     #[inline(always)]
     unsafe fn _horiz_min(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
-        // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
-        // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
-        // to avoid overflow.
+        // This becomes the bottleneck when using 8-bit data types, as for about every
+        // 2**8 elements, the SIMD inner loop is executed (& thus also terminated) to
+        // avoid overflow.
         // To tackle this bottleneck, we use a different approach for 8-bit data types:
         // -> we overwrite this method to perform (in SIMD) the horizontal min
         //    see: https://stackoverflow.com/a/9798369
@@ -84,9 +84,9 @@ where
     /// corresponding index from the index SIMD register
     #[inline(always)]
     unsafe fn _horiz_max(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
-        // This becomes the bottleneck when using 8-bit data types, as for  every 2**7
-        // or 2**8 elements, the SIMD inner loop is executed (& thus also terminated)
-        // to avoid overflow.
+        // This becomes the bottleneck when using 8-bit data types, as for about every
+        // 2**8 elements, the SIMD inner loop is executed (& thus also terminated) to
+        // avoid overflow.
         // To tackle this bottleneck, we use a different approach for 8-bit data types:
         // -> we overwrite this method to perform (in SIMD) the horizontal max
         //    see: https://stackoverflow.com/a/9798369

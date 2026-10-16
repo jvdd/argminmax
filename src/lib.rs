@@ -387,7 +387,9 @@ macro_rules! dispatch {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("sse4.1") & (<$dtype>::NB_BITS == 8) {
-                // 8-bit numbers are best handled by SSE4.1
+                // 8-bit numbers go to SSE4.1. AVX2 is up to 1.2x faster on long arrays, but
+                // its 32-byte vectors leave up to 31 elements to the scalar loop: up to 2.3x
+                // slower on arrays of 16-31 and 48-63 elements. AVX512BW is not faster.
                 return unsafe { SSE::<Int>::$method($($arg),*) };
             }
             if avx512_supported::<$dtype>() {
