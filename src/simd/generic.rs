@@ -894,7 +894,7 @@ where
     /// See [`argminmax_masked`](SIMDArgMinMax::argminmax_masked).
     ///
     unsafe fn argmin_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize> {
-        // Used by the return NaN implementations (see above), the others override this
+        // Used by `impl_SIMDArgMinMax_FloatReturnNaN!`, the others override this
         Self::argminmax_masked(data, validity, offset).map(|(min_index, _)| min_index)
     }
 
@@ -911,7 +911,7 @@ where
     /// See [`argminmax_masked`](SIMDArgMinMax::argminmax_masked).
     ///
     unsafe fn argmax_masked(data: &[ScalarDType], validity: &[u8], offset: usize) -> Option<usize> {
-        // Used by the return NaN implementations (see above), the others override this
+        // Used by `impl_SIMDArgMinMax_FloatReturnNaN!`, the others override this
         Self::argminmax_masked(data, validity, offset).map(|(_, max_index)| max_index)
     }
 }
@@ -1157,10 +1157,10 @@ macro_rules! impl_SIMDArgMinMax {
 pub(crate) use impl_SIMDArgMinMax; // Now classic paths Just Work™
 
 /// Like `impl_SIMDArgMinMax!`, but for the FloatReturnNaN strategy (the
-/// `simd_*_return_nan.rs` files): argmin and argmax return the indices of argminmax, and
-/// so do the `SIMDArgMinMax` defaults of `argmin_masked` and `argmax_masked`. A search
-/// for only the min would miss a NaN without the sign bit, whose ordinal is above all
-/// numbers (and a search for only the max a NaN with the sign bit).
+/// `simd_*_return_nan.rs` files): argmin and argmax use argminmax, and `argmin_masked`
+/// and `argmax_masked` keep the `SIMDArgMinMax` defaults, which use `argminmax_masked`.
+/// A search for only the min would miss a NaN without the sign bit, whose ordinal is
+/// above all numbers (and a search for only the max a NaN with the sign bit).
 #[cfg(any(feature = "float", feature = "half"))]
 #[cfg(any(
     target_arch = "x86",

@@ -242,6 +242,7 @@ mod default_test {
         for<'a> &'a [T]: NaNArgMinMax,
     {
         // The NaN is the argmin and argmax, with and without the sign bit
+        // (not at index 0, where a search for only the min or max returns it too)
         let nan_index = ARRAY_LENGTH / 2;
         for nan in [T::nan(), -T::nan()] {
             let mut data: Vec<T> = vec![T::one(); ARRAY_LENGTH];
