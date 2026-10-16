@@ -248,8 +248,8 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // vector and of a group of vectors and one more vector) and of a full second
         // chunk, and again in the scalar remainder: the index is offset by the chunk start
         // and the first occurrence wins
-        // (i8/u8 AVX2/AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors: there
-        // these lengths can end in a later chunk, or in a full one)
+        // (i8/u8 AVX512 chunks hold fewer than VECTORS_PER_GROUP + 1 vectors: there the
+        // group length ends in the third chunk)
         let group_len = chunk + (VECTORS_PER_GROUP + 1) * LANE_SIZE;
         for simd_len in [chunk + LANE_SIZE, group_len, 2 * chunk] {
             let mut data = vec![DType::one(); simd_len + 3];
