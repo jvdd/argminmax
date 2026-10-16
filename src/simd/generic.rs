@@ -148,8 +148,8 @@ where
 ///
 /// The current (default) implementation is for the Int case - see `impl_SIMDInit_Int!`
 /// macro below for more details.
-/// For the Float Return NaN case,only the _return_check method is changed - see
-/// `impl_SIMDInit_FloatReturnNaN!` macro below for more details.
+/// For the Float Return NaN case, the _return_check and _nan_check methods are
+/// changed - see `impl_SIMDInit_FloatReturnNaN!` macro below for more details.
 /// For the Float Ignore NaN case, all the initialization methods are changed - see
 /// `impl_SIMDInit_FloatIgnoreNaN!` macro below for more details. Note that for this
 /// case, the SIMDOps should implement the `_mm_set1` method.
@@ -724,8 +724,8 @@ where
 // for the same generics.
 // This trait is implemented in the `simd_*.rs` files calling the `impl_SIMDArgMinMax!`
 // macro. With the exception of the `simd_*_return_nan.rs` files, which call the
-// `impl_SIMDArgMinMax_FloatReturnNaN!` macro (as these return .argminmax().0 and
-// .argminmax().1 respectively instead of .argmin() and .argmax()).
+// `impl_SIMDArgMinMax_FloatReturnNaN!` macro: their argmin and argmax use argminmax
+// (see that macro for why).
 //
 pub trait SIMDArgMinMax<ScalarDType, SIMDVecDtype, SIMDMaskDtype, const LANE_SIZE: usize, SCALAR>:
     SIMDCore<ScalarDType, SIMDVecDtype, SIMDMaskDtype, LANE_SIZE>
@@ -1081,6 +1081,8 @@ where
     // Implement the SIMDMasked trait
 }
 
+// -------------------------------- SIMDArgMinMax Macros -------------------------------
+
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -1155,7 +1157,10 @@ macro_rules! impl_SIMDArgMinMax {
 pub(crate) use impl_SIMDArgMinMax; // Now classic paths Just Work™
 
 /// Like `impl_SIMDArgMinMax!`, but for the FloatReturnNaN strategy (the
-/// `simd_*_return_nan.rs` files): argmin and argmax return the indices of argminmax.
+/// `simd_*_return_nan.rs` files): argmin and argmax return the indices of argminmax, and
+/// so do the `SIMDArgMinMax` defaults of `argmin_masked` and `argmax_masked`. A search
+/// for only the min would miss a NaN without the sign bit, whose ordinal is above all
+/// numbers (and a search for only the max a NaN with the sign bit).
 #[cfg(any(feature = "float", feature = "half"))]
 #[cfg(any(
     target_arch = "x86",
