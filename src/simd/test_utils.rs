@@ -243,6 +243,13 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             assert_eq!(unsafe { SIMD::argminmax(&data) }, (end - 2, end - 1));
             assert_eq!(unsafe { SIMD::argmin(&data) }, end - 2);
             assert_eq!(unsafe { SIMD::argmax(&data) }, end - 1);
+            // Also at indices 1 and 2: the lowest index wins (in 8-bit chunks of more than
+            // 128 elements, this compares indices below and above 127)
+            data[1] = DType::min_value();
+            data[2] = DType::max_value();
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, (1, 2));
+            assert_eq!(unsafe { SIMD::argmin(&data) }, 1);
+            assert_eq!(unsafe { SIMD::argmax(&data) }, 2);
         }
         // The MIN/MAX value only in the last lanes of a partial second chunk (of one
         // vector and of a group of vectors and one more vector) and of a full second
