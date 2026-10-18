@@ -10,6 +10,10 @@
 //! the ordinal integer values and then transform the result back to the original u8
 //! values.
 //!
+//! On x86, `_horiz_min` and `_horiz_max` call the i8 ones and only transform the
+//! returned value back to u8. This is correct because the values are i8 ordinals and
+//! the index lanes are the same as for i8 (unsigned bytes, the same `MAX_INDEX`).
+//!
 #[cfg(any(
     target_arch = "x86",
     target_arch = "x86_64",
@@ -87,11 +91,6 @@ mod avx2 {
         _mm256_xor_si256(u8_as_m256i, XOR_MASK)
     }
 
-    #[inline(always)]
-    unsafe fn _reg_to_i8_arr(reg: __m256i) -> [i8; LANE_SIZE] {
-        std::mem::transmute::<__m256i, [i8; LANE_SIZE]>(reg)
-    }
-
     impl SIMDOps<u8, __m256i, __m256i, LANE_SIZE> for AVX2<Int> {
         const INITIAL_INDEX: __m256i = unsafe {
             std::mem::transmute([
@@ -139,65 +138,15 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, u8) {
-            // 0. Find the minimum value
-            let mut vmin: __m256i = value;
-            vmin = _mm256_min_epi8(vmin, _mm256_permute2x128_si256(vmin, vmin, 1));
-            vmin = _mm256_min_epi8(vmin, _mm256_alignr_epi8(vmin, vmin, 8));
-            vmin = _mm256_min_epi8(vmin, _mm256_alignr_epi8(vmin, vmin, 4));
-            vmin = _mm256_min_epi8(vmin, _mm256_alignr_epi8(vmin, vmin, 2));
-            vmin = _mm256_min_epi8(vmin, _mm256_alignr_epi8(vmin, vmin, 1));
-            let min_value: i8 = _mm256_extract_epi8(vmin, 0) as i8;
-
-            // Extract the index of the minimum value
-            // 1. Create a mask with the index of the minimum value
-            let mask = _mm256_cmpeq_epi8(value, vmin);
-            // 2. Blend the mask with the index
-            let search_index = _mm256_blendv_epi8(
-                _mm256_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
-                index,                           // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the minimum index
-            let mut imin: __m256i = search_index;
-            imin = _mm256_min_epu8(imin, _mm256_permute2x128_si256(imin, imin, 1));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 8));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 4));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 2));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 1));
-            let min_index: usize = _mm256_extract_epi8(imin, 0) as usize;
-
+            let (min_index, min_value) =
+                <Self as SIMDOps<i8, _, _, LANE_SIZE>>::_horiz_min(index, value);
             (min_index, _i8ord_to_u8(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, u8) {
-            // 0. Find the maximum value
-            let mut vmax: __m256i = value;
-            vmax = _mm256_max_epi8(vmax, _mm256_permute2x128_si256(vmax, vmax, 1));
-            vmax = _mm256_max_epi8(vmax, _mm256_alignr_epi8(vmax, vmax, 8));
-            vmax = _mm256_max_epi8(vmax, _mm256_alignr_epi8(vmax, vmax, 4));
-            vmax = _mm256_max_epi8(vmax, _mm256_alignr_epi8(vmax, vmax, 2));
-            vmax = _mm256_max_epi8(vmax, _mm256_alignr_epi8(vmax, vmax, 1));
-            let max_value: i8 = _mm256_extract_epi8(vmax, 0) as i8;
-
-            // Extract the index of the maximum value
-            // 1. Create a mask with the index of the maximum value
-            let mask = _mm256_cmpeq_epi8(value, vmax);
-            // 2. Blend the mask with the index
-            let search_index = _mm256_blendv_epi8(
-                _mm256_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
-                index,                           // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the maximum index
-            let mut imin: __m256i = search_index;
-            imin = _mm256_min_epu8(imin, _mm256_permute2x128_si256(imin, imin, 1));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 8));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 4));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 2));
-            imin = _mm256_min_epu8(imin, _mm256_alignr_epi8(imin, imin, 1));
-            let max_index: usize = _mm256_extract_epi8(imin, 0) as usize;
-
+            let (max_index, max_value) =
+                <Self as SIMDOps<i8, _, _, LANE_SIZE>>::_horiz_max(index, value);
             (max_index, _i8ord_to_u8(max_value))
         }
     }
@@ -230,11 +179,6 @@ mod sse {
         // on a scalar: v ^ -0x80
         // transforms to monotonically increasing order
         _mm_xor_si128(u8_as_m128i, XOR_MASK)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i8_arr(reg: __m128i) -> [i8; LANE_SIZE] {
-        std::mem::transmute::<__m128i, [i8; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<u8, __m128i, __m128i, LANE_SIZE> for SSE<Int> {
@@ -283,61 +227,15 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, u8) {
-            // 0. Find the minimum value
-            let mut vmin: __m128i = value;
-            vmin = _mm_min_epi8(vmin, _mm_alignr_epi8(vmin, vmin, 8));
-            vmin = _mm_min_epi8(vmin, _mm_alignr_epi8(vmin, vmin, 4));
-            vmin = _mm_min_epi8(vmin, _mm_alignr_epi8(vmin, vmin, 2));
-            vmin = _mm_min_epi8(vmin, _mm_alignr_epi8(vmin, vmin, 1));
-            let min_value: i8 = _mm_extract_epi8(vmin, 0) as i8;
-
-            // Extract the index of the minimum value
-            // 1. Create a mask with the index of the minimum value
-            let mask = _mm_cmpeq_epi8(value, vmin);
-            // 2. Blend the mask with the index
-            let search_index = _mm_blendv_epi8(
-                _mm_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
-                index,                        // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the minimum index
-            let mut imin: __m128i = search_index;
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 8));
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 4));
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 2));
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 1));
-            let min_index: usize = _mm_extract_epi8(imin, 0) as usize;
-
+            let (min_index, min_value) =
+                <Self as SIMDOps<i8, _, _, LANE_SIZE>>::_horiz_min(index, value);
             (min_index, _i8ord_to_u8(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, u8) {
-            // 0. Find the maximum value
-            let mut vmax: __m128i = value;
-            vmax = _mm_max_epi8(vmax, _mm_alignr_epi8(vmax, vmax, 8));
-            vmax = _mm_max_epi8(vmax, _mm_alignr_epi8(vmax, vmax, 4));
-            vmax = _mm_max_epi8(vmax, _mm_alignr_epi8(vmax, vmax, 2));
-            vmax = _mm_max_epi8(vmax, _mm_alignr_epi8(vmax, vmax, 1));
-            let max_value: i8 = _mm_extract_epi8(vmax, 0) as i8;
-
-            // Extract the index of the maximum value
-            // 1. Create a mask with the index of the maximum value
-            let mask = _mm_cmpeq_epi8(value, vmax);
-            // 2. Blend the mask with the index
-            let search_index = _mm_blendv_epi8(
-                _mm_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
-                index,                        // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the minimum index
-            let mut imin: __m128i = search_index;
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 8));
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 4));
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 2));
-            imin = _mm_min_epu8(imin, _mm_alignr_epi8(imin, imin, 1));
-            let max_index: usize = _mm_extract_epi8(imin, 0) as usize;
-
+            let (max_index, max_value) =
+                <Self as SIMDOps<i8, _, _, LANE_SIZE>>::_horiz_max(index, value);
             (max_index, _i8ord_to_u8(max_value))
         }
     }
@@ -370,11 +268,6 @@ mod avx512 {
         // on a scalar: v ^ -0x80
         // transforms to monotonically increasing order
         _mm512_xor_si512(u8_as_m512i, XOR_MASK)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i8_arr(reg: __m512i) -> [i8; LANE_SIZE] {
-        std::mem::transmute::<__m512i, [i8; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<u8, __m512i, u64, LANE_SIZE> for AVX512<Int> {
@@ -426,69 +319,15 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, u8) {
-            // 0. Find the minimum value
-            let mut vmin: __m512i = value;
-            vmin = _mm512_min_epi8(vmin, _mm512_alignr_epi32(vmin, vmin, 8));
-            vmin = _mm512_min_epi8(vmin, _mm512_alignr_epi32(vmin, vmin, 4));
-            vmin = _mm512_min_epi8(vmin, _mm512_alignr_epi8(vmin, vmin, 8));
-            vmin = _mm512_min_epi8(vmin, _mm512_alignr_epi8(vmin, vmin, 4));
-            vmin = _mm512_min_epi8(vmin, _mm512_alignr_epi8(vmin, vmin, 2));
-            vmin = _mm512_min_epi8(vmin, _mm512_alignr_epi8(vmin, vmin, 1));
-            let min_value: i8 = _mm_extract_epi8(_mm512_castsi512_si128(vmin), 0) as i8;
-
-            // Extract the index of the minimum value
-            // 1. Create a mask with the index of the minimum value
-            let mask = _mm512_cmpeq_epi8_mask(value, vmin);
-            // 2. Blend the mask with the index
-            let search_index = _mm512_mask_blend_epi8(
-                mask,
-                _mm512_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
-                index,                           // if mask is 1, use index
-            );
-            // 3. Find the minimum index
-            let mut imin: __m512i = search_index;
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 8));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 4));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 8));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 4));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 2));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 1));
-            let min_index: usize = _mm_extract_epi8(_mm512_castsi512_si128(imin), 0) as usize;
-
+            let (min_index, min_value) =
+                <Self as SIMDOps<i8, _, _, LANE_SIZE>>::_horiz_min(index, value);
             (min_index, _i8ord_to_u8(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, u8) {
-            // 0. Find the maximum value
-            let mut vmax: __m512i = value;
-            vmax = _mm512_max_epi8(vmax, _mm512_alignr_epi32(vmax, vmax, 8));
-            vmax = _mm512_max_epi8(vmax, _mm512_alignr_epi32(vmax, vmax, 4));
-            vmax = _mm512_max_epi8(vmax, _mm512_alignr_epi8(vmax, vmax, 8));
-            vmax = _mm512_max_epi8(vmax, _mm512_alignr_epi8(vmax, vmax, 4));
-            vmax = _mm512_max_epi8(vmax, _mm512_alignr_epi8(vmax, vmax, 2));
-            vmax = _mm512_max_epi8(vmax, _mm512_alignr_epi8(vmax, vmax, 1));
-            let max_value: i8 = _mm_extract_epi8(_mm512_castsi512_si128(vmax), 0) as i8;
-
-            // Extract the index of the maximum value
-            // 1. Create a mask with the index of the maximum value
-            let mask = _mm512_cmpeq_epi8_mask(value, vmax);
-            // 2. Blend the mask with the index
-            let search_index = _mm512_mask_blend_epi8(
-                mask,
-                _mm512_set1_epi8(u8::MAX as i8), // if mask is 0, use u8::MAX
-                index,                           // if mask is 1, use index
-            );
-            // 3. Find the maximum index
-            let mut imin: __m512i = search_index;
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 8));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi32(imin, imin, 4));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 8));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 4));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 2));
-            imin = _mm512_min_epu8(imin, _mm512_alignr_epi8(imin, imin, 1));
-            let max_index: usize = _mm_extract_epi8(_mm512_castsi512_si128(imin), 0) as usize;
-
+            let (max_index, max_value) =
+                <Self as SIMDOps<i8, _, _, LANE_SIZE>>::_horiz_max(index, value);
             (max_index, _i8ord_to_u8(max_value))
         }
     }

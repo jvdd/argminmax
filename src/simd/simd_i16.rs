@@ -269,7 +269,7 @@ mod sse {
             let mask = _mm_cmpeq_epi16(value, vmax);
             // 2. Blend the mask with the index
             let search_index = _mm_blendv_epi8(
-                _mm_set1_epi16(i16::MAX), // if mask is 0, use i8::MAX
+                _mm_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
                 index,                    // if mask is 1, use index
                 mask,
             );
