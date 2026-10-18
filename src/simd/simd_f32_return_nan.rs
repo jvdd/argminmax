@@ -21,6 +21,10 @@
 //!   - <https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_ps&ig_expand=902>
 //!   - <https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi32&ig_expand=1084>
 //!
+//! `_horiz_min` and `_horiz_max` call the i32 ones of the same instruction set and only
+//! transform the returned value back to f32. This is correct because the values are i32
+//! ordinals and the index lanes are the same as for i32 (the same `MAX_INDEX`).
+//!
 //!
 //! ---
 //!
@@ -70,15 +74,7 @@ use std::arch::x86_64::*;
     all(target_arch = "arm", feature = "nightly_simd"),
     target_arch = "aarch64",
 ))]
-use super::super::dtype_strategy::FloatReturnNaN;
-
-#[cfg(any(
-    target_arch = "x86",
-    target_arch = "x86_64",
-    all(target_arch = "arm", feature = "nightly_simd"),
-    target_arch = "aarch64",
-))]
-use super::task::{max_index_value, min_index_value};
+use super::super::dtype_strategy::{FloatReturnNaN, Int};
 
 #[cfg(any(
     target_arch = "x86",
@@ -119,11 +115,6 @@ mod avx2 {
     unsafe fn _f32_as_m256i_to_i32ord(f32_as_m256i: __m256i) -> __m256i {
         // on a scalar: v if v >= 0 else i32::MIN - v (-0.0 and 0.0 are both 0)
         _mm256_sign_epi32(_mm256_and_si256(f32_as_m256i, LOWER_31_MASK), f32_as_m256i)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i32_arr(reg: __m256i) -> [i32; LANE_SIZE] {
-        std::mem::transmute::<__m256i, [i32; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<f32, __m256i, __m256i, LANE_SIZE> for AVX2<FloatReturnNaN> {
@@ -178,18 +169,16 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i32ord_to_f32(min_value))
+            let (min_index, min_value) =
+                <AVX2<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i32ord_to_f32(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i32ord_to_f32(max_value))
+            let (max_index, max_value) =
+                <AVX2<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i32ord_to_f32(max_value))
         }
     }
 
@@ -219,11 +208,6 @@ mod sse {
     unsafe fn _f32_as_m128i_to_i32ord(f32_as_m128i: __m128i) -> __m128i {
         // on a scalar: v if v >= 0 else i32::MIN - v (-0.0 and 0.0 are both 0)
         _mm_sign_epi32(_mm_and_si128(f32_as_m128i, LOWER_31_MASK), f32_as_m128i)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i32_arr(reg: __m128i) -> [i32; LANE_SIZE] {
-        std::mem::transmute::<__m128i, [i32; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<f32, __m128i, __m128i, LANE_SIZE> for SSE<FloatReturnNaN> {
@@ -267,18 +251,16 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i32ord_to_f32(min_value))
+            let (min_index, min_value) =
+                <SSE<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i32ord_to_f32(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i32ord_to_f32(max_value))
+            let (max_index, max_value) =
+                <SSE<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i32ord_to_f32(max_value))
         }
     }
 
@@ -309,11 +291,6 @@ mod avx512 {
         // on a scalar: v if v >= 0 else i32::MIN - v (-0.0 and 0.0 are both 0)
         let negative = _mm512_cmplt_epi32_mask(f32_as_m512i, _mm512_setzero_si512());
         _mm512_mask_sub_epi32(f32_as_m512i, negative, SIGN_BIT, f32_as_m512i)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i32_arr(reg: __m512i) -> [i32; LANE_SIZE] {
-        std::mem::transmute::<__m512i, [i32; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<f32, __m512i, u16, LANE_SIZE> for AVX512<FloatReturnNaN> {
@@ -362,18 +339,16 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i32ord_to_f32(min_value))
+            let (min_index, min_value) =
+                <AVX512<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i32ord_to_f32(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i32ord_to_f32(max_value))
+            let (max_index, max_value) =
+                <AVX512<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i32ord_to_f32(max_value))
         }
     }
 
@@ -410,11 +385,6 @@ mod neon {
             vabsq_s32(f32_as_int32x4),
             vandq_s32(f32_as_int32x4, SIGN_BIT),
         )
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i32_arr(reg: int32x4_t) -> [i32; LANE_SIZE] {
-        std::mem::transmute::<int32x4_t, [i32; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<f32, int32x4_t, uint32x4_t, LANE_SIZE> for NEON<FloatReturnNaN> {
@@ -458,18 +428,16 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: int32x4_t, value: int32x4_t) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i32ord_to_f32(min_value))
+            let (min_index, min_value) =
+                <NEON<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i32ord_to_f32(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: int32x4_t, value: int32x4_t) -> (usize, f32) {
-            let index_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(index);
-            let value_arr: [i32; LANE_SIZE] = _reg_to_i32_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i32ord_to_f32(max_value))
+            let (max_index, max_value) =
+                <NEON<Int> as SIMDOps<i32, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i32ord_to_f32(max_value))
         }
     }
 

@@ -21,6 +21,10 @@
 //!   - <https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmp_pd&ig_expand=886>
 //!   - <https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#text=_mm256_cmpgt_epi64&ig_expand=1094>
 //!
+//! `_horiz_min` and `_horiz_max` call the i64 ones of the same instruction set and only
+//! transform the returned value back to f64. This is correct because the values are i64
+//! ordinals and the index lanes are the same as for i64 (the same `MAX_INDEX`).
+//!
 //!
 //! ---
 //!
@@ -66,7 +70,7 @@ use std::arch::x86_64::*;
 use super::super::dtype_strategy::FloatReturnNaN;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
-use super::task::{max_index_value, min_index_value};
+use super::super::dtype_strategy::Int;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 #[inline(always)]
@@ -101,11 +105,6 @@ mod avx2 {
         let minus_magnitude = _mm256_castsi256_pd(_mm256_sub_epi64(SIGN_BIT, f64_as_m256i));
         let v = _mm256_castsi256_pd(f64_as_m256i);
         _mm256_castpd_si256(_mm256_blendv_pd(v, minus_magnitude, v))
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i64_arr(reg: __m256i) -> [i64; LANE_SIZE] {
-        std::mem::transmute::<__m256i, [i64; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<f64, __m256i, __m256i, LANE_SIZE> for AVX2<FloatReturnNaN> {
@@ -149,18 +148,16 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i64ord_to_f64(min_value))
+            let (min_index, min_value) =
+                <AVX2<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i64ord_to_f64(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i64ord_to_f64(max_value))
+            let (max_index, max_value) =
+                <AVX2<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i64ord_to_f64(max_value))
         }
     }
 
@@ -194,11 +191,6 @@ mod sse {
         let minus_magnitude = _mm_castsi128_pd(_mm_sub_epi64(SIGN_BIT, f64_as_m128i));
         let v = _mm_castsi128_pd(f64_as_m128i);
         _mm_castpd_si128(_mm_blendv_pd(v, minus_magnitude, v))
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i64_arr(reg: __m128i) -> [i64; LANE_SIZE] {
-        std::mem::transmute::<__m128i, [i64; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<f64, __m128i, __m128i, LANE_SIZE> for SSE<FloatReturnNaN> {
@@ -242,18 +234,16 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i64ord_to_f64(min_value))
+            let (min_index, min_value) =
+                <SSE<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i64ord_to_f64(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i64ord_to_f64(max_value))
+            let (max_index, max_value) =
+                <SSE<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i64ord_to_f64(max_value))
         }
     }
 
@@ -284,11 +274,6 @@ mod avx512 {
         // on a scalar: v if v >= 0 else i64::MIN - v (-0.0 and 0.0 are both 0)
         let negative = _mm512_cmplt_epi64_mask(f64_as_m512i, _mm512_setzero_si512());
         _mm512_mask_sub_epi64(f64_as_m512i, negative, SIGN_BIT, f64_as_m512i)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i64_arr(reg: __m512i) -> [i64; LANE_SIZE] {
-        std::mem::transmute::<__m512i, [i64; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<f64, __m512i, u8, LANE_SIZE> for AVX512<FloatReturnNaN> {
@@ -333,18 +318,16 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i64ord_to_f64(min_value))
+            let (min_index, min_value) =
+                <AVX512<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i64ord_to_f64(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i64ord_to_f64(max_value))
+            let (max_index, max_value) =
+                <AVX512<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i64ord_to_f64(max_value))
         }
     }
 
@@ -400,11 +383,6 @@ mod neon {
         )
     }
 
-    #[inline(always)]
-    unsafe fn _reg_to_i64_arr(reg: int64x2_t) -> [i64; LANE_SIZE] {
-        std::mem::transmute::<int64x2_t, [i64; LANE_SIZE]>(reg)
-    }
-
     impl SIMDOps<f64, int64x2_t, uint64x2_t, LANE_SIZE> for NEON<FloatReturnNaN> {
         const INITIAL_INDEX: int64x2_t = unsafe { std::mem::transmute([0i64, 1i64]) };
         const INDEX_INCREMENT: int64x2_t =
@@ -446,18 +424,16 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: int64x2_t, value: int64x2_t) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i64ord_to_f64(min_value))
+            let (min_index, min_value) =
+                <NEON<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i64ord_to_f64(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: int64x2_t, value: int64x2_t) -> (usize, f64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i64ord_to_f64(max_value))
+            let (max_index, max_value) =
+                <NEON<Int> as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i64ord_to_f64(max_value))
         }
     }
 
