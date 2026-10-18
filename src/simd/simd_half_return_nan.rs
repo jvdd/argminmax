@@ -18,6 +18,10 @@
 //! add NaN values to the accumulating SIMD register. And as le and ge are significantly
 //! more expensive than lt and gt we use this efficient bitwise transformation.
 //!
+//! `_horiz_min` and `_horiz_max` call the i16 ones of the same instruction set and only
+//! transform the returned value back to f16 / bf16. This is correct because the values
+//! are i16 ordinals and the index lanes are the same as for i16 (the same `MAX_INDEX`).
+//!
 //! Note that most x86 CPUs do not support f16 and bf16 instructions - making this implementation
 //! multitudes (up to 300x for f16) faster than trying to use a vanilla scalar implementation.
 //!
@@ -55,7 +59,7 @@ use super::generic::{
 ))]
 use crate::{
     scalar::scalar_half::{i16ord_to_half, Half},
-    SCALAR,
+    Int, SCALAR,
 };
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
@@ -108,11 +112,6 @@ mod avx2 {
             _mm256_and_si256(half_as_m256i, LOWER_15_MASK),
             half_as_m256i,
         )
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i16_arr(reg: __m256i) -> [i16; LANE_SIZE] {
-        std::mem::transmute::<__m256i, [i16; LANE_SIZE]>(reg)
     }
 
     impl<T: Half> SIMDOps<T, __m256i, __m256i, LANE_SIZE> for AVX2<FloatReturnNaN> {
@@ -171,61 +170,15 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, T) {
-            // 0. Find the minimum value
-            let mut vmin: __m256i = value;
-            vmin = _mm256_min_epi16(vmin, _mm256_permute2x128_si256(vmin, vmin, 1));
-            vmin = _mm256_min_epi16(vmin, _mm256_alignr_epi8(vmin, vmin, 8));
-            vmin = _mm256_min_epi16(vmin, _mm256_alignr_epi8(vmin, vmin, 4));
-            vmin = _mm256_min_epi16(vmin, _mm256_alignr_epi8(vmin, vmin, 2));
-            let min_value: i16 = _mm256_extract_epi16(vmin, 0) as i16;
-
-            // Extract the index of the minimum value
-            // 1. Create a mask with the index of the minimum value
-            let mask = _mm256_cmpeq_epi16(value, vmin);
-            // 2. Blend the mask with the index
-            let search_index = _mm256_blendv_epi8(
-                _mm256_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
-                index,                       // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the minimum index
-            let mut imin: __m256i = search_index;
-            imin = _mm256_min_epi16(imin, _mm256_permute2x128_si256(imin, imin, 1));
-            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 8));
-            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 4));
-            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
-            let min_index: usize = _mm256_extract_epi16(imin, 0) as usize;
-
+            let (min_index, min_value) =
+                <AVX2<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_min(index, value);
             (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, T) {
-            // 0. Find the maximum value
-            let mut vmax: __m256i = value;
-            vmax = _mm256_max_epi16(vmax, _mm256_permute2x128_si256(vmax, vmax, 1));
-            vmax = _mm256_max_epi16(vmax, _mm256_alignr_epi8(vmax, vmax, 8));
-            vmax = _mm256_max_epi16(vmax, _mm256_alignr_epi8(vmax, vmax, 4));
-            vmax = _mm256_max_epi16(vmax, _mm256_alignr_epi8(vmax, vmax, 2));
-            let max_value: i16 = _mm256_extract_epi16(vmax, 0) as i16;
-
-            // Extract the index of the maximum value
-            // 1. Create a mask with the index of the maximum value
-            let mask = _mm256_cmpeq_epi16(value, vmax);
-            // 2. Blend the mask with the index
-            let search_index = _mm256_blendv_epi8(
-                _mm256_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
-                index,                       // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the maximum index
-            let mut imin: __m256i = search_index;
-            imin = _mm256_min_epi16(imin, _mm256_permute2x128_si256(imin, imin, 1));
-            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 8));
-            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 4));
-            imin = _mm256_min_epi16(imin, _mm256_alignr_epi8(imin, imin, 2));
-            let max_index: usize = _mm256_extract_epi16(imin, 0) as usize;
-
+            let (max_index, max_value) =
+                <AVX2<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_max(index, value);
             (max_index, i16ord_to_half(max_value))
         }
     }
@@ -265,11 +218,6 @@ mod sse {
     unsafe fn _half_as_m128i_to_i16ord(half_as_m128i: __m128i) -> __m128i {
         // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
         _mm_sign_epi16(_mm_and_si128(half_as_m128i, LOWER_15_MASK), half_as_m128i)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i16_arr(reg: __m128i) -> [i16; LANE_SIZE] {
-        std::mem::transmute::<__m128i, [i16; LANE_SIZE]>(reg)
     }
 
     impl<T: Half> SIMDOps<T, __m128i, __m128i, LANE_SIZE> for SSE<FloatReturnNaN> {
@@ -314,57 +262,15 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, T) {
-            // 0. Find the minimum value
-            let mut vmin: __m128i = value;
-            vmin = _mm_min_epi16(vmin, _mm_alignr_epi8(vmin, vmin, 8));
-            vmin = _mm_min_epi16(vmin, _mm_alignr_epi8(vmin, vmin, 4));
-            vmin = _mm_min_epi16(vmin, _mm_alignr_epi8(vmin, vmin, 2));
-            let min_value: i16 = _mm_extract_epi16(vmin, 0) as i16;
-
-            // Extract the index of the minimum value
-            // 1. Create a mask with the index of the minimum value
-            let mask = _mm_cmpeq_epi16(value, vmin);
-            // 2. Blend the mask with the index
-            let search_index = _mm_blendv_epi8(
-                _mm_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
-                index,                    // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the minimum index
-            let mut imin: __m128i = search_index;
-            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 8));
-            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 4));
-            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
-            let min_index: usize = _mm_extract_epi16(imin, 0) as usize;
-
+            let (min_index, min_value) =
+                <SSE<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_min(index, value);
             (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, T) {
-            // 0. Find the maximum value
-            let mut vmax: __m128i = value;
-            vmax = _mm_max_epi16(vmax, _mm_alignr_epi8(vmax, vmax, 8));
-            vmax = _mm_max_epi16(vmax, _mm_alignr_epi8(vmax, vmax, 4));
-            vmax = _mm_max_epi16(vmax, _mm_alignr_epi8(vmax, vmax, 2));
-            let max_value: i16 = _mm_extract_epi16(vmax, 0) as i16;
-
-            // Extract the index of the maximum value
-            // 1. Create a mask with the index of the maximum value
-            let mask = _mm_cmpeq_epi16(value, vmax);
-            // 2. Blend the mask with the index
-            let search_index = _mm_blendv_epi8(
-                _mm_set1_epi16(i16::MAX), // if mask is 0, use i8::MAX
-                index,                    // if mask is 1, use index
-                mask,
-            );
-            // 3. Find the maximum index
-            let mut imin: __m128i = search_index;
-            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 8));
-            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 4));
-            imin = _mm_min_epi16(imin, _mm_alignr_epi8(imin, imin, 2));
-            let max_index: usize = _mm_extract_epi16(imin, 0) as usize;
-
+            let (max_index, max_value) =
+                <SSE<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_max(index, value);
             (max_index, i16ord_to_half(max_value))
         }
     }
@@ -405,11 +311,6 @@ mod avx512 {
         // on a scalar: v if v >= 0 else i16::MIN - v (-0.0 and 0.0 are both 0)
         let negative = _mm512_cmplt_epi16_mask(half_as_m512i, _mm512_setzero_si512());
         _mm512_mask_sub_epi16(half_as_m512i, negative, SIGN_BIT, half_as_m512i)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i16_arr(reg: __m512i) -> [i16; LANE_SIZE] {
-        std::mem::transmute::<__m512i, [i16; LANE_SIZE]>(reg)
     }
 
     impl<T: Half> SIMDOps<T, __m512i, u32, LANE_SIZE> for AVX512<FloatReturnNaN> {
@@ -459,65 +360,15 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, T) {
-            // 0. Find the minimum value
-            let mut vmin: __m512i = value;
-            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi32(vmin, vmin, 8));
-            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi32(vmin, vmin, 4));
-            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi8(vmin, vmin, 8));
-            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi8(vmin, vmin, 4));
-            vmin = _mm512_min_epi16(vmin, _mm512_alignr_epi8(vmin, vmin, 2));
-            let min_value: i16 = _mm_extract_epi16(_mm512_castsi512_si128(vmin), 0) as i16;
-
-            // Extract the index of the minimum value
-            // 1. Create a mask with the index of the minimum value
-            let mask = _mm512_cmpeq_epi16_mask(value, vmin);
-            // 2. Blend the mask with the index
-            let search_index = _mm512_mask_blend_epi16(
-                mask,
-                _mm512_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
-                index,                       // if mask is 1, use index
-            );
-            // 3. Find the minimum index
-            let mut imin: __m512i = search_index;
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 8));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 4));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 8));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 4));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
-            let min_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
-
+            let (min_index, min_value) =
+                <AVX512<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_min(index, value);
             (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, T) {
-            // 0. Find the maximum value
-            let mut vmax: __m512i = value;
-            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi32(vmax, vmax, 8));
-            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi32(vmax, vmax, 4));
-            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi8(vmax, vmax, 8));
-            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi8(vmax, vmax, 4));
-            vmax = _mm512_max_epi16(vmax, _mm512_alignr_epi8(vmax, vmax, 2));
-            let max_value: i16 = _mm_extract_epi16(_mm512_castsi512_si128(vmax), 0) as i16;
-
-            // Extract the index of the maximum value
-            // 1. Create a mask with the index of the maximum value
-            let mask = _mm512_cmpeq_epi16_mask(value, vmax);
-            // 2. Blend the mask with the index
-            let search_index = _mm512_mask_blend_epi16(
-                mask,
-                _mm512_set1_epi16(i16::MAX), // if mask is 0, use i16::MAX
-                index,                       // if mask is 1, use index
-            );
-            // 3. Find the maximum index
-            let mut imin: __m512i = search_index;
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 8));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi32(imin, imin, 4));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 8));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 4));
-            imin = _mm512_min_epi16(imin, _mm512_alignr_epi8(imin, imin, 2));
-            let max_index: usize = _mm_extract_epi16(_mm512_castsi512_si128(imin), 0) as usize;
-
+            let (max_index, max_value) =
+                <AVX512<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_max(index, value);
             (max_index, i16ord_to_half(max_value))
         }
     }
@@ -566,11 +417,6 @@ mod neon {
         )
     }
 
-    #[inline(always)]
-    unsafe fn _reg_to_i16_arr(reg: int16x8_t) -> [i16; LANE_SIZE] {
-        std::mem::transmute::<int16x8_t, [i16; LANE_SIZE]>(reg)
-    }
-
     impl<T: Half> SIMDOps<T, int16x8_t, uint16x8_t, LANE_SIZE> for NEON<FloatReturnNaN> {
         const INITIAL_INDEX: int16x8_t =
             unsafe { std::mem::transmute([0i16, 1i16, 2i16, 3i16, 4i16, 5i16, 6i16, 7i16]) };
@@ -613,57 +459,15 @@ mod neon {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: int16x8_t, value: int16x8_t) -> (usize, T) {
-            // 0. Find the minimum value
-            let mut vmin: int16x8_t = value;
-            vmin = vminq_s16(vmin, vextq_s16(vmin, vmin, 4));
-            vmin = vminq_s16(vmin, vextq_s16(vmin, vmin, 2));
-            vmin = vminq_s16(vmin, vextq_s16(vmin, vmin, 1));
-            let min_value: i16 = vgetq_lane_s16(vmin, 0);
-
-            // Extract the index of the minimum value
-            // 1. Create a mask with the index of the minimum value
-            let mask = vceqq_s16(value, vmin);
-            // 2. Blend the mask with the index
-            let search_index = vbslq_s16(
-                mask,
-                index,                 // if mask is 1, use index
-                vdupq_n_s16(i16::MAX), // if mask is 0, use i16::MAX
-            );
-            // 3. Find the minimum index
-            let mut imin: int16x8_t = search_index;
-            imin = vminq_s16(imin, vextq_s16(imin, imin, 4));
-            imin = vminq_s16(imin, vextq_s16(imin, imin, 2));
-            imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
-            let min_index: usize = vgetq_lane_s16(imin, 0) as usize;
-
+            let (min_index, min_value) =
+                <NEON<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_min(index, value);
             (min_index, i16ord_to_half(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: int16x8_t, value: int16x8_t) -> (usize, T) {
-            // 0. Find the maximum value
-            let mut vmax: int16x8_t = value;
-            vmax = vmaxq_s16(vmax, vextq_s16(vmax, vmax, 4));
-            vmax = vmaxq_s16(vmax, vextq_s16(vmax, vmax, 2));
-            vmax = vmaxq_s16(vmax, vextq_s16(vmax, vmax, 1));
-            let max_value: i16 = vgetq_lane_s16(vmax, 0);
-
-            // Extract the index of the maximum value
-            // 1. Create a mask with the index of the maximum value
-            let mask = vceqq_s16(value, vmax);
-            // 2. Blend the mask with the index
-            let search_index = vbslq_s16(
-                mask,
-                index,                 // if mask is 1, use index
-                vdupq_n_s16(i16::MAX), // if mask is 0, use i16::MAX
-            );
-            // 3. Find the maximum index
-            let mut imin: int16x8_t = search_index;
-            imin = vminq_s16(imin, vextq_s16(imin, imin, 4));
-            imin = vminq_s16(imin, vextq_s16(imin, imin, 2));
-            imin = vminq_s16(imin, vextq_s16(imin, imin, 1));
-            let max_index: usize = vgetq_lane_s16(imin, 0) as usize;
-
+            let (max_index, max_value) =
+                <NEON<Int> as SIMDOps<i16, _, _, LANE_SIZE>>::_horiz_max(index, value);
             (max_index, i16ord_to_half(max_value))
         }
     }
