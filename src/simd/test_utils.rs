@@ -51,7 +51,7 @@ pub(crate) fn test_return_same_result_argminmax<
     // 2. Test for many arrays
     let random_runs = std::iter::repeat_with(|| get_data(RANDOM_RUN_ARR_LEN)).take(NB_RUNS);
     // 3. Test for every length up to 16 vectors + 3 (the first vector, the groups of
-    // vectors, the remaining vectors and the scalar remainder)
+    // vectors, the remaining vectors and the remainder)
     let short_arrs = (1..=4 * VECTORS_PER_GROUP * LANE_SIZE + 3)
         .flat_map(|len| [get_data(len), get_ties_data(len)]);
     for data in long_arr.chain(random_runs).chain(short_arrs) {
@@ -279,7 +279,7 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 
 #[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
-const FLOAT_ARR_LEN: usize = 1024 + 3;
+const FLOAT_ARR_LEN: usize = 1024 + 11; // remainder 11 (last vector) or 3 (scalar loop)
 
 /// Test whether infinities are handled correctly.
 /// -> infinities should be returned as the argmin/argmax
@@ -583,18 +583,18 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);
         let argmax_index_single = SCALAR::argmax(&data);
-        assert!(argmin_index != 1026);
-        assert!(argmin_index_single != 1026);
-        assert!(argmax_index != 1026);
-        assert!(argmax_index_single != 1026);
+        assert!(argmin_index != FLOAT_ARR_LEN - 1);
+        assert!(argmin_index_single != FLOAT_ARR_LEN - 1);
+        assert!(argmax_index != FLOAT_ARR_LEN - 1);
+        assert!(argmax_index_single != FLOAT_ARR_LEN - 1);
 
         let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
         let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
         let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-        assert!(argmin_simd_index != 1026);
-        assert!(argmin_simd_index_single != 1026);
-        assert!(argmax_simd_index != 1026);
-        assert!(argmax_simd_index_single != 1026);
+        assert!(argmin_simd_index != FLOAT_ARR_LEN - 1);
+        assert!(argmin_simd_index_single != FLOAT_ARR_LEN - 1);
+        assert!(argmax_simd_index != FLOAT_ARR_LEN - 1);
+        assert!(argmax_simd_index_single != FLOAT_ARR_LEN - 1);
 
         assert_eq!(argmin_index, argmin_simd_index);
         assert_eq!(argmin_index, argmin_index_single);
@@ -661,8 +661,9 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // Case 5.1: the only non-NaN values are +inf (or -inf), so the first non-NaN
         // index k is the argmin and the argmax - also when the NaNs fill the SIMD part
         // or (for f16 and bf16) the first overflow chunk
-        // (k, array length) pairs: 6 vectors, without and with a scalar remainder
-        let mut cases: Vec<(usize, usize)> = [6 * LANE_SIZE, 6 * LANE_SIZE + 3]
+        // (k, array length) pairs: 6 vectors, without and with a remainder of 3 or
+        // LANE_SIZE - 1 elements (the scalar loop or, from 8 elements, the last vector)
+        let mut cases: Vec<(usize, usize)> = [6 * LANE_SIZE, 6 * LANE_SIZE + 3, 7 * LANE_SIZE - 1]
             .into_iter()
             .flat_map(|len| (0..len).map(move |k| (k, len)))
             .collect();
@@ -802,18 +803,18 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         let (argmin_index, argmax_index) = SCALAR::argminmax(&data);
         let argmin_index_single = SCALAR::argmin(&data);
         let argmax_index_single = SCALAR::argmax(&data);
-        assert_eq!(argmin_index, 1026);
-        assert_eq!(argmin_index_single, 1026);
-        assert_eq!(argmax_index, 1026);
-        assert_eq!(argmax_index_single, 1026);
+        assert_eq!(argmin_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmin_index_single, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_index_single, FLOAT_ARR_LEN - 1);
 
         let (argmin_simd_index, argmax_simd_index) = unsafe { SIMD::argminmax(&data) };
         let argmin_simd_index_single = unsafe { SIMD::argmin(&data) };
         let argmax_simd_index_single = unsafe { SIMD::argmax(&data) };
-        assert_eq!(argmin_simd_index, 1026);
-        assert_eq!(argmin_simd_index_single, 1026);
-        assert_eq!(argmax_simd_index, 1026);
-        assert_eq!(argmax_simd_index_single, 1026);
+        assert_eq!(argmin_simd_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmin_simd_index_single, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_simd_index, FLOAT_ARR_LEN - 1);
+        assert_eq!(argmax_simd_index_single, FLOAT_ARR_LEN - 1);
 
         // Case 4: last 100 elements are NaN
         for i in 0..100 {

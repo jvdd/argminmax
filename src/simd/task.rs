@@ -5,6 +5,14 @@ use num_traits::Bounded;
 use crate::scalar::ScalarArgMinMax;
 use crate::validity::{first_valid_eq, merge_max, merge_min, scalar_masked, FoundMinMax};
 
+/// A remainder (the elements after the last full vector) of at least this many elements
+/// runs through the SIMD core once more, on the last `lane_size` elements of the slice.
+/// That last vector overlaps elements that the first call already saw, which is fine:
+/// ties, and a NaN in both results, keep the first call's result.
+/// A shorter remainder runs through the scalar implementation: on 1-3 elements it is
+/// faster than the extra core call (with its horizontal reduction), on 4-7 about as fast.
+const MIN_SIMD_REMAINDER: usize = 8;
+
 #[inline(always)]
 pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     arr: &[T],
@@ -14,49 +22,39 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
     nan_check: fn(T) -> bool, // returns true if value is NaN
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> (usize, usize) {
-    assert!(!arr.is_empty()); // split_array should never return (None, None)
-    let (min_index, max_index) = match split_array(arr, lane_size) {
-        (Some(simd_arr), Some(rem)) => {
-            // Perform SIMD operation on the first part of the array
-            let simd_result = unsafe { core_argminmax(simd_arr) };
-            // Perform scalar operation on the remainder of the array
-            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
-            // let (rem_min_index, rem_max_index) = SCALAR::argminmax(rem);
-            let rem_result = (
-                rem_min_index + simd_arr.len(),
-                rem[rem_min_index],
-                rem_max_index + simd_arr.len(),
-                rem[rem_max_index],
-            );
-            // Find the final min and max values
-            let (min_index, min_value) = find_final_index_min(
-                (simd_result.0, simd_result.1),
-                (rem_result.0, rem_result.1),
-                nan_check,
-                ignore_nan,
-            );
-            let (max_index, max_value) = find_final_index_max(
-                (simd_result.2, simd_result.3),
-                (rem_result.2, rem_result.3),
-                nan_check,
-                ignore_nan,
-            );
-            get_correct_argminmax_result(
-                min_index, min_value, max_index, max_value, nan_check, ignore_nan,
-            )
-        }
-        (Some(simd_arr), None) => {
-            let (min_index, min_value, max_index, max_value) = unsafe { core_argminmax(simd_arr) };
-            get_correct_argminmax_result(
-                min_index, min_value, max_index, max_value, nan_check, ignore_nan,
-            )
-        }
-        (None, Some(rem)) => {
-            let (rem_min_index, rem_max_index) = scalar_argminmax(rem);
-            (rem_min_index, rem_max_index)
-        }
-        (None, None) => panic!("Array is empty"), // Should never occur because of assert
-    };
+    assert!(!arr.is_empty());
+    if arr.len() < lane_size {
+        return scalar_argminmax(arr);
+    }
+    let simd_len = arr.len() - arr.len() % lane_size;
+    let (mut min_index, mut min_value, mut max_index, mut max_value) =
+        unsafe { core_argminmax(&arr[..simd_len]) };
+    if simd_len < arr.len() {
+        // The remainder, see `MIN_SIMD_REMAINDER`
+        let (start, (rem_min_index, rem_min, rem_max_index, rem_max)) =
+            if arr.len() - simd_len < MIN_SIMD_REMAINDER {
+                let (i, j) = scalar_argminmax(&arr[simd_len..]);
+                (simd_len, (i, arr[simd_len + i], j, arr[simd_len + j]))
+            } else {
+                let start = arr.len() - lane_size;
+                (start, unsafe { core_argminmax(&arr[start..]) })
+            };
+        (min_index, min_value) = find_final_index_min(
+            (min_index, min_value),
+            (start + rem_min_index, rem_min),
+            nan_check,
+            ignore_nan,
+        );
+        (max_index, max_value) = find_final_index_max(
+            (max_index, max_value),
+            (start + rem_max_index, rem_max),
+            nan_check,
+            ignore_nan,
+        );
+    }
+    let (min_index, max_index) = get_correct_argminmax_result(
+        min_index, min_value, max_index, max_value, nan_check, ignore_nan,
+    );
     if ignore_nan {
         // A NaN min (max) index means that all non-NaN values are +inf (-inf), see
         // `first_non_nan_if_nan`. The max (min) index is then the first of them, as ties
@@ -80,27 +78,24 @@ pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
     nan_check: fn(T) -> bool, // returns true if value is NaN
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> usize {
-    assert!(!arr.is_empty()); // split_array should never return (None, None)
-    let index = match split_array(arr, lane_size) {
-        (Some(simd_arr), Some(rem)) => {
-            // Perform SIMD operation on the first part of the array
-            let simd_result = unsafe { core_argmin(simd_arr) };
-            // Perform scalar operation on the remainder of the array
-            let rem_min_index = scalar_argmin(rem);
-            let rem_result = (rem_min_index + simd_arr.len(), rem[rem_min_index]);
-            // Find the final min value
-            let (min_index, _) =
-                find_final_index_min(simd_result, rem_result, nan_check, ignore_nan);
-            min_index
-        }
-        (Some(simd_arr), None) => {
-            let (min_index, _) = unsafe { core_argmin(simd_arr) };
-            min_index
-        }
-        (None, Some(rem)) => scalar_argmin(rem),
-        (None, None) => panic!("Array is empty"), // Should never occur because of assert
-    };
-    first_non_nan_if_nan(arr, index, nan_check, ignore_nan)
+    assert!(!arr.is_empty());
+    if arr.len() < lane_size {
+        return scalar_argmin(arr);
+    }
+    let simd_len = arr.len() - arr.len() % lane_size;
+    let mut min = unsafe { core_argmin(&arr[..simd_len]) };
+    if simd_len < arr.len() {
+        // The remainder, see `MIN_SIMD_REMAINDER`
+        let (start, (index, value)) = if arr.len() - simd_len < MIN_SIMD_REMAINDER {
+            let index = scalar_argmin(&arr[simd_len..]);
+            (simd_len, (index, arr[simd_len + index]))
+        } else {
+            let start = arr.len() - lane_size;
+            (start, unsafe { core_argmin(&arr[start..]) })
+        };
+        min = find_final_index_min(min, (start + index, value), nan_check, ignore_nan);
+    }
+    first_non_nan_if_nan(arr, min.0, nan_check, ignore_nan)
 }
 
 #[inline(always)]
@@ -112,27 +107,24 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
     nan_check: fn(T) -> bool, // returns true if value is NaN
     ignore_nan: bool,         // if false, NaNs will be returned
 ) -> usize {
-    assert!(!arr.is_empty()); // split_array should never return (None, None)
-    let index = match split_array(arr, lane_size) {
-        (Some(simd_arr), Some(rem)) => {
-            // Perform SIMD operation on the first part of the array
-            let simd_result = unsafe { core_argmax(simd_arr) };
-            // Perform scalar operation on the remainder of the array
-            let rem_max_index = scalar_argmax(rem);
-            let rem_result = (rem_max_index + simd_arr.len(), rem[rem_max_index]);
-            // Find the final max value
-            let (max_index, _) =
-                find_final_index_max(simd_result, rem_result, nan_check, ignore_nan);
-            max_index
-        }
-        (Some(simd_arr), None) => {
-            let (max_index, _) = unsafe { core_argmax(simd_arr) };
-            max_index
-        }
-        (None, Some(rem)) => scalar_argmax(rem),
-        (None, None) => panic!("Array is empty"), // Should never occur because of assert
-    };
-    first_non_nan_if_nan(arr, index, nan_check, ignore_nan)
+    assert!(!arr.is_empty());
+    if arr.len() < lane_size {
+        return scalar_argmax(arr);
+    }
+    let simd_len = arr.len() - arr.len() % lane_size;
+    let mut max = unsafe { core_argmax(&arr[..simd_len]) };
+    if simd_len < arr.len() {
+        // The remainder, see `MIN_SIMD_REMAINDER`
+        let (start, (index, value)) = if arr.len() - simd_len < MIN_SIMD_REMAINDER {
+            let index = scalar_argmax(&arr[simd_len..]);
+            (simd_len, (index, arr[simd_len + index]))
+        } else {
+            let start = arr.len() - lane_size;
+            (start, unsafe { core_argmax(&arr[start..]) })
+        };
+        max = find_final_index_max(max, (start + index, value), nan_check, ignore_nan);
+    }
+    first_non_nan_if_nan(arr, max.0, nan_check, ignore_nan)
 }
 
 /// The SIMD cores that ignore NaNs start from +inf (-inf) with index 0 and only update
@@ -153,26 +145,7 @@ fn first_non_nan_if_nan<T: Copy>(
     }
 }
 
-#[inline(always)]
-fn split_array<T: Copy>(arr: &[T], lane_size: usize) -> (Option<&[T]>, Option<&[T]>) {
-    let n = arr.len();
-
-    // if n < lane_size * 2 {
-    //     // TODO: check if this is the best threshold
-    //     return (None, Some(arr));
-    // };
-
-    let (left_arr, right_arr) = arr.split_at(n - n % lane_size);
-
-    match (left_arr.is_empty(), right_arr.is_empty()) {
-        (true, true) => (None, None),
-        (false, false) => (Some(left_arr), Some(right_arr)),
-        (true, false) => (None, Some(right_arr)),
-        (false, true) => (Some(left_arr), None),
-    }
-}
-
-/// Get the final index of the min value when both a SIMD and scalar result is available
+/// Get the final index of the min value from the results of the SIMD part and the remainder
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the index of the simd result (as the first part
 ///   of the array is passed to the SIMD function)
@@ -203,7 +176,7 @@ fn find_final_index_min<T: Copy + PartialOrd>(
     (min_index, min_value)
 }
 
-/// Get the final index of the max value when both a SIMD and scalar result is available
+/// Get the final index of the max value from the results of the SIMD part and the remainder
 /// If not ignoring NaNs (thus returning NaN index if any present):
 /// - If both values are NaN, returns the index of the simd result (as the first part
 ///   of the array is passed to the SIMD function)
@@ -270,7 +243,8 @@ pub(crate) fn get_correct_argminmax_result<T: Copy + PartialOrd>(
 /// Masked counterpart of the `*_generic` functions above: returns the (argmin, min) if
 /// `MIN` and the (argmax, max) if `MAX` of the valid elements.
 /// The (masked) SIMD core runs on chunks of at most `chunk_size` elements (to avoid
-/// overflow), the (masked) scalar implementation runs on the remainder.
+/// overflow), the (masked) scalar implementation runs on the remainder (a last vector as
+/// in `argminmax_generic` measured slower here).
 #[inline(always)]
 pub(crate) fn masked_generic<T, SCALAR, const MIN: bool, const MAX: bool>(
     arr: &[T],
