@@ -362,15 +362,18 @@ impl<T> DTypeInfo for T {
     const NB_BITS: usize = size_of::<T>() * 8;
 }
 
-/// Returns whether the CPU supports the AVX512 implementation for `T`:
+/// Returns whether to run the AVX512 implementation on `len` elements of `T`:
 /// 8 and 16-bit data types need AVX512BW, 32 and 64-bit data types need AVX512F.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
-fn avx512_supported<T: DTypeInfo>() -> bool {
-    if T::NB_BITS <= 16 {
-        is_x86_feature_detected!("avx512bw")
-    } else {
-        is_x86_feature_detected!("avx512f")
+fn use_avx512<T: DTypeInfo>(len: usize) -> bool {
+    match T::NB_BITS {
+        8 => is_x86_feature_detected!("avx512bw"),
+        // Below one AVX512 vector, AVX2 runs 16-31 elements as one vector plus the
+        // remainder, not all of them in the scalar loop: 0.55-0.7x. Not for 32 and 64-bit:
+        // there AVX2 is up to 1.9x slower on sorted data (64-bit integers: on any data).
+        16 => is_x86_feature_detected!("avx512bw") && len >= 32,
+        _ => is_x86_feature_detected!("avx512f"),
     }
 }
 
@@ -383,30 +386,30 @@ fn avx512_supported<T: DTypeInfo>() -> bool {
 /// Use it only as the tail expression of a function: when a SIMD implementation is
 /// selected, the macro returns its result from the enclosing function.
 macro_rules! dispatch {
-    ($dtype:ty, Int, $method:ident($($arg:expr),*)) => {{
+    ($dtype:ty, Int, $method:ident($data:expr $(, $arg:expr)*)) => {{
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("sse4.1") & (<$dtype>::NB_BITS == 8) {
                 // 8-bit numbers go to SSE4.1. AVX2 is up to 1.2x faster on long arrays, but
-                // its 32-byte vectors leave up to 31 elements to the scalar loop: up to 2.3x
-                // slower on arrays of 16-31 and 48-63 elements. AVX512BW is not faster.
-                return unsafe { SSE::<Int>::$method($($arg),*) };
+                // its 32-byte vectors leave arrays of 16-31 elements entirely to the scalar
+                // loop: about 1.5x slower there. AVX512BW is not faster.
+                return unsafe { SSE::<Int>::$method($data $(, $arg)*) };
             }
-            if avx512_supported::<$dtype>() {
-                return unsafe { AVX512::<Int>::$method($($arg),*) };
+            if use_avx512::<$dtype>($data.len()) {
+                return unsafe { AVX512::<Int>::$method($data $(, $arg)*) };
             }
             if is_x86_feature_detected!("avx2") {
-                return unsafe { AVX2::<Int>::$method($($arg),*) };
+                return unsafe { AVX2::<Int>::$method($data $(, $arg)*) };
             // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
             } else if is_x86_feature_detected!("sse4.1") & (<$dtype>::NB_BITS < 64) {
                 // Scalar is faster for 64-bit numbers
-                return unsafe { SSE::<Int>::$method($($arg),*) };
+                return unsafe { SSE::<Int>::$method($data $(, $arg)*) };
             }
         }
         #[cfg(target_arch = "aarch64")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
-                return unsafe { NEON::<Int>::$method($($arg),*) };
+                return unsafe { NEON::<Int>::$method($data $(, $arg)*) };
             }
         }
         #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
@@ -414,72 +417,72 @@ macro_rules! dispatch {
             if std::arch::is_arm_feature_detected!("neon") & (<$dtype>::NB_BITS < 64) {
                 // TODO: requires v7?
                 // We miss some NEON instructions for 64-bit numbers
-                return unsafe { NEON::<Int>::$method($($arg),*) };
+                return unsafe { NEON::<Int>::$method($data $(, $arg)*) };
             }
         }
-        SCALAR::<Int>::$method($($arg),*)
+        SCALAR::<Int>::$method($data $(, $arg)*)
     }};
-    ($dtype:ty, FloatIgnoreNaN, $method:ident($($arg:expr),*)) => {{
+    ($dtype:ty, FloatIgnoreNaN, $method:ident($data:expr $(, $arg:expr)*)) => {{
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            if avx512_supported::<$dtype>() {
-                return unsafe { AVX512::<FloatIgnoreNaN>::$method($($arg),*) };
+            if use_avx512::<$dtype>($data.len()) {
+                return unsafe { AVX512::<FloatIgnoreNaN>::$method($data $(, $arg)*) };
             }
             if is_x86_feature_detected!("avx2") {
                 // f16 and bf16 require avx2
-                return unsafe { AVX2::<FloatIgnoreNaN>::$method($($arg),*) };
+                return unsafe { AVX2::<FloatIgnoreNaN>::$method($data $(, $arg)*) };
             } else if is_x86_feature_detected!("avx") & (<$dtype>::NB_BITS > 16) {
                 // f32 and f64 do not require avx2
-                return unsafe { AVX2::<FloatIgnoreNaN>::$method($($arg),*) };
+                return unsafe { AVX2::<FloatIgnoreNaN>::$method($data $(, $arg)*) };
             } else if is_x86_feature_detected!("sse4.1") & (<$dtype>::NB_BITS < 64) {
                 // Scalar is faster for 64-bit numbers
-                return unsafe { SSE::<FloatIgnoreNaN>::$method($($arg),*) };
+                return unsafe { SSE::<FloatIgnoreNaN>::$method($data $(, $arg)*) };
             }
         }
         #[cfg(target_arch = "aarch64")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
-                return unsafe { NEON::<FloatIgnoreNaN>::$method($($arg),*) };
+                return unsafe { NEON::<FloatIgnoreNaN>::$method($data $(, $arg)*) };
             }
         }
         #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
         {
             if std::arch::is_arm_feature_detected!("neon") & (<$dtype>::NB_BITS < 64) {
                 // We miss some NEON instructions for 64-bit numbers
-                return unsafe { NEON::<FloatIgnoreNaN>::$method($($arg),*) };
+                return unsafe { NEON::<FloatIgnoreNaN>::$method($data $(, $arg)*) };
             }
         }
-        SCALAR::<FloatIgnoreNaN>::$method($($arg),*)
+        SCALAR::<FloatIgnoreNaN>::$method($data $(, $arg)*)
     }};
-    ($dtype:ty, FloatReturnNaN, $method:ident($($arg:expr),*)) => {{
+    ($dtype:ty, FloatReturnNaN, $method:ident($data:expr $(, $arg:expr)*)) => {{
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            if avx512_supported::<$dtype>() {
-                return unsafe { AVX512::<FloatReturnNaN>::$method($($arg),*) };
+            if use_avx512::<$dtype>($data.len()) {
+                return unsafe { AVX512::<FloatReturnNaN>::$method($data $(, $arg)*) };
             }
             if is_x86_feature_detected!("avx2") {
-                return unsafe { AVX2::<FloatReturnNaN>::$method($($arg),*) };
+                return unsafe { AVX2::<FloatReturnNaN>::$method($data $(, $arg)*) };
             // SKIP SSE4.2 bc scalar is faster or equivalent for 64 bit numbers
             } else if is_x86_feature_detected!("sse4.1") & (<$dtype>::NB_BITS < 64) {
                 // Scalar is faster for 64-bit numbers
                 // TODO: double check this (observed different things for new float implementation)
-                return unsafe { SSE::<FloatReturnNaN>::$method($($arg),*) };
+                return unsafe { SSE::<FloatReturnNaN>::$method($data $(, $arg)*) };
             }
         }
         #[cfg(target_arch = "aarch64")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
-                return unsafe { NEON::<FloatReturnNaN>::$method($($arg),*) };
+                return unsafe { NEON::<FloatReturnNaN>::$method($data $(, $arg)*) };
             }
         }
         #[cfg(all(target_arch = "arm", feature = "nightly_simd"))]
         {
             if std::arch::is_arm_feature_detected!("neon") & (<$dtype>::NB_BITS < 64) {
                 // We miss some NEON instructions for 64-bit numbers
-                return unsafe { NEON::<FloatReturnNaN>::$method($($arg),*) };
+                return unsafe { NEON::<FloatReturnNaN>::$method($data $(, $arg)*) };
             }
         }
-        SCALAR::<FloatReturnNaN>::$method($($arg),*)
+        SCALAR::<FloatReturnNaN>::$method($data $(, $arg)*)
     }};
 }
 
