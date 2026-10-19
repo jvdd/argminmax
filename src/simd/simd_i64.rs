@@ -80,8 +80,8 @@ mod avx2 {
             _mm256_blendv_epi8(a, b, mask)
         }
 
-        // Min (max) with the lanes after swapping the 128-bit halves and the 64-bit
-        // neighbours. AVX2 has no 64-bit min and max: compare and blend
+        // Min (max) with the lanes swapped: first the 128-bit halves, then neighbouring
+        // 64-bit lanes. AVX2 has no 64-bit min and max: compare and blend.
 
         #[inline(always)]
         unsafe fn _mm_reduce_min(reg: __m256i) -> i64 {

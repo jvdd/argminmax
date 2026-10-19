@@ -103,8 +103,8 @@ mod avx2 {
             _mm256_max_epi32(a, b)
         }
 
-        // Min (max) with the lanes after swapping the 128-bit halves, the 64-bit pairs and
-        // the 32-bit neighbours: every lane then holds the min (max) of all lanes
+        // Min (max) with the lanes swapped: first the 128-bit halves, then neighbouring
+        // 64-bit lanes, then neighbouring 32-bit lanes. Every lane then holds the min (max).
 
         #[inline(always)]
         unsafe fn _mm_reduce_min(reg: __m256i) -> i32 {
