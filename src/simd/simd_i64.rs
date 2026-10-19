@@ -79,6 +79,27 @@ mod avx2 {
         unsafe fn _mm_blendv(a: __m256i, b: __m256i, mask: __m256i) -> __m256i {
             _mm256_blendv_epi8(a, b, mask)
         }
+
+        // Min (max) with the lanes swapped: first the 128-bit halves, then neighbouring
+        // 64-bit lanes. AVX2 has no 64-bit min and max: compare and blend.
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: __m256i) -> i64 {
+            let swap = _mm256_permute2x128_si256(reg, reg, 1);
+            let reg = _mm256_blendv_epi8(reg, swap, _mm256_cmpgt_epi64(reg, swap));
+            let swap = _mm256_shuffle_epi32(reg, 0b01_00_11_10);
+            let reg = _mm256_blendv_epi8(reg, swap, _mm256_cmpgt_epi64(reg, swap));
+            Self::_reg_to_arr(reg)[0]
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: __m256i) -> i64 {
+            let swap = _mm256_permute2x128_si256(reg, reg, 1);
+            let reg = _mm256_blendv_epi8(reg, swap, _mm256_cmpgt_epi64(swap, reg));
+            let swap = _mm256_shuffle_epi32(reg, 0b01_00_11_10);
+            let reg = _mm256_blendv_epi8(reg, swap, _mm256_cmpgt_epi64(swap, reg));
+            Self::_reg_to_arr(reg)[0]
+        }
     }
 
     impl_SIMDInit_Int!(i64, __m256i, __m256i, LANE_SIZE, AVX2<Int>);
@@ -197,6 +218,16 @@ mod avx512 {
         #[inline(always)]
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u8) -> __m512i {
             _mm512_mask_blend_epi64(mask, a, b)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: __m512i) -> i64 {
+            _mm512_reduce_min_epi64(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: __m512i) -> i64 {
+            _mm512_reduce_max_epi64(reg)
         }
     }
 

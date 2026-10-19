@@ -389,6 +389,18 @@ mod neon {
         unsafe fn _mm_blendv(a: uint32x4_t, b: uint32x4_t, mask: uint32x4_t) -> uint32x4_t {
             vbslq_u32(mask, b, a)
         }
+
+        #[cfg(target_arch = "aarch64")]
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: uint32x4_t) -> u32 {
+            vminvq_u32(reg)
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: uint32x4_t) -> u32 {
+            vmaxvq_u32(reg)
+        }
     }
 
     impl_SIMDInit_Int!(u32, uint32x4_t, uint32x4_t, LANE_SIZE, NEON<Int>);

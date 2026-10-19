@@ -102,6 +102,25 @@ mod avx2 {
         unsafe fn _mm_max(a: __m256i, b: __m256i) -> __m256i {
             _mm256_max_epi32(a, b)
         }
+
+        // Min (max) with the lanes swapped: first the 128-bit halves, then neighbouring
+        // 64-bit lanes, then neighbouring 32-bit lanes. Every lane then holds the min (max).
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: __m256i) -> i32 {
+            let reg = _mm256_min_epi32(reg, _mm256_permute2x128_si256(reg, reg, 1));
+            let reg = _mm256_min_epi32(reg, _mm256_shuffle_epi32(reg, 0b01_00_11_10));
+            let reg = _mm256_min_epi32(reg, _mm256_shuffle_epi32(reg, 0b10_11_00_01));
+            Self::_reg_to_arr(reg)[0]
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: __m256i) -> i32 {
+            let reg = _mm256_max_epi32(reg, _mm256_permute2x128_si256(reg, reg, 1));
+            let reg = _mm256_max_epi32(reg, _mm256_shuffle_epi32(reg, 0b01_00_11_10));
+            let reg = _mm256_max_epi32(reg, _mm256_shuffle_epi32(reg, 0b10_11_00_01));
+            Self::_reg_to_arr(reg)[0]
+        }
     }
 
     impl_SIMDInit_Int!(i32, __m256i, __m256i, LANE_SIZE, AVX2<Int>);
@@ -225,6 +244,16 @@ mod avx512 {
         unsafe fn _mm_blendv(a: __m512i, b: __m512i, mask: u16) -> __m512i {
             _mm512_mask_blend_epi32(mask, a, b)
         }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: __m512i) -> i32 {
+            _mm512_reduce_min_epi32(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: __m512i) -> i32 {
+            _mm512_reduce_max_epi32(reg)
+        }
     }
 
     impl_SIMDInit_Int!(i32, __m512i, u16, LANE_SIZE, AVX512<Int>);
@@ -286,6 +315,18 @@ mod neon {
         #[inline(always)]
         unsafe fn _mm_blendv(a: int32x4_t, b: int32x4_t, mask: uint32x4_t) -> int32x4_t {
             vbslq_s32(mask, b, a)
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: int32x4_t) -> i32 {
+            vminvq_s32(reg)
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: int32x4_t) -> i32 {
+            vmaxvq_s32(reg)
         }
     }
 
