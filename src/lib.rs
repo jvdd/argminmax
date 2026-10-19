@@ -371,7 +371,7 @@ fn use_avx512<T: DTypeInfo>(len: usize) -> bool {
         8 => is_x86_feature_detected!("avx512bw"),
         // Below one AVX512 vector, AVX2 runs 16-31 elements as one vector plus the
         // remainder, not all of them in the scalar loop: 0.55-0.7x. Not for 32 and 64-bit:
-        // there AVX2 is up to 1.9x slower on sorted data (64-bit integers: on any data).
+        // there AVX2 is about 2x slower on sorted floats and 1.5x on 64-bit integers.
         16 => is_x86_feature_detected!("avx512bw") && len >= 32,
         _ => is_x86_feature_detected!("avx512f"),
     }
@@ -379,9 +379,9 @@ fn use_avx512<T: DTypeInfo>(len: usize) -> bool {
 
 // ------------------------------ &[T] ------------------------------
 
-/// Macro that calls `$method($args)` of the fastest implementation (SIMD instruction set
-/// or scalar) that the CPU supports, for the `$dtype` data type and the given
-/// DTypeStrategy (`Int`, `FloatIgnoreNaN` or `FloatReturnNaN`).
+/// Macro that calls `$method($data, ...)` of the fastest implementation (SIMD instruction
+/// set or scalar) for the CPU and the length of `$data`, for the `$dtype` data type and the
+/// given DTypeStrategy (`Int`, `FloatIgnoreNaN` or `FloatReturnNaN`).
 ///
 /// Use it only as the tail expression of a function: when a SIMD implementation is
 /// selected, the macro returns its result from the enclosing function.

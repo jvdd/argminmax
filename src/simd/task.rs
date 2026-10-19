@@ -142,15 +142,15 @@ fn first_non_nan_if_nan<T: Copy>(
 
 /// Get the final index of the min value from the results of the SIMD part and the remainder
 /// If not ignoring NaNs (thus returning NaN index if any present):
-/// - If both values are NaN, returns the index of the simd result (as the first part
-///   of the array is passed to the SIMD function)
+/// - If both values are NaN, returns the index of the simd result (the SIMD part comes
+///   first in the array)
 /// - If one value is NaN, returns the index of the NaN value
 /// - If neither value is NaN, returns the index of the min value
 ///
 /// If ignoring NaNs: returns the index of the min value
 ///
-/// Note: when the values are equal, the index of the simd result is returned (as the
-/// first part of the array is passed to the SIMD function)
+/// Note: when the values are equal, the index of the simd result is returned (the SIMD
+/// part comes first in the array)
 #[inline(always)]
 fn find_final_index_min<T: Copy + PartialOrd>(
     simd_result: (usize, T),
@@ -163,8 +163,8 @@ fn find_final_index_min<T: Copy + PartialOrd>(
         Some(Ordering::Equal) => simd_result,
         Some(Ordering::Greater) => remainder_result,
         // When returning NaNs, prefer the simd result if it is NaN (also if both are).
-        // When ignoring NaNs, only the remainder value can be NaN: the simd value starts
-        // at +inf and never becomes NaN.
+        // When ignoring NaNs, only a scalar remainder value can be NaN: the SIMD cores
+        // start at +inf and never return NaN.
         None if ignore_nan || nan_check(simd_result.1) => simd_result,
         None => remainder_result,
     };
@@ -173,15 +173,15 @@ fn find_final_index_min<T: Copy + PartialOrd>(
 
 /// Get the final index of the max value from the results of the SIMD part and the remainder
 /// If not ignoring NaNs (thus returning NaN index if any present):
-/// - If both values are NaN, returns the index of the simd result (as the first part
-///   of the array is passed to the SIMD function)
+/// - If both values are NaN, returns the index of the simd result (the SIMD part comes
+///   first in the array)
 /// - If one value is NaN, returns the index of the NaN value
 /// - If neither value is NaN, returns the index of the max value
 ///
 /// If ignoring NaNs: returns the index of the max value
 ///
-/// Note: when the values are equal, the index of the simd result is returned (as the
-/// first part of the array is passed to the SIMD function)
+/// Note: when the values are equal, the index of the simd result is returned (the SIMD
+/// part comes first in the array)
 #[inline(always)]
 fn find_final_index_max<T: Copy + PartialOrd>(
     simd_result: (usize, T),
@@ -194,8 +194,8 @@ fn find_final_index_max<T: Copy + PartialOrd>(
         Some(Ordering::Equal) => simd_result,
         Some(Ordering::Less) => remainder_result,
         // When returning NaNs, prefer the simd result if it is NaN (also if both are).
-        // When ignoring NaNs, only the remainder value can be NaN: the simd value starts
-        // at -inf and never becomes NaN.
+        // When ignoring NaNs, only a scalar remainder value can be NaN: the SIMD cores
+        // start at -inf and never return NaN.
         None if ignore_nan || nan_check(simd_result.1) => simd_result,
         None => remainder_result,
     };

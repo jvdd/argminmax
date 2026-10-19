@@ -277,9 +277,10 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
 
 // ------- Float tests for argminmax
 
+// Remainder 11 (the last vector) on 16 and 32 lanes, else 3 or 1 (the scalar loop)
 #[cfg(any(feature = "float", feature = "half"))]
 #[cfg(test)]
-const FLOAT_ARR_LEN: usize = 1024 + 11; // remainder 11 (last vector) or 3 (scalar loop)
+const FLOAT_ARR_LEN: usize = 1024 + 11;
 
 /// Test whether infinities are handled correctly.
 /// -> infinities should be returned as the argmin/argmax
@@ -661,8 +662,8 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // Case 5.1: the only non-NaN values are +inf (or -inf), so the first non-NaN
         // index k is the argmin and the argmax - also when the NaNs fill the SIMD part
         // or (for f16 and bf16) the first overflow chunk
-        // (k, array length) pairs: 6 vectors, without and with a remainder of 3 or
-        // LANE_SIZE - 1 elements (the scalar loop or, from 8 elements, the last vector)
+        // (k, array length) pairs: 6 vectors, without and with a remainder (3 more
+        // elements, or 1 short of 7 vectors: the last vector from 16 lanes)
         let mut cases: Vec<(usize, usize)> = [6 * LANE_SIZE, 6 * LANE_SIZE + 3, 7 * LANE_SIZE - 1]
             .into_iter()
             .flat_map(|len| (0..len).map(move |k| (k, len)))
