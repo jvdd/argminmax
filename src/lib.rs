@@ -129,10 +129,16 @@ use half::{bf16, f16};
 /// See the [feature documentation](index.html#features) for more information on the supported data types and array types.
 ///
 pub trait ArgMinMax {
-    // TODO: future work implement these other functions?
-    // fn min(self) -> Self::Item;
-    // fn max(self) -> Self::Item;
-    // fn minmax(self) -> (T, T);
+    type Item;
+
+    /// Return the minimum value in the array.
+    fn min_value(&self) -> Option<Self::Item>;
+
+    /// Return the maximum value in the array.
+    fn max_value(&self) -> Option<Self::Item>;
+
+    /// Return the min, max value tuple from the array.
+    fn minmax_value(&self) -> Option<(Self::Item, Self::Item)>;
 
     /// Get the index of the minimum and maximum values in the array.
     ///
@@ -490,6 +496,30 @@ macro_rules! impl_argminmax_int {
     ($($int_type:ty),*) => {
         $(
             impl ArgMinMax for &[$int_type] {
+                type Item = $int_type;
+
+                fn min_value(&self) -> Option<$int_type> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    Some(self[self.argmin()])
+                }
+
+                fn max_value(&self) -> Option<$int_type> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    Some(self[self.argmax()])
+                }
+
+                fn minmax_value(&self) -> Option<($int_type, $int_type)> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    let minmax = self.argminmax();
+                    Some((self[minmax.0], self[minmax.1]))
+                }
+
                 fn argminmax(&self) -> (usize, usize) {
                     dispatch!($int_type, Int, argminmax(self))
                 }
@@ -514,6 +544,30 @@ macro_rules! impl_argminmax_float {
     ($($float_type:ty),*) => {
         $(
             impl ArgMinMax for &[$float_type] {
+                type Item = $float_type;
+
+                fn min_value(&self) -> Option<$float_type> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    Some(self[self.argmin()])
+                }
+
+                fn max_value(&self) -> Option<$float_type> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    Some(self[self.argmax()])
+                }
+
+                fn minmax_value(&self) -> Option<($float_type, $float_type)> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    let minmax = self.argminmax();
+                    Some((self[minmax.0], self[minmax.1]))
+                }
+
                 fn argminmax(&self) -> (usize, usize) {
                     dispatch!($float_type, FloatIgnoreNaN, argminmax(self))
                 }
@@ -552,6 +606,30 @@ macro_rules! impl_argminmax_int_scalar {
     ($($int_type:ty),*) => {
         $(
             impl ArgMinMax for &[$int_type] {
+                type Item = $int_type;
+
+                fn min_value(&self) -> Option<$int_type> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    Some(self[self.argmin()])
+                }
+
+                fn max_value(&self) -> Option<$int_type> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    Some(self[self.argmax()])
+                }
+
+                fn minmax_value(&self) -> Option<($int_type, $int_type)> {
+                    if self.is_empty() {
+                        return None
+                    }
+                    let minmax = self.argminmax();
+                    Some((self[minmax.0], self[minmax.1]))
+                }
+
                 fn argminmax(&self) -> (usize, usize) {
                     SCALAR::<Int>::argminmax(self)
                 }
@@ -665,8 +743,22 @@ impl_nanargminmax_masked!(f16, bf16);
 
 impl<T> ArgMinMax for Vec<T>
 where
-    for<'a> &'a [T]: ArgMinMax,
+    for<'a> &'a [T]: ArgMinMax<Item = T>,
 {
+    type Item = T;
+
+    fn min_value(&self) -> Option<T> {
+        self.as_slice().min_value()
+    }
+
+    fn max_value(&self) -> Option<T> {
+        self.as_slice().max_value()
+    }
+
+    fn minmax_value(&self) -> Option<(T, T)> {
+        self.as_slice().minmax_value()
+    }
+
     fn argminmax(&self) -> (usize, usize) {
         self.as_slice().argminmax()
     }
@@ -746,8 +838,22 @@ mod ndarray_impl {
     impl<S> ArgMinMax for ArrayBase<S, Ix1>
     where
         S: Data,
-        for<'a> &'a [S::Elem]: ArgMinMax,
+        for<'a> &'a [S::Elem]: ArgMinMax<Item = S::Elem>,
     {
+        type Item = S::Elem;
+
+        fn min_value(&self) -> Option<S::Elem> {
+            self.as_slice().unwrap().min_value()
+        }
+
+        fn max_value(&self) -> Option<S::Elem> {
+            self.as_slice().unwrap().max_value()
+        }
+
+        fn minmax_value(&self) -> Option<(S::Elem, S::Elem)> {
+            self.as_slice().unwrap().minmax_value()
+        }
+
         fn argminmax(&self) -> (usize, usize) {
             self.as_slice().unwrap().argminmax()
         }
@@ -808,8 +914,33 @@ mod arrow_impl {
     impl<T> ArgMinMax for PrimitiveArray<T>
     where
         T: arrow::datatypes::ArrowNumericType,
-        for<'a> &'a [T::Native]: ArgMinMax + ArgMinMaxMasked,
+        for<'a> &'a [T::Native]: ArgMinMax<Item = T::Native> + ArgMinMaxMasked,
     {
+        type Item = T::Native;
+
+        // None when there are no values to compare (empty or all null)
+        fn min_value(&self) -> Option<T::Native> {
+            if self.null_count() == self.len() {
+                return None;
+            }
+            Some(self.values()[self.argmin()])
+        }
+
+        fn max_value(&self) -> Option<T::Native> {
+            if self.null_count() == self.len() {
+                return None;
+            }
+            Some(self.values()[self.argmax()])
+        }
+
+        fn minmax_value(&self) -> Option<(T::Native, T::Native)> {
+            if self.null_count() == self.len() {
+                return None;
+            }
+            let (imin, imax) = self.argminmax();
+            Some((self.values()[imin], self.values()[imax]))
+        }
+
         fn argminmax(&self) -> (usize, usize) {
             skip_nulls!(self, argminmax_masked, argminmax)
         }
