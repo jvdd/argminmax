@@ -171,7 +171,7 @@ mod default_test {
     fn test_argminmax_slice<T>(#[case] _min: T, #[case] max: T)
     where
         T: Copy + FromPrimitive + AsPrimitive<usize>,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax<Item = T>,
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
@@ -189,6 +189,20 @@ mod default_test {
         assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
         assert_eq!(max, (&data).argmax());
+
+        // Test min, max, minmax values (compared as usize, as T has no PartialEq / Debug)
+        let min_val = data.min_value().map(|v| v.as_());
+        assert_eq!(min_val, Some(0));
+        let max_val = data.max_value().map(|v| v.as_());
+        assert_eq!(max_val, Some(max_index - 1));
+        let minmax_val = data.minmax_value().map(|(a, b)| (a.as_(), b.as_()));
+        assert_eq!(minmax_val, Some((0, max_index - 1)));
+
+        // An empty array has no min or max
+        let empty: &[T] = &[];
+        assert!(empty.min_value().is_none());
+        assert!(empty.max_value().is_none());
+        assert!(empty.minmax_value().is_none());
     }
 
     #[cfg(any(feature = "float", feature = "half"))]
@@ -221,7 +235,7 @@ mod default_test {
     fn test_argminmax_slice_nan_and_infinities<T>(#[case] _min: T, #[case] _max: T)
     where
         T: FloatCore,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax<Item = T>,
     {
         // The only non-NaN values are infinities: the first one is the argmin and argmax
         for inf in [T::infinity(), T::neg_infinity()] {
@@ -268,7 +282,7 @@ mod default_test {
     fn test_argminmax_vec<T>(#[case] _min: T, #[case] max: T)
     where
         T: Copy + FromPrimitive + AsPrimitive<usize>,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax<Item = T>,
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
@@ -286,6 +300,18 @@ mod default_test {
         assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
         assert_eq!(max, (&data).argmax());
+        // Test min, max, minmax values (compared as usize, as T has no PartialEq / Debug)
+        assert_eq!(data.min_value().map(|v| v.as_()), Some(0));
+        assert_eq!(data.max_value().map(|v| v.as_()), Some(max_index - 1));
+        assert_eq!(
+            data.minmax_value().map(|(a, b)| (a.as_(), b.as_())),
+            Some((0, max_index - 1))
+        );
+        // An empty vec has no min or max
+        let empty: Vec<T> = Vec::new();
+        assert!(empty.min_value().is_none());
+        assert!(empty.max_value().is_none());
+        assert!(empty.minmax_value().is_none());
 
         let mut data_mut: Vec<T> = get_monotonic_array(ARRAY_LENGTH, max_index);
         // Test owned mutable vec
@@ -331,7 +357,7 @@ mod default_test {
     fn test_argminmax_many_random_runs<T>(#[case] _min: T, #[case] _max: T)
     where
         T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax<Item = T>,
     {
         for _ in 0..NB_RANDOM_RUNS {
             let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
@@ -369,7 +395,7 @@ mod masked_tests {
     fn test_argminmax_masked<T>(#[case] _min: T, #[case] _max: T)
     where
         T: Copy + PartialOrd + FromPrimitive + SampleUniformFullRange,
-        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
+        for<'a> &'a [T]: ArgMinMax<Item = T> + ArgMinMaxMasked,
     {
         for (len, offset, nulls) in LENGTHS
             .iter()
@@ -510,7 +536,7 @@ mod ndarray_tests {
     fn test_argminmax_ndarray<T>(#[case] _min: T, #[case] max: T)
     where
         T: Copy + FromPrimitive + AsPrimitive<usize>,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax<Item = T>,
     {
         // max_index is the max value that can be represented by T
         let max_index: usize = std::cmp::min(ARRAY_LENGTH, max.as_());
@@ -542,6 +568,23 @@ mod ndarray_tests {
         assert_eq!(min, (&data.view()).argmin());
         assert_eq!(max, max_index - 1);
         assert_eq!(max, (&data.view()).argmax());
+        // --- min, max, minmax values (compared as usize, as T has no PartialEq / Debug)
+        assert_eq!(data.min_value().map(|v| v.as_()), Some(0));
+        assert_eq!(data.max_value().map(|v| v.as_()), Some(max_index - 1));
+        assert_eq!(
+            data.minmax_value().map(|(a, b)| (a.as_(), b.as_())),
+            Some((0, max_index - 1))
+        );
+        assert_eq!(data.view().min_value().map(|v| v.as_()), Some(0));
+        assert_eq!(
+            data.view().max_value().map(|v| v.as_()),
+            Some(max_index - 1)
+        );
+        // An empty array has no min or max
+        let empty: Array1<T> = Array1::from(Vec::<T>::new());
+        assert!(empty.min_value().is_none());
+        assert!(empty.max_value().is_none());
+        assert!(empty.minmax_value().is_none());
 
         let mut data_mut: Array1<T> = Array1::from(get_monotonic_array(ARRAY_LENGTH, max_index));
         // --- Array1
@@ -643,7 +686,7 @@ mod ndarray_tests {
     fn test_argminmax_many_random_runs_ndarray<T>(#[case] _min: T, #[case] _max: T)
     where
         T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
-        for<'a> &'a [T]: ArgMinMax,
+        for<'a> &'a [T]: ArgMinMax<Item = T>,
     {
         for _ in 0..NB_RANDOM_RUNS {
             let data: Vec<T> = SampleUniformFullRange::get_random_array(RANDOM_ARR_LENGTH);
@@ -723,7 +766,7 @@ mod arrow_tests {
         #[case] max: T,
     ) where
         T: Copy + FromPrimitive + AsPrimitive<usize>,
-        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
+        for<'a> &'a [T]: ArgMinMax<Item = T> + ArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
@@ -744,6 +787,18 @@ mod arrow_tests {
         assert_eq!(min, (&data).argmin());
         assert_eq!(max, max_index - 1);
         assert_eq!(max, (&data).argmax());
+        // Test min, max, minmax values (compared as usize, as T has no PartialEq / Debug)
+        assert_eq!(data.min_value().map(|v| v.as_()), Some(0));
+        assert_eq!(data.max_value().map(|v| v.as_()), Some(max_index - 1));
+        assert_eq!(
+            data.minmax_value().map(|(a, b)| (a.as_(), b.as_())),
+            Some((0, max_index - 1))
+        );
+        // An empty PrimitiveArray has no min or max
+        let empty: PrimitiveArray<ArrowDataType> = PrimitiveArray::from(Vec::<T>::new());
+        assert!(empty.min_value().is_none());
+        assert!(empty.max_value().is_none());
+        assert!(empty.minmax_value().is_none());
     }
 
     #[cfg(any(feature = "float", feature = "half"))]
@@ -784,7 +839,7 @@ mod arrow_tests {
         #[case] _max: T,
     ) where
         T: Copy + FromPrimitive + AsPrimitive<usize> + SampleUniformFullRange,
-        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
+        for<'a> &'a [T]: ArgMinMax<Item = T> + ArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
         PrimitiveArray<ArrowDataType>: From<Vec<T>>,
     {
@@ -868,7 +923,7 @@ mod arrow_tests {
         #[case] max: T,
     ) where
         T: Copy + PartialOrd + SampleUniformFullRange,
-        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked,
+        for<'a> &'a [T]: ArgMinMax<Item = T> + ArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
     {
         for nulls in [1, 128, 230] {
@@ -905,7 +960,7 @@ mod arrow_tests {
         #[case] _max: T,
     ) where
         T: FloatCore + SampleUniformFullRange,
-        for<'a> &'a [T]: ArgMinMax + ArgMinMaxMasked + NaNArgMinMax + NaNArgMinMaxMasked,
+        for<'a> &'a [T]: ArgMinMax<Item = T> + ArgMinMaxMasked + NaNArgMinMax + NaNArgMinMaxMasked,
         ArrowDataType: ArrowPrimitiveType<Native = T> + ArrowNumericType,
     {
         let (nan, inf) = (T::nan(), T::infinity());
