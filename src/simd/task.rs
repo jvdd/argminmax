@@ -31,26 +31,19 @@ pub(crate) fn argminmax_generic<T: Copy + PartialOrd>(
         unsafe { core_argminmax(&arr[..simd_len]) };
     if simd_len < arr.len() {
         // The remainder, see `MIN_SIMD_REMAINDER`
-        let (start, (rem_min_index, rem_min, rem_max_index, rem_max)) =
-            if arr.len() - simd_len < MIN_SIMD_REMAINDER {
-                let (i, j) = scalar_argminmax(&arr[simd_len..]);
-                (simd_len, (i, arr[simd_len + i], j, arr[simd_len + j]))
-            } else {
-                let start = arr.len() - lane_size;
-                (start, unsafe { core_argminmax(&arr[start..]) })
-            };
-        (min_index, min_value) = find_final_index_min(
-            (min_index, min_value),
-            (start + rem_min_index, rem_min),
-            nan_check,
-            ignore_nan,
-        );
-        (max_index, max_value) = find_final_index_max(
-            (max_index, max_value),
-            (start + rem_max_index, rem_max),
-            nan_check,
-            ignore_nan,
-        );
+        let (rem_min, rem_max) = if arr.len() - simd_len < MIN_SIMD_REMAINDER {
+            let (i, j) = scalar_argminmax(&arr[simd_len..]);
+            let (i, j) = (simd_len + i, simd_len + j);
+            ((i, arr[i]), (j, arr[j]))
+        } else {
+            let start = arr.len() - lane_size;
+            let (i, min, j, max) = unsafe { core_argminmax(&arr[start..]) };
+            ((start + i, min), (start + j, max))
+        };
+        (min_index, min_value) =
+            find_final_index_min((min_index, min_value), rem_min, nan_check, ignore_nan);
+        (max_index, max_value) =
+            find_final_index_max((max_index, max_value), rem_max, nan_check, ignore_nan);
     }
     let (min_index, max_index) = get_correct_argminmax_result(
         min_index, min_value, max_index, max_value, nan_check, ignore_nan,
@@ -86,14 +79,15 @@ pub(crate) fn argmin_generic<T: Copy + PartialOrd>(
     let mut min = unsafe { core_argmin(&arr[..simd_len]) };
     if simd_len < arr.len() {
         // The remainder, see `MIN_SIMD_REMAINDER`
-        let (start, (index, value)) = if arr.len() - simd_len < MIN_SIMD_REMAINDER {
-            let index = scalar_argmin(&arr[simd_len..]);
-            (simd_len, (index, arr[simd_len + index]))
+        let rem_min = if arr.len() - simd_len < MIN_SIMD_REMAINDER {
+            let i = simd_len + scalar_argmin(&arr[simd_len..]);
+            (i, arr[i])
         } else {
             let start = arr.len() - lane_size;
-            (start, unsafe { core_argmin(&arr[start..]) })
+            let (i, value) = unsafe { core_argmin(&arr[start..]) };
+            (start + i, value)
         };
-        min = find_final_index_min(min, (start + index, value), nan_check, ignore_nan);
+        min = find_final_index_min(min, rem_min, nan_check, ignore_nan);
     }
     first_non_nan_if_nan(arr, min.0, nan_check, ignore_nan)
 }
@@ -115,14 +109,15 @@ pub(crate) fn argmax_generic<T: Copy + PartialOrd>(
     let mut max = unsafe { core_argmax(&arr[..simd_len]) };
     if simd_len < arr.len() {
         // The remainder, see `MIN_SIMD_REMAINDER`
-        let (start, (index, value)) = if arr.len() - simd_len < MIN_SIMD_REMAINDER {
-            let index = scalar_argmax(&arr[simd_len..]);
-            (simd_len, (index, arr[simd_len + index]))
+        let rem_max = if arr.len() - simd_len < MIN_SIMD_REMAINDER {
+            let i = simd_len + scalar_argmax(&arr[simd_len..]);
+            (i, arr[i])
         } else {
             let start = arr.len() - lane_size;
-            (start, unsafe { core_argmax(&arr[start..]) })
+            let (i, value) = unsafe { core_argmax(&arr[start..]) };
+            (start + i, value)
         };
-        max = find_final_index_max(max, (start + index, value), nan_check, ignore_nan);
+        max = find_final_index_max(max, rem_max, nan_check, ignore_nan);
     }
     first_non_nan_if_nan(arr, max.0, nan_check, ignore_nan)
 }
