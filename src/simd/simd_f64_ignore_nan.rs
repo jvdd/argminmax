@@ -235,6 +235,16 @@ mod avx512_ignore_nan {
             _mm512_mask_blend_pd(mask, a, b)
         }
 
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: __m512d) -> f64 {
+            _mm512_reduce_min_pd(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: __m512d) -> f64 {
+            _mm512_reduce_max_pd(reg)
+        }
+
         // --- Necessary for impl_SIMDInit_FloatIgnoreNaN
 
         #[inline(always)]
@@ -318,6 +328,16 @@ mod neon_ignore_nan {
         #[inline(always)]
         unsafe fn _mm_blendv(a: float64x2_t, b: float64x2_t, mask: uint64x2_t) -> float64x2_t {
             vbslq_f64(mask, b, a)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_min(reg: float64x2_t) -> f64 {
+            vminvq_f64(reg)
+        }
+
+        #[inline(always)]
+        unsafe fn _mm_reduce_max(reg: float64x2_t) -> f64 {
+            vmaxvq_f64(reg)
         }
 
         // --- Necessary for impl_SIMDInit_FloatIgnoreNaN

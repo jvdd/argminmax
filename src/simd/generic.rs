@@ -80,40 +80,55 @@ where
         Self::_mm_blendv(a, b, Self::_mm_cmpgt(b, a))
     }
 
+    /// Min of the lanes of a SIMD register (of values or of indices).
+    /// For FloatIgnoreNaN, the register must contain no NaNs.
+    /// The default is a scalar loop, which compiles without branches (to min
+    /// instructions, conditional moves or selects). AVX512 and NEON on aarch64 (but not
+    /// for its 64-bit integers) override it with their reduction intrinsics, AVX2 i32 and
+    /// i64 with a tree of lane-wise mins. The AVX2 FloatIgnoreNaN floats keep the default:
+    /// with a tree, LLVM added register moves to their argminmax loop (up to 1.2x slower
+    /// on Zen 3).
+    #[inline(always)]
+    unsafe fn _mm_reduce_min(reg: SIMDVecDtype) -> ScalarDType {
+        let arr = Self::_reg_to_arr(reg);
+        arr.into_iter()
+            .fold(arr[0], |min, v| if v < min { v } else { min })
+    }
+
+    /// Max of the lanes of a SIMD register (see `_mm_reduce_min`)
+    #[inline(always)]
+    unsafe fn _mm_reduce_max(reg: SIMDVecDtype) -> ScalarDType {
+        let arr = Self::_reg_to_arr(reg);
+        arr.into_iter()
+            .fold(arr[0], |max, v| if v > max { v } else { max })
+    }
+
     /// Horizontal min: get the minimum value from the value SIMD register and its
-    /// corresponding index from the index SIMD register
+    /// corresponding index from the index SIMD register (the lowest index on ties)
+    ///
+    /// The lanes above the min get the largest index of the register, so the min of the
+    /// indices is the lowest index of the min. A loop that picks the (index, value) pair
+    /// lane by lane compiles to branches, which the CPU mispredicts on fresh data: on
+    /// slices of 16-64 elements, that took more time than the SIMD loop.
+    /// The 8 and 16-bit types override it (the i8 and i16 reductions).
     #[inline(always)]
     unsafe fn _horiz_min(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
-        // This becomes the bottleneck when using 8-bit data types, as for about every
-        // 2**8 elements, the SIMD inner loop is executed (& thus also terminated) to
-        // avoid overflow.
-        // To tackle this bottleneck, we use a different approach for 8-bit data types:
-        // -> we overwrite this method to perform (in SIMD) the horizontal min
-        //    see: https://stackoverflow.com/a/9798369
-        // Note: this is not a bottleneck for 16-bit data types, as the termination of
-        // the SIMD inner loop is 2**8 times less frequent.
-        let index_arr = Self::_reg_to_arr(index);
-        let value_arr = Self::_reg_to_arr(value);
-        let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-        (min_index.as_(), min_value)
+        let min = Self::_mm_reduce_min(value);
+        let fill = Self::_mm_reduce_max(index);
+        let above = Self::_mm_cmpgt(value, Self::_mm_loadu([min; LANE_SIZE].as_ptr()));
+        let index = Self::_mm_blendv(index, Self::_mm_loadu([fill; LANE_SIZE].as_ptr()), above);
+        (Self::_mm_reduce_min(index).as_(), min)
     }
 
     /// Horizontal max: get the maximum value from the value SIMD register and its
-    /// corresponding index from the index SIMD register
+    /// corresponding index from the index SIMD register (see `_horiz_min`)
     #[inline(always)]
     unsafe fn _horiz_max(index: SIMDVecDtype, value: SIMDVecDtype) -> (usize, ScalarDType) {
-        // This becomes the bottleneck when using 8-bit data types, as for about every
-        // 2**8 elements, the SIMD inner loop is executed (& thus also terminated) to
-        // avoid overflow.
-        // To tackle this bottleneck, we use a different approach for 8-bit data types:
-        // -> we overwrite this method to perform (in SIMD) the horizontal max
-        //    see: https://stackoverflow.com/a/9798369
-        // Note: this is not a bottleneck for 16-bit data types, as the termination of
-        // the SIMD inner loop is 2**8 times less frequent.
-        let index_arr = Self::_reg_to_arr(index);
-        let value_arr = Self::_reg_to_arr(value);
-        let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-        (max_index.as_(), max_value)
+        let max = Self::_mm_reduce_max(value);
+        let fill = Self::_mm_reduce_max(index);
+        let below = Self::_mm_cmplt(value, Self::_mm_loadu([max; LANE_SIZE].as_ptr()));
+        let index = Self::_mm_blendv(index, Self::_mm_loadu([fill; LANE_SIZE].as_ptr()), below);
+        (Self::_mm_reduce_min(index).as_(), max)
     }
 
     /// Get the largest multiple of LANE_SIZE that is <= MAX_INDEX
