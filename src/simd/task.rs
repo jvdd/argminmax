@@ -164,7 +164,7 @@ fn find_final_index_min<T: Copy + PartialOrd>(
         Some(Ordering::Greater) => remainder_result,
         // When returning NaNs, prefer the simd result if it is NaN (also if both are).
         // When ignoring NaNs, only a scalar remainder value can be NaN: the SIMD cores
-        // start at +inf and never return NaN.
+        // start at +inf and never return a NaN value.
         None if ignore_nan || nan_check(simd_result.1) => simd_result,
         None => remainder_result,
     };
@@ -195,7 +195,7 @@ fn find_final_index_max<T: Copy + PartialOrd>(
         Some(Ordering::Less) => remainder_result,
         // When returning NaNs, prefer the simd result if it is NaN (also if both are).
         // When ignoring NaNs, only a scalar remainder value can be NaN: the SIMD cores
-        // start at -inf and never return NaN.
+        // start at -inf and never return a NaN value.
         None if ignore_nan || nan_check(simd_result.1) => simd_result,
         None => remainder_result,
     };

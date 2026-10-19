@@ -662,8 +662,8 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         // Case 5.1: the only non-NaN values are +inf (or -inf), so the first non-NaN
         // index k is the argmin and the argmax - also when the NaNs fill the SIMD part
         // or (for f16 and bf16) the first overflow chunk
-        // (k, array length) pairs: 6 vectors, without and with a remainder (3 more
-        // elements, or 1 short of 7 vectors: the last vector from 16 lanes)
+        // (k, array length) pairs: 6 vectors, plus 3 elements (the scalar loop), and 1
+        // short of 7 vectors (the last vector from 16 lanes, else the scalar loop)
         let mut cases: Vec<(usize, usize)> = [6 * LANE_SIZE, 6 * LANE_SIZE + 3, 7 * LANE_SIZE - 1]
             .into_iter()
             .flat_map(|len| (0..len).map(move |k| (k, len)))
