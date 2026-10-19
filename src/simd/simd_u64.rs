@@ -10,6 +10,10 @@
 //! the ordinal integer values and then transform the result back to the original u64
 //! values.
 //!
+//! On x86, `_horiz_min` and `_horiz_max` call the i64 ones and only transform the
+//! returned value back to u64. This is correct because the values are i64 ordinals and
+//! the index lanes are the same as for i64 (the same `MAX_INDEX`).
+//!
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 use super::config::SIMDInstructionSet;
@@ -46,9 +50,6 @@ use std::arch::x86_64::*;
 use super::super::dtype_strategy::Int;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use super::task::{max_index_value, min_index_value};
-
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const XOR_VALUE: i64 = -0x8000000000000000; // i64::MIN
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -79,11 +80,6 @@ mod avx2 {
         // on a scalar: v ^ -0x8000000000000000
         // transforms to monotonically increasing order
         _mm256_xor_si256(u64_as_m256i, XOR_MASK)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i64_arr(reg: __m256i) -> [i64; LANE_SIZE] {
-        std::mem::transmute::<__m256i, [i64; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<u64, __m256i, __m256i, LANE_SIZE> for AVX2<Int> {
@@ -127,18 +123,16 @@ mod avx2 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m256i, value: __m256i) -> (usize, u64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i64ord_to_u64(min_value))
+            let (min_index, min_value) =
+                <Self as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i64ord_to_u64(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m256i, value: __m256i) -> (usize, u64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i64ord_to_u64(max_value))
+            let (max_index, max_value) =
+                <Self as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i64ord_to_u64(max_value))
         }
     }
 
@@ -170,11 +164,6 @@ mod sse {
         // on a scalar: v ^ -0x8000000000000000
         // transforms to monotonically increasing order
         _mm_xor_si128(u64_as_m128i, XOR_MASK)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i64_arr(reg: __m128i) -> [i64; LANE_SIZE] {
-        std::mem::transmute::<__m128i, [i64; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<u64, __m128i, __m128i, LANE_SIZE> for SSE<Int> {
@@ -218,18 +207,16 @@ mod sse {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m128i, value: __m128i) -> (usize, u64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i64ord_to_u64(min_value))
+            let (min_index, min_value) =
+                <Self as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i64ord_to_u64(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m128i, value: __m128i) -> (usize, u64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i64ord_to_u64(max_value))
+            let (max_index, max_value) =
+                <Self as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i64ord_to_u64(max_value))
         }
     }
 
@@ -261,11 +248,6 @@ mod avx512 {
         // on a scalar: v ^ -0x8000000000000000
         // transforms to monotonically increasing order
         _mm512_xor_si512(u64_as_m512i, XOR_MASK)
-    }
-
-    #[inline(always)]
-    unsafe fn _reg_to_i64_arr(reg: __m512i) -> [i64; LANE_SIZE] {
-        std::mem::transmute::<__m512i, [i64; LANE_SIZE]>(reg)
     }
 
     impl SIMDOps<u64, __m512i, u8, LANE_SIZE> for AVX512<Int> {
@@ -310,18 +292,16 @@ mod avx512 {
 
         #[inline(always)]
         unsafe fn _horiz_min(index: __m512i, value: __m512i) -> (usize, u64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (min_index, min_value) = min_index_value(&index_arr, &value_arr);
-            (min_index as usize, _i64ord_to_u64(min_value))
+            let (min_index, min_value) =
+                <Self as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_min(index, value);
+            (min_index, _i64ord_to_u64(min_value))
         }
 
         #[inline(always)]
         unsafe fn _horiz_max(index: __m512i, value: __m512i) -> (usize, u64) {
-            let index_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(index);
-            let value_arr: [i64; LANE_SIZE] = _reg_to_i64_arr(value);
-            let (max_index, max_value) = max_index_value(&index_arr, &value_arr);
-            (max_index as usize, _i64ord_to_u64(max_value))
+            let (max_index, max_value) =
+                <Self as SIMDOps<i64, _, _, LANE_SIZE>>::_horiz_max(index, value);
+            (max_index, _i64ord_to_u64(max_value))
         }
     }
 
