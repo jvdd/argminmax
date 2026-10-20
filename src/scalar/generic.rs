@@ -18,7 +18,8 @@ use crate::validity::{assert_validity_len, scalar_masked};
 trait SCALARInit<ScalarDType: Copy + PartialOrd> {
     const _RETURN_AT_NAN: bool;
 
-    /// The index of the value that the min and max values start from
+    /// The index of the value that the min and max values start from (below `arr.len()`
+    /// for a non-empty `arr`: the loops read it unchecked)
     fn _start_index(arr: &[ScalarDType]) -> usize;
 
     /// Nan check
@@ -180,8 +181,8 @@ where
     const _RETURN_AT_NAN: bool = false;
 
     /// The index of the first non-NaN value (0 if all values are NaN). From there, NaNs are
-    /// never lower or higher, so the loops need no NaN check (with one, the updates compiled
-    /// to branches, which mispredict on random data)
+    /// never lower or higher, so the loops skip them without a NaN check (that keeps the
+    /// argmin and argmax updates free of branches, which mispredict on random data)
     #[inline(always)]
     fn _start_index(arr: &[ScalarDType]) -> usize {
         arr.iter().position(|v| !v.is_nan()).unwrap_or(0)
