@@ -18,14 +18,8 @@ use crate::validity::{assert_validity_len, scalar_masked};
 trait SCALARInit<ScalarDType: Copy + PartialOrd> {
     const _RETURN_AT_NAN: bool;
 
-    // Initialize the initial value for the min and max values
-
-    fn _init_min(start_value: ScalarDType) -> ScalarDType;
-
-    fn _init_max(start_value: ScalarDType) -> ScalarDType;
-
-    /// Check if we should allow the updating the value(s) with the first non-NaN value
-    fn _allow_first_non_nan_update(start_value: ScalarDType) -> bool;
+    /// The index of the value that the min and max values start from
+    fn _start_index(arr: &[ScalarDType]) -> usize;
 
     /// Nan check
     fn _nan_check(v: ScalarDType) -> bool;
@@ -150,18 +144,8 @@ where
     const _RETURN_AT_NAN: bool = false;
 
     #[inline(always)]
-    fn _init_min(start_value: ScalarDType) -> ScalarDType {
-        start_value
-    }
-
-    #[inline(always)]
-    fn _init_max(start_value: ScalarDType) -> ScalarDType {
-        start_value
-    }
-
-    #[inline(always)]
-    fn _allow_first_non_nan_update(_start_value: ScalarDType) -> bool {
-        false
+    fn _start_index(_arr: &[ScalarDType]) -> usize {
+        0
     }
 
     #[inline(always)]
@@ -178,18 +162,8 @@ where
     const _RETURN_AT_NAN: bool = true;
 
     #[inline(always)]
-    fn _init_min(start_value: ScalarDType) -> ScalarDType {
-        start_value
-    }
-
-    #[inline(always)]
-    fn _init_max(start_value: ScalarDType) -> ScalarDType {
-        start_value
-    }
-
-    #[inline(always)]
-    fn _allow_first_non_nan_update(_start_value: ScalarDType) -> bool {
-        false
+    fn _start_index(_arr: &[ScalarDType]) -> usize {
+        0
     }
 
     #[inline(always)]
@@ -205,27 +179,12 @@ where
 {
     const _RETURN_AT_NAN: bool = false;
 
+    /// The index of the first non-NaN value (0 if all values are NaN). From there, NaNs are
+    /// never lower or higher, so the loops need no NaN check (with one, the updates compiled
+    /// to branches, which mispredict on random data)
     #[inline(always)]
-    fn _init_min(start_value: ScalarDType) -> ScalarDType {
-        if start_value.is_nan() {
-            ScalarDType::infinity()
-        } else {
-            start_value
-        }
-    }
-
-    #[inline(always)]
-    fn _init_max(start_value: ScalarDType) -> ScalarDType {
-        if start_value.is_nan() {
-            ScalarDType::neg_infinity()
-        } else {
-            start_value
-        }
-    }
-
-    #[inline(always)]
-    fn _allow_first_non_nan_update(start_value: ScalarDType) -> bool {
-        start_value.is_nan()
+    fn _start_index(arr: &[ScalarDType]) -> usize {
+        arr.iter().position(|v| !v.is_nan()).unwrap_or(0)
     }
 
     #[inline(always)]
@@ -244,32 +203,20 @@ macro_rules! impl_scalar {
                 #[inline(always)]
                 fn argminmax(arr: &[$dtype]) -> (usize, usize) {
                     assert!(!arr.is_empty());
-                    let mut low_index: usize = 0;
-                    let mut high_index: usize = 0;
+                    let start: usize = Self::_start_index(arr);
+                    let mut low_index: usize = start;
+                    let mut high_index: usize = start;
                     // It is remarkably faster to iterate over the index and use get_unchecked
                     // than using .iter().enumerate() (with a fold).
-                    let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
-                    let mut low: $dtype = Self::_init_min(start_value);
-                    let mut high: $dtype = Self::_init_max(start_value);
-                    let mut first_non_nan_update: bool = Self::_allow_first_non_nan_update(start_value);
-                    for i in 0..arr.len() {
+                    let mut low: $dtype = unsafe { *arr.get_unchecked(start) };
+                    let mut high: $dtype = low;
+                    for i in start..arr.len() {
                         let v: $dtype = unsafe { *arr.get_unchecked(i) };
                         if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
                             // When _RETURN_AT_NAN is true and we encounter a NaN
                             return (i, i); // -> return the index
                         }
-                        if first_non_nan_update {
-                            // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            if !Self::_nan_check(v) {
-                                // Update the low and high
-                                low = v;
-                                low_index = i;
-                                high = v;
-                                high_index = i;
-                                // And disable the first_non_nan_update update
-                                first_non_nan_update = false;
-                            }
-                        } else if v < low {
+                        if v < low {
                             low = v;
                             low_index = i;
                         } else if v > high {
@@ -283,28 +230,18 @@ macro_rules! impl_scalar {
                 #[inline(always)]
                 fn argmin(arr: &[$dtype]) -> usize {
                     assert!(!arr.is_empty());
-                    let mut low_index: usize = 0;
+                    let start: usize = Self::_start_index(arr);
+                    let mut low_index: usize = start;
                     // It is remarkably faster to iterate over the index and use get_unchecked
                     // than using .iter().enumerate() (with a fold).
-                    let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
-                    let mut low: $dtype = Self::_init_min(start_value);
-                    let mut first_non_nan_update: bool = Self::_allow_first_non_nan_update(start_value);
-                    for i in 0..arr.len() {
+                    let mut low: $dtype = unsafe { *arr.get_unchecked(start) };
+                    for i in start..arr.len() {
                         let v: $dtype = unsafe { *arr.get_unchecked(i) };
                         if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
                             // When _RETURN_AT_NAN is true and we encounter a NaN
                             return i; // -> return the index
                         }
-                        if first_non_nan_update {
-                            // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            if !Self::_nan_check(v) {
-                                // Update the low
-                                low = v;
-                                low_index = i;
-                                // And disable the first_non_nan_update update
-                                first_non_nan_update = false;
-                            }
-                        } else if v < low {
+                        if v < low {
                             low = v;
                             low_index = i;
                         }
@@ -315,28 +252,18 @@ macro_rules! impl_scalar {
                 #[inline(always)]
                 fn argmax(arr: &[$dtype]) -> usize {
                     assert!(!arr.is_empty());
-                    let mut high_index: usize = 0;
+                    let start: usize = Self::_start_index(arr);
+                    let mut high_index: usize = start;
                     // It is remarkably faster to iterate over the index and use get_unchecked
                     // than using .iter().enumerate() (with a fold).
-                    let start_value: $dtype = unsafe { *arr.get_unchecked(0) };
-                    let mut high: $dtype = Self::_init_max(start_value);
-                    let mut first_non_nan_update: bool = Self::_allow_first_non_nan_update(start_value);
-                    for i in 0..arr.len() {
+                    let mut high: $dtype = unsafe { *arr.get_unchecked(start) };
+                    for i in start..arr.len() {
                         let v: $dtype = unsafe { *arr.get_unchecked(i) };
                         if <Self as SCALARInit<$dtype>>::_RETURN_AT_NAN && Self::_nan_check(v) {
                             // When _RETURN_AT_NAN is true and we encounter a NaN
                             return i; // -> return the index
                         }
-                        if first_non_nan_update {
-                            // If we allow the first non-nan update (only for FloatIgnoreNaN)
-                            if !Self::_nan_check(v) {
-                                // Update the high
-                                high = v;
-                                high_index = i;
-                                // And disable the first_non_nan_update update
-                                first_non_nan_update = false;
-                            }
-                        } else if v > high {
+                        if v > high {
                             high = v;
                             high_index = i;
                         }
