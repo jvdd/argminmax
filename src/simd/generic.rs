@@ -414,7 +414,7 @@ where
     /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= `_get_overflow_lane_size_limit()` (the indices go up to the length rounded
+    /// is <= `_get_overflow_lane_size_limit()` (the indices stay below the length rounded
     /// up to LANE_SIZE). The `_overflow_safe_core_argminmax` method is overflow safe.
     ///
     /// Comparing every vector with the running min / max makes each comparison wait for
@@ -524,7 +524,7 @@ where
     /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= `_get_overflow_lane_size_limit()` (the indices go up to the length rounded
+    /// is <= `_get_overflow_lane_size_limit()` (the indices stay below the length rounded
     /// up to LANE_SIZE). The `_overflow_safe_core_argmin` method is overflow safe.
     ///
     /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
@@ -545,7 +545,7 @@ where
     /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= `_get_overflow_lane_size_limit()` (the indices go up to the length rounded
+    /// is <= `_get_overflow_lane_size_limit()` (the indices stay below the length rounded
     /// up to LANE_SIZE). The `_overflow_safe_core_argmax` method is overflow safe.
     ///
     /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
