@@ -608,6 +608,10 @@ where
         assert_eq!(arr.len() % LANE_SIZE, 0);
         // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+        // A single chunk needs no merge
+        if arr.len() <= chunk_size {
+            return Self::_core_argminmax(arr);
+        }
 
         // 1. Determine the number of loops needed
         let n_loops = arr.len() / chunk_size; // floor division
@@ -653,6 +657,10 @@ where
         assert_eq!(arr.len() % LANE_SIZE, 0);
         // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+        // A single chunk needs no merge
+        if arr.len() <= chunk_size {
+            return Self::_core_argmin(arr);
+        }
 
         // 1. Determine the number of loops needed
         let n_loops = arr.len() / chunk_size; // floor division
@@ -690,6 +698,10 @@ where
         assert_eq!(arr.len() % LANE_SIZE, 0);
         // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+        // A single chunk needs no merge
+        if arr.len() <= chunk_size {
+            return Self::_core_argmax(arr);
+        }
 
         // 1. Determine the number of loops needed
         let n_loops = arr.len() / chunk_size; // floor division
