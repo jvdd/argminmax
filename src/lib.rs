@@ -369,8 +369,8 @@ impl<T> DTypeInfo for T {
 fn use_avx512<T: DTypeInfo>(len: usize) -> bool {
     match T::NB_BITS {
         8 => is_x86_feature_detected!("avx512bw"),
-        // Below one AVX512 vector, AVX2 runs 16-31 elements as one vector plus the
-        // remainder, not all of them in the scalar loop: 0.55-0.7x. Not for 32 and 64-bit:
+        // Below one AVX512 vector, AVX2 runs 16-31 elements as one vector and the last
+        // vector, not all of them in the scalar loop: 0.2-0.8x. Not for 32 and 64-bit:
         // there AVX2 is faster on random 32-bit data, but about 2x slower on sorted floats
         // and 1.5x on 64-bit integers.
         16 => is_x86_feature_detected!("avx512bw") && len >= 32,

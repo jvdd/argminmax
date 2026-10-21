@@ -411,10 +411,11 @@ where
     /// - the array holds at least LANE_SIZE elements
     ///
     /// This method assumes:
-    /// - the array length is <= MAX_INDEX
+    /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= MAX_INDEX. The `_overflow_safe_core_argminmax` method is overflow safe.
+    /// is <= `_get_overflow_lane_size_limit()` (the indices go up to the length rounded
+    /// up to LANE_SIZE). The `_overflow_safe_core_argminmax` method is overflow safe.
     ///
     /// Comparing every vector with the running min / max makes each comparison wait for
     /// the previous one. Instead (unless `GROUP_VECTORS` is false), every group of
@@ -484,8 +485,9 @@ where
         }
 
         // The last vector (if the length is not a multiple of LANE_SIZE). It overlaps the
-        // vectors above, which keep their (lower) indices on ties. Its lanes get the
-        // indices of a vector at `simd_len`, which are mapped back below.
+        // vectors above, which keep their (lower) indices on ties: only its last `rem`
+        // lanes (the elements from `simd_len` on) can win. Its lanes get the indices of a
+        // vector at `simd_len`, which are mapped back below.
         let rem = arr.len() % LANE_SIZE;
         let simd_len = arr.len() - rem;
         if rem != 0 {
@@ -499,6 +501,8 @@ where
         let ((index_low, values_low), (index_high, values_high)) = (low, high);
         let (mut min_index, min_value) = Self::_horiz_min(index_low, values_low);
         let (mut max_index, max_value) = Self::_horiz_max(index_high, values_high);
+        // (Without a last vector no index reaches `simd_len`, but argminmax at exact
+        // multiples measured up to 1.15x slower without the `rem != 0` check: NEON u8)
         if rem != 0 {
             // The last vector starts LANE_SIZE - rem elements before `simd_len`
             if min_index >= simd_len {
@@ -517,10 +521,11 @@ where
     /// - the array holds at least LANE_SIZE elements
     ///
     /// This method assumes:
-    /// - the array length is <= MAX_INDEX
+    /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= MAX_INDEX. The `_overflow_safe_core_argmin` method is overflow safe.
+    /// is <= `_get_overflow_lane_size_limit()` (the indices go up to the length rounded
+    /// up to LANE_SIZE). The `_overflow_safe_core_argmin` method is overflow safe.
     ///
     /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
     /// the computations for the maximum.
@@ -537,10 +542,11 @@ where
     /// - the array holds at least LANE_SIZE elements
     ///
     /// This method assumes:
-    /// - the array length is <= MAX_INDEX
+    /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= MAX_INDEX. The `_overflow_safe_core_argmax` method is overflow safe.
+    /// is <= `_get_overflow_lane_size_limit()` (the indices go up to the length rounded
+    /// up to LANE_SIZE). The `_overflow_safe_core_argmax` method is overflow safe.
     ///
     /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
     /// the computations for the minimum.
