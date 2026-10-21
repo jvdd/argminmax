@@ -206,7 +206,7 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             std::mem::size_of::<DType>() * 8 + 1 // #bits + 1
         }
     };
-    let arr_len = arr_len.unwrap_or(1 << shift_size);
+    let arr_len = arr_len.unwrap_or_else(|| 1 << shift_size);
     let data: &[DType] = &get_data(arr_len);
 
     // argminmax
@@ -1123,7 +1123,7 @@ pub(crate) fn test_no_overflow_masked_argminmax<
     SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
 {
     use dev_utils::utils::{get_validity, SampleUniformFullRange};
-    let arr_len = arr_len.unwrap_or(1 << (std::mem::size_of::<DType>() * 8 + 1));
+    let arr_len = arr_len.unwrap_or_else(|| 1 << (std::mem::size_of::<DType>() * 8 + 1));
     let data: &[DType] = &get_data(arr_len);
     let offset = 3;
     let random: Vec<u8> = SampleUniformFullRange::get_random_array(arr_len);
