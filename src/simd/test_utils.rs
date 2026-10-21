@@ -272,10 +272,35 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
             assert_eq!(unsafe { SIMD::argmin(&data) }, min);
             assert_eq!(unsafe { SIMD::argmax(&data) }, max);
         }
+        // A last chunk shorter than one vector starts in the previous chunk: the MIN value
+        // only in one of its own lanes, the MAX value only where it overlaps that chunk
+        for rem in 1..LANE_SIZE {
+            let len = chunk + rem;
+            let mut data = vec![DType::one(); len];
+            data[len - 1] = DType::min_value();
+            data[chunk - 1] = DType::max_value();
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, (len - 1, chunk - 1));
+            assert_eq!(unsafe { SIMD::argmin(&data) }, len - 1);
+            assert_eq!(unsafe { SIMD::argmax(&data) }, chunk - 1);
+        }
     }
 }
 
 // ------- Float tests for argminmax
+
+/// (length, index) pairs where the index is in the last vector of a length that is not a
+/// multiple of LANE_SIZE: in one of its own lanes (the last element) or where it overlaps
+/// the vector before (its first element). Also for a last overflow chunk shorter than one
+/// vector, which starts in the previous chunk (only for chunks short enough to allocate).
+#[cfg(any(feature = "float", feature = "half"))]
+#[cfg(test)]
+fn last_vector_cases(lane_size: usize, chunk: usize) -> Vec<(usize, usize)> {
+    let small_chunk = (chunk < 1 << 16).then_some(chunk);
+    (1..lane_size)
+        .flat_map(|rem| std::iter::once(lane_size + rem).chain(small_chunk.map(|c| c + rem)))
+        .flat_map(|len| [(len, len - 1), (len, len - lane_size)])
+        .collect()
+}
 
 // Not a multiple of any lane count: the last vector overlaps the vector before
 #[cfg(any(feature = "float", feature = "half"))]
@@ -372,7 +397,7 @@ pub(crate) fn test_signed_zeros_argminmax<DType, SCALAR, SIMD, SV, SM, const LAN
     SCALAR: ScalarArgMinMax<DType>,
     SIMD: SIMDArgMinMax<DType, SV, SM, LANE_SIZE, SCALAR>,
 {
-    // The first vector, a group of vectors, one more vector and a remainder of 3
+    // Six vectors (the first, a group and one more) plus 3 elements
     let len = 6 * LANE_SIZE + 3;
     for (zero_i, zero_j) in [
         (DType::zero(), -DType::zero()),
@@ -660,7 +685,7 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_index, argmax_simd_index_single);
 
         // Case 5.1: the only non-NaN values are +inf (or -inf), so the first non-NaN
-        // index k is the argmin and the argmax - also when the NaNs fill the SIMD part
+        // index k is the argmin and the argmax - also when the NaNs fill all full vectors
         // or (for f16 and bf16) the first overflow chunk
         // (k, array length) pairs: 6 vectors, 6 vectors plus 3 elements and 1 short of 7
         // vectors (the last two end with the last vector)
@@ -728,6 +753,16 @@ pub(crate) fn test_ignore_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         assert_eq!(argmax_simd_index, 2 * LANE_SIZE + 1);
         assert_eq!(unsafe { SIMD::argmin(&data) }, 2 * LANE_SIZE);
         assert_eq!(unsafe { SIMD::argmax(&data) }, 2 * LANE_SIZE + 1);
+
+        // Case 6.2: NaN only in the last vector (see `last_vector_cases`) is ignored
+        let chunk = SIMD::_get_overflow_lane_size_limit();
+        for (len, i) in last_vector_cases(LANE_SIZE, chunk) {
+            let mut data: Vec<DType> = get_data(len);
+            data[i] = nan;
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, SCALAR::argminmax(&data));
+            assert_eq!(unsafe { SIMD::argmin(&data) }, SCALAR::argmin(&data));
+            assert_eq!(unsafe { SIMD::argmax(&data) }, SCALAR::argmax(&data));
+        }
     }
 
     // Case 7: negative zero & negative subnormal values are no NaNs
@@ -933,6 +968,15 @@ pub(crate) fn test_return_nans_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
                 assert_eq!(unsafe { SIMD::argmin(&data) }, 7);
                 assert_eq!(unsafe { SIMD::argmax(&data) }, 7);
             }
+        }
+
+        // Case 10: NaN only in the last vector (see `last_vector_cases`) is returned
+        for (len, i) in last_vector_cases(LANE_SIZE, chunk) {
+            let mut data = vec![DType::one(); len];
+            data[i] = nan;
+            assert_eq!(unsafe { SIMD::argminmax(&data) }, (i, i));
+            assert_eq!(unsafe { SIMD::argmin(&data) }, i);
+            assert_eq!(unsafe { SIMD::argmax(&data) }, i);
         }
     }
 }
