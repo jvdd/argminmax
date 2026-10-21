@@ -274,7 +274,8 @@ pub(crate) fn test_no_overflow_argminmax<DType, SCALAR, SIMD, SV, SM, const LANE
         }
         // A last chunk shorter than one vector starts in the previous chunk: the MIN value
         // only in one of its own lanes, the MAX value only where it overlaps that chunk
-        for rem in 1..LANE_SIZE {
+        // (the shortest and the longest such chunk: f32 chunks hold 2^24 elements)
+        for rem in [1, LANE_SIZE - 1] {
             let len = chunk + rem;
             let mut data = vec![DType::one(); len];
             data[len - 1] = DType::min_value();
