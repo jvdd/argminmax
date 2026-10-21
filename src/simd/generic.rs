@@ -502,7 +502,7 @@ where
         let (mut min_index, min_value) = Self::_horiz_min(index_low, values_low);
         let (mut max_index, max_value) = Self::_horiz_max(index_high, values_high);
         // (Without a last vector no index reaches `simd_len`, but argminmax at exact
-        // multiples measured up to 1.15x slower without the `rem != 0` check: NEON u8)
+        // multiples measured about 1.17x slower without the `rem != 0` check: NEON u8)
         if rem != 0 {
             // The last vector starts LANE_SIZE - rem elements before `simd_len`
             if min_index >= simd_len {
