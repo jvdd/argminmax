@@ -439,7 +439,8 @@ mod tests {
     use crate::{Int, SIMDArgMinMax, SCALAR};
 
     use super::super::test_utils::{
-        test_first_index_identical_values_argminmax, test_return_same_result_argminmax,
+        test_first_index_identical_values_argminmax, test_no_overflow_argminmax,
+        test_return_same_result_argminmax,
     };
     // Masked tests
     use super::super::test_utils::test_return_same_result_masked_argminmax;
@@ -516,6 +517,22 @@ mod tests {
             return;
         }
         test_return_same_result_argminmax(get_array_u32, SCALAR_STRATEGY, simd);
+    }
+
+    #[apply(simd_implementations)]
+    fn test_no_overflow<T, SIMDV, SIMDM, const LANE_SIZE: usize>(
+        #[case] simd: T,
+        #[case] simd_available: bool,
+    ) where
+        T: SIMDArgMinMax<u32, SIMDV, SIMDM, LANE_SIZE, SCALAR<Int>>,
+        SIMDV: Copy,
+        SIMDM: Copy,
+    {
+        if !simd_available {
+            return;
+        }
+        // Covers the chunks on NEON (252 elements); on x86 they are too long to allocate
+        test_no_overflow_argminmax(get_array_u32, SCALAR_STRATEGY, simd, Some(1 << 10));
     }
 
     #[apply(simd_implementations)]

@@ -408,13 +408,14 @@ where
     /// Core argminmax algorithm - returns (argmin, min, argmax, max)
     ///
     /// This method asserts:
-    /// - the array length is a multiple of LANE_SIZE
+    /// - the array holds at least LANE_SIZE elements
     ///
     /// This method assumes:
-    /// - the array length is <= MAX_INDEX
+    /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= MAX_INDEX. The `_overflow_safe_core_argminmax` method is overflow safe.
+    /// is <= `_get_overflow_lane_size_limit()` (the indices stay below the length rounded
+    /// up to LANE_SIZE). The `_overflow_safe_core_argminmax` method is overflow safe.
     ///
     /// Comparing every vector with the running min / max makes each comparison wait for
     /// the previous one. Instead (unless `GROUP_VECTORS` is false), every group of
@@ -423,9 +424,12 @@ where
     /// running min / max. This allows the CPU to process the vectors of several groups
     /// at the same time.
     ///
+    /// When the length is not a multiple of LANE_SIZE, the last LANE_SIZE elements (the
+    /// last vector) are compared as well, before the one horizontal reduction.
+    ///
     #[inline(always)]
     unsafe fn _core_argminmax(arr: &[ScalarDType]) -> (usize, ScalarDType, usize, ScalarDType) {
-        assert_eq!(arr.len() % LANE_SIZE, 0);
+        assert!(arr.len() >= LANE_SIZE);
         // Efficient calculation of argmin and argmax together
 
         let mut arr_ptr = arr.as_ptr(); // Array pointer we will increment in the loops
@@ -480,23 +484,48 @@ where
             high = Self::_update_high(high, (new_index, new_values));
         }
 
+        // The last vector (if the length is not a multiple of LANE_SIZE). It overlaps the
+        // vectors above, which keep their (lower) indices on ties: only its last `rem`
+        // lanes (the elements from `simd_len` on) can win. Its lanes get the indices of a
+        // vector at `simd_len`, which are mapped back below.
+        let rem = arr.len() % LANE_SIZE;
+        let simd_len = arr.len() - rem;
+        if rem != 0 {
+            new_index = Self::_mm_add(new_index, Self::INDEX_INCREMENT);
+            let new_values = Self::_mm_loadu(arr.as_ptr().add(arr.len() - LANE_SIZE));
+            low = Self::_update_low(low, (new_index, new_values));
+            high = Self::_update_high(high, (new_index, new_values));
+        }
+
         // Get the min/max index and corresponding value from the SIMD vectors and return
         let ((index_low, values_low), (index_high, values_high)) = (low, high);
-        let (min_index, min_value) = Self::_horiz_min(index_low, values_low);
-        let (max_index, max_value) = Self::_horiz_max(index_high, values_high);
+        let (mut min_index, min_value) = Self::_horiz_min(index_low, values_low);
+        let (mut max_index, max_value) = Self::_horiz_max(index_high, values_high);
+        // (Without a last vector no index reaches `simd_len`, but argminmax at exact
+        // multiples measured about 1.17x slower without the `rem != 0` check: NEON u8)
+        if rem != 0 {
+            // The last vector starts LANE_SIZE - rem elements before `simd_len`
+            if min_index >= simd_len {
+                min_index -= LANE_SIZE - rem;
+            }
+            if max_index >= simd_len {
+                max_index -= LANE_SIZE - rem;
+            }
+        }
         (min_index, min_value, max_index, max_value)
     }
 
     /// Core argmin algorithm - returns (argmin, min)
     ///
     /// This method asserts:
-    /// - the array length is a multiple of LANE_SIZE
+    /// - the array holds at least LANE_SIZE elements
     ///
     /// This method assumes:
-    /// - the array length is <= MAX_INDEX
+    /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= MAX_INDEX. The `_overflow_safe_core_argmin` method is overflow safe.
+    /// is <= `_get_overflow_lane_size_limit()` (the indices stay below the length rounded
+    /// up to LANE_SIZE). The `_overflow_safe_core_argmin` method is overflow safe.
     ///
     /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
     /// the computations for the maximum.
@@ -510,13 +539,14 @@ where
     /// Core argmax algorithm - returns (argmax, max)
     ///
     /// This method asserts:
-    /// - the array length is a multiple of LANE_SIZE
+    /// - the array holds at least LANE_SIZE elements
     ///
     /// This method assumes:
-    /// - the array length is <= MAX_INDEX
+    /// - the array length is <= `_get_overflow_lane_size_limit()`
     ///
     /// Note that this method is not overflow safe, as it assumes that the array length
-    /// is <= MAX_INDEX. The `_overflow_safe_core_argmax` method is overflow safe.
+    /// is <= `_get_overflow_lane_size_limit()` (the indices stay below the length rounded
+    /// up to LANE_SIZE). The `_overflow_safe_core_argmax` method is overflow safe.
     ///
     /// This method calls `_core_argminmax`: as both are inlined, the compiler removes
     /// the computations for the minimum.
@@ -597,17 +627,19 @@ where
     /// (the last chunk may be shorter), so that the SIMD indices do not overflow.
     ///
     /// This method asserts:
-    /// - the array is not empty
-    /// - the array length is a multiple of LANE_SIZE
+    /// - the array holds at least LANE_SIZE elements
     ///
     #[inline(always)]
     unsafe fn _overflow_safe_core_argminmax(
         arr: &[ScalarDType],
     ) -> (usize, ScalarDType, usize, ScalarDType) {
-        assert!(!arr.is_empty());
-        assert_eq!(arr.len() % LANE_SIZE, 0);
+        assert!(arr.len() >= LANE_SIZE);
         // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+        // A single chunk needs no merge
+        if arr.len() <= chunk_size {
+            return Self::_core_argminmax(arr);
+        }
 
         // 1. Determine the number of loops needed
         let n_loops = arr.len() / chunk_size; // floor division
@@ -632,7 +664,10 @@ where
         //     It is not in the loop above: the compile-time length of the full chunks makes
         //     the core faster (one loop over `chunks()` is up to 1.9x slower for the short
         //     chunks of 8-bit types, and of u16/u32 on NEON).
+        //     A remainder shorter than LANE_SIZE starts earlier, in the previous chunk,
+        //     which keeps its result on ties.
         if start < arr.len() && !(Self::_return_check(min.1) || Self::_return_check(max.1)) {
+            start = start.min(arr.len() - LANE_SIZE);
             let chunk = &arr[start..];
             let (min_index, min_value, max_index, max_value) = Self::_core_argminmax(chunk);
             min = Self::_merge_min(min, start, (min_index, min_value));
@@ -649,10 +684,13 @@ where
     ///
     #[inline(always)]
     unsafe fn _overflow_safe_core_argmin(arr: &[ScalarDType]) -> (usize, ScalarDType) {
-        assert!(!arr.is_empty());
-        assert_eq!(arr.len() % LANE_SIZE, 0);
+        assert!(arr.len() >= LANE_SIZE);
         // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+        // A single chunk needs no merge
+        if arr.len() <= chunk_size {
+            return Self::_core_argmin(arr);
+        }
 
         // 1. Determine the number of loops needed
         let n_loops = arr.len() / chunk_size; // floor division
@@ -672,6 +710,7 @@ where
         }
         // 2.1 Handle the remainder (the shorter last chunk, see `_overflow_safe_core_argminmax`)
         if start < arr.len() && !Self::_return_check(min.1) {
+            start = start.min(arr.len() - LANE_SIZE);
             let chunk = &arr[start..];
             min = Self::_merge_min(min, start, Self::_core_argmin(chunk));
         }
@@ -686,10 +725,13 @@ where
     ///
     #[inline(always)]
     unsafe fn _overflow_safe_core_argmax(arr: &[ScalarDType]) -> (usize, ScalarDType) {
-        assert!(!arr.is_empty());
-        assert_eq!(arr.len() % LANE_SIZE, 0);
+        assert!(arr.len() >= LANE_SIZE);
         // 0. Get the chunk size: the largest multiple of LANE_SIZE that is <= MAX_INDEX
         let chunk_size = Self::_get_overflow_lane_size_limit();
+        // A single chunk needs no merge
+        if arr.len() <= chunk_size {
+            return Self::_core_argmax(arr);
+        }
 
         // 1. Determine the number of loops needed
         let n_loops = arr.len() / chunk_size; // floor division
@@ -709,6 +751,7 @@ where
         }
         // 2.1 Handle the remainder (the shorter last chunk, see `_overflow_safe_core_argminmax`)
         if start < arr.len() && !Self::_return_check(max.1) {
+            start = start.min(arr.len() - LANE_SIZE);
             let chunk = &arr[start..];
             max = Self::_merge_max(max, start, Self::_core_argmax(chunk));
         }
